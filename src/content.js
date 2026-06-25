@@ -634,7 +634,7 @@
     { term: "Grave", lang: "It.", meaning: "very slow and solemn", cat: "tempo" },
     { term: "Largo", lang: "It.", meaning: "broad and very slow", cat: "tempo" },
     { term: "Lento", lang: "It.", meaning: "slow", cat: "tempo" },
-    { term: "Adagio", lang: "It.", meaning: "slow", cat: "tempo" },
+    { term: "Adagio", lang: "It.", meaning: "slow and stately", cat: "tempo" },
     { term: "Andante", lang: "It.", meaning: "at a walking pace", cat: "tempo" },
     { term: "Moderato", lang: "It.", meaning: "at a moderate speed", cat: "tempo" },
     { term: "Allegretto", lang: "It.", meaning: "fairly quick", cat: "tempo" },
@@ -676,7 +676,7 @@
     { term: "Marcato", lang: "It.", meaning: "marked and accented", cat: "articulation" },
     { term: "Pizzicato (pizz.)", lang: "It.", meaning: "plucked (strings)", cat: "articulation" },
     { term: "Arco", lang: "It.", meaning: "with the bow (strings)", cat: "articulation" },
-    { term: "Legato, slur", lang: "It.", meaning: "a curved line: play the notes smoothly in one gesture", cat: "articulation" },
+    { term: "Slur", lang: "It.", meaning: "a curved line over notes: connect them smoothly in one gesture", cat: "articulation" },
     // Expression & mood.
     { term: "Dolce", lang: "It.", meaning: "sweetly", cat: "expression" },
     { term: "Cantabile", lang: "It.", meaning: "in a singing style", cat: "expression" },
