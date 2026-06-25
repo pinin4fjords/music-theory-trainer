@@ -34,6 +34,7 @@
       keyboard: buildKeyboard,
       "four-clefs": buildFourClefs,
       "note-values": buildNoteValues,
+      metre: buildMetre,
     };
 
     // Deep-link: open a specific explainer directly (from the hash, or a
@@ -462,6 +463,65 @@
       dotRow2.appendChild(playBtn("Hear 2 crotchets", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.6, 0.55)));
       dotCard.appendChild(dotRow2);
       host.appendChild(dotCard);
+    }
+
+    function buildMetre(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Metre is how the beats clump.</b> A bar isn't just a count of beats - the beats gather into groups, and the first beat of each group feels stronger. That grouping is what separates a march from a waltz, or the lilt of 6/8 from the swing of 3/4.</p>
+        <p><b>Three families.</b> In <b>simple</b> time each beat splits in two; in <b>compound</b> time each beat is a dotted note splitting in three; in <b>irregular</b> time the groups are unequal - a two sitting next to a three. Click a metre to see and hear it. The taller, higher click starts each group.</p>`));
+
+      const ACC = M.noteToFreq("A5");
+      const WEAK = M.noteToFreq("A4");
+      const patterns = [
+        { sig: "2/4", fam: "simple duple", groups: [2, 2] },
+        { sig: "3/4", fam: "simple triple", groups: [2, 2, 2] },
+        { sig: "6/8", fam: "compound duple", groups: [3, 3] },
+        { sig: "9/8", fam: "compound triple", groups: [3, 3, 3] },
+        { sig: "5/8", fam: "irregular", groups: [3, 2] },
+        { sig: "7/8", fam: "irregular", groups: [2, 2, 3] },
+      ];
+
+      const card = C.el(`<div class="card"></div>`);
+      const list = C.el(`<div class="explainer-controls"></div>`);
+      const strip = C.el(`<div class="metre-strip" id="metre-strip" aria-hidden="true"></div>`);
+      const caption = C.el(`<p class="muted" id="metre-cap" aria-live="polite" style="font-size:.9rem">Pick a metre to see how its pulse groups, and hear where the accents fall.</p>`);
+
+      function show(p, btn) {
+        [...list.children].forEach((c) => c.classList.remove("sel"));
+        if (btn) btn.classList.add("sel");
+        strip.innerHTML = "";
+        const freqs = [];
+        p.groups.forEach((g) => {
+          const grp = document.createElement("div");
+          grp.className = "metre-group";
+          for (let i = 0; i < g; i++) {
+            const cell = document.createElement("div");
+            cell.className = "metre-cell" + (i === 0 ? " accent" : "");
+            grp.appendChild(cell);
+            freqs.push(i === 0 ? ACC : WEAK);
+          }
+          strip.appendChild(grp);
+        });
+        caption.innerHTML = `<b>${p.sig}</b> - ${p.fam}: pulses group as <b>${p.groups.join("+")}</b>. The accented (taller) pulse starts each group.`;
+        A.freqSequence(freqs, 0.26, 0.18);
+      }
+
+      patterns.forEach((p) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "audio-btn";
+        b.textContent = p.sig;
+        b.addEventListener("click", () => show(p, b));
+        list.appendChild(b);
+      });
+      card.appendChild(list);
+      card.appendChild(strip);
+      card.appendChild(caption);
+      host.appendChild(card);
+
+      host.appendChild(lessonCard(`
+        <p><b>Why "compound" means three.</b> Medieval theorists ranked triple division as <i>perfect</i> (three stood for the Trinity) and duple as <i>imperfect</i>. Compound time is the descendant of that perfect, triple-dividing pulse, which is why its beat is a dotted note - a note that splits cleanly into three.</p>
+        <p><b>Why irregular metres feel modern.</b> European art music inherited that duple-or-triple framework and rarely strayed from it. Unequal groupings lived on in folk traditions - Bulgarian and Greek dance especially - and only entered the concert hall in the 20th century, when composers like Bartók and Stravinsky drew on those roots. Holst wrote 'Mars' in five; Brubeck's 'Take Five' put 5/4 on the radio.</p>`));
     }
 
     function buildFourClefs(host) {

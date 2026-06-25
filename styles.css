@@ -690,6 +690,15 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .nt-dotted-bar:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .nt-dotted-bar.nt-half { flex: 1 1 0; }
 
+/* Metre explainer: pulse cells grouped into beats, accent = group start. */
+.metre-strip { display: flex; gap: 14px; align-items: flex-end; min-height: 56px; margin: 14px 0 6px; }
+.metre-group { display: flex; gap: 4px; align-items: flex-end; }
+.metre-cell {
+  width: 30px; height: 22px; border-radius: var(--radius-sm);
+  background: var(--surface-2); border: 1px solid var(--line-strong);
+}
+.metre-cell.accent { height: 44px; background: var(--accent); border-color: var(--accent); }
+
 /* --- Mobile (≤ 600 px) -------------------------------------------------- */
 @media (max-width: 600px) {
   /* Header: strip back to brand + grade select + streak + settings.

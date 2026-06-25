@@ -48,7 +48,7 @@
 
   // Inline SVG glyph for a note value (semibreve, minim, crotchet, quaver, semiquaver).
   function noteValueGlyph(name) {
-    const cfg = { semibreve: [true, false, 0], minim: [true, true, 0], crotchet: [false, true, 0], quaver: [false, true, 1], semiquaver: [false, true, 2] }[name];
+    const cfg = { semibreve: [true, false, 0], minim: [true, true, 0], crotchet: [false, true, 0], quaver: [false, true, 1], semiquaver: [false, true, 2], demisemiquaver: [false, true, 3] }[name];
     if (!cfg) return "";
     const [open, hasStem, flags] = cfg;
     const H = hasStem ? 40 : 18;
@@ -106,8 +106,17 @@
     ["semibreve", "minims", 2], ["minim", "crotchets", 2], ["crotchet", "quavers", 2], ["quaver", "semiquavers", 2],
     ["semibreve", "crotchets", 4], ["minim", "quavers", 4], ["crotchet", "semiquavers", 4], ["semibreve", "quavers", 8],
   ];
-  function noteValueQuestion(rng) {
-    const [big, small, n] = pick(rng, VALUE_PAIRS);
+  // The shorter end of the tree (demisemiquaver) and the longer (breve), used by
+  // the grades that introduce them.
+  const VALUE_PAIRS_DEMI = [
+    ["semiquaver", "demisemiquavers", 2], ["quaver", "demisemiquavers", 4],
+    ["crotchet", "demisemiquavers", 8], ["minim", "demisemiquavers", 16],
+  ];
+  const VALUE_PAIRS_BREVE = [
+    ["breve", "semibreves", 2], ["breve", "minims", 4], ["breve", "crotchets", 8], ["breve", "quavers", 16],
+  ];
+  function noteValueQuestion(rng, pairs) {
+    const [big, small, n] = pick(rng, pairs || VALUE_PAIRS);
     const smallSingular = small.replace(/s$/, "");
     return {
       prompt: `How many <b>${noteValueGlyph(smallSingular)}${small}</b> fit in a <b>${noteValueGlyph(big)}${big}</b>?`,
@@ -345,6 +354,66 @@
     const r = rng.next();
     return r < 0.5 ? timeClassifyQuestion(rng) : r < 0.78 ? dottedValueQuestion(rng) : tupletQuestion(rng);
   }
+  // Grade 4 also drills the breve (the longest common value) by value.
+  function breveValueQuestion(rng) {
+    return rng.bool(0.4) ? noteValueQuestion(rng, VALUE_PAIRS_BREVE) : timeSignatureQuestion(rng);
+  }
+
+  // Grade 1: a time signature is two stacked numbers, not a fraction. The top
+  // counts the beats in a bar; the bottom names the beat (by how many fit a
+  // semibreve: 2 = minim, 4 = crotchet, 8 = quaver).
+  const SIMPLE_BEAT_UNIT = { 2: "minim", 4: "crotchet", 8: "quaver" };
+  function simpleTimeQuestion(rng) {
+    const sig = pick(rng, ["2/4", "3/4", "4/4"]);
+    const [top, bottom] = sig.split("/").map(Number);
+    if (rng.bool()) {
+      return {
+        prompt: `How many beats are in each bar of <b>${sig}</b>?`,
+        choices: choices(rng, String(top), ["2", "3", "4", "6"]),
+        answer: String(top),
+        explanation: `A time signature is two numbers stacked, not a fraction. The <b>top</b> number counts the beats in a bar and the <b>bottom</b> names the beat, so <b>${sig}</b> has <b>${top}</b> beats per bar. The bar-line falls after every ${top} beats.`,
+        meta: { type: "timesig" },
+      };
+    }
+    const unit = SIMPLE_BEAT_UNIT[bottom];
+    return {
+      prompt: `In <b>${sig}</b>, which note value gets one beat?`,
+      choices: choices(rng, unit, ["crotchet", "minim", "quaver", "semibreve"]),
+      answer: unit,
+      explanation: `The bottom number names the beat by how many fill a semibreve: 2 = minim, <b>4 = crotchet</b>, 8 = quaver. So in <b>${sig}</b> the beat is a <b>${unit}</b>. (The bottom is a power of two because every note value is reached by halving the semibreve.)`,
+      meta: { type: "timesig" },
+    };
+  }
+
+  // Grade 5: irregular (asymmetric) metre. A prime top number won't split into
+  // equal 2s or 3s, so the bar falls into unequal groups - the lopsided lilt of
+  // Balkan folk dance and a lot of 20th-century music.
+  const IRREGULAR_TIMES = [
+    { sig: "5/4", beats: 5, unit: "crotchet", group: "2+3 or 3+2" },
+    { sig: "7/8", beats: 7, unit: "quaver", group: "2+2+3" },
+    { sig: "5/8", beats: 5, unit: "quaver", group: "3+2 or 2+3" },
+    { sig: "7/4", beats: 7, unit: "crotchet", group: "4+3 or 3+4" },
+  ];
+  function irregularTimeQuestion(rng) {
+    if (rng.bool(0.45)) {
+      const t = pick(rng, IRREGULAR_TIMES);
+      return {
+        prompt: `How many ${t.unit} beats are in a bar of <b>${t.sig}</b>?`,
+        choices: choices(rng, String(t.beats), ["4", "5", "6", "7", "8"]),
+        answer: String(t.beats),
+        explanation: `<b>${t.sig}</b> holds <b>${t.beats}</b> ${t.unit}s per bar. Because ${t.beats} won't divide evenly into 2s or 3s, the beats clump into unequal groups (often ${t.group}) - the source of irregular metre's off-balance drive.`,
+        meta: { type: "timesig" },
+      };
+    }
+    const odd = pick(rng, IRREGULAR_TIMES);
+    return {
+      prompt: `Which of these is an <b>irregular</b> (asymmetric) time signature?`,
+      choices: choices(rng, odd.sig, ["2/4", "3/4", "4/4", "6/8", "9/8", "12/8"]),
+      answer: odd.sig,
+      explanation: `<b>${odd.sig}</b> is irregular: its beats group unevenly (${odd.group}). The others divide cleanly into twos (simple/compound duple), threes (triple) or fours. Holst put 'Mars' in five and Brubeck's 'Take Five' is in 5/4.`,
+      meta: { type: "timesig" },
+    };
+  }
 
   const TRIAD_KEYS = ["C", "G", "D", "F", "Bb", "A", "Eb"];
   const DEGREE_FN = { 1: "tonic", 4: "subdominant", 5: "dominant" };
@@ -390,6 +459,75 @@
   }
   function triadQuestion(rng) {
     return rng.bool(0.6) ? triadFunctionQuestion(rng) : triadInversionQuestion(rng);
+  }
+
+  // Grades 1-2: the tonic triad - the chord built on the key note. Asked from
+  // the key name alone (no staff), so it tests construction, not note-reading.
+  function tonicTriadQuestion(rng, keys, modes) {
+    const key = pick(rng, keys);
+    const mode = modes ? pick(rng, modes) : "major";
+    const t = M.triad(key, mode, 1, 0);
+    const correct = t.map((n) => M.spelledName(n)).join("-");
+    const distractors = [2, 4, 5].map((d) => M.triad(key, mode, d, 0).map((n) => M.spelledName(n)).join("-"));
+    return {
+      prompt: `Which three notes form the <b>tonic triad</b> of <b>${key} ${mode}</b>?`,
+      choices: choices(rng, correct, distractors),
+      answer: correct,
+      explanation: `Build it on the key note: degree 1 (${M.spelledName(t[0])}), then a 3rd (${M.spelledName(t[1])}) and a 5th (${M.spelledName(t[2])}) stacked above - <b>${correct}</b>. 'Triad' is from Greek <i>trias</i>, a group of three; two stacked 3rds is the recipe behind every chord in Western harmony, and the tonic triad is the most stable, the one a piece comes to rest on.`,
+      audio: () => audio().chord(t),
+      meta: { type: "triad" },
+    };
+  }
+
+  // Grade 4: the chromatic scale - all twelve semitones. Tested by its defining
+  // properties rather than a single spelling (chromatic spelling varies).
+  function chromaticScaleQuestion(rng) {
+    const forms = [
+      { prompt: `A <b>chromatic scale</b> moves entirely by which interval?`, answer: "semitones",
+        distractors: ["tones", "alternating tones and semitones", "minor 3rds"],
+        why: `Every step is the smallest on the keyboard - one semitone - so the scale touches every key, white and black, in turn. 'Chromatic' is from Greek <i>chroma</i>, colour: these in-between notes add colour outside the plain diatonic scale.` },
+      { prompt: `How many different pitches does a <b>chromatic scale</b> have within one octave (before it repeats)?`, answer: "12",
+        distractors: ["7", "8", "5", "13"],
+        why: `Twelve semitones divide the octave. The major and minor scales each select 7 of those 12; the chromatic scale uses all of them. The 13th note is the starting pitch an octave higher.` },
+      { prompt: `A major scale has 7 notes per octave. How many <i>extra</i> notes does a chromatic scale add to fill the octave?`, answer: "5",
+        distractors: ["3", "7", "12", "2"],
+        why: `7 diatonic + 5 chromatic = 12. Those 5 fill the whole-tone gaps of the major scale - the same 5 as the black keys in the pattern starting on C.` },
+    ];
+    const f = pick(rng, forms);
+    return {
+      prompt: f.prompt,
+      choices: choices(rng, f.answer, f.distractors),
+      answer: f.answer,
+      explanation: `<b>${f.answer}.</b> ${f.why}`,
+      meta: { type: "scale" },
+    };
+  }
+
+  // Grade 3: transposing at the octave between treble and bass clef. The point
+  // is that an octave shift keeps every letter name; only the register moves.
+  function octaveTransposeQuestion(rng) {
+    if (rng.bool(0.45)) {
+      const correct = "only the octave - letter names and intervals stay the same";
+      return {
+        prompt: `When a melody is transposed up or down an <b>octave</b>, what changes?`,
+        choices: choices(rng, correct, ["every letter name shifts up one", "the key signature changes", "the intervals between the notes change"]),
+        answer: correct,
+        explanation: `An octave is the 'same note higher' - the two pitches share a letter name and blend so completely they sound like one. So octave transposition leaves every letter and interval intact; only the register moves. That is exactly why a line sitting too high for the bass staff can be rewritten an octave down, or handed to the treble clef, without changing a single note name.`,
+        meta: { type: "transpose" },
+      };
+    }
+    const [letter, octave] = pick(rng, [["G", 4], ["A", 4], ["E", 4], ["F", 4], ["D", 4], ["C", 5]]);
+    const n = M.spelled(letter, 0, octave);
+    const spec = { clef: "treble", notes: [n] };
+    return {
+      prompt: `This note is on the <b>treble</b> staff. Rewritten an <b>octave lower</b> (where the bass clef keeps it on the staff), what letter name does it keep?` + staffBlock(spec),
+      a11yText: a11y(`A ${letter} on the treble staff, transposed an octave lower into the bass clef.`, spec),
+      choices: choices(rng, letter, M.LETTERS),
+      answer: letter,
+      explanation: `It stays <b>${letter}</b> - octave transposition never changes the letter, only the octave number (${letter}${octave} becomes ${letter}${octave - 1}). Moving it down an octave drops it into comfortable bass-clef range instead of stacking up ledger lines.`,
+      audio: () => audio().note(n),
+      meta: { type: "transpose" },
+    };
   }
 
   const ORNAMENTS = [
@@ -728,8 +866,23 @@
     { term: "Kräftig", lang: "Ger.", meaning: "strong, vigorous", cat: "german" },
     { term: "Mit Ausdruck", lang: "Ger.", meaning: "with expression", cat: "german" },
   ];
-  function termQuestion(rng) {
-    const t = pick(rng, TERMS);
+  // Roughly which grade first expects each term, so lower grades drill a smaller,
+  // gentler vocabulary and each grade widens it. Untagged terms (the rest of the
+  // Italian set plus all French/German) stay at the Grade 5 level.
+  const TERM_LEVEL = {
+    1: ["Adagio", "Andante", "Moderato", "Allegro", "Lento", "Largo", "Ritardando (rit.)", "Rallentando (rall.)", "Accelerando (accel.)", "A tempo", "p (piano)", "f (forte)", "mf (mezzo-forte)", "mp (mezzo-piano)", "Crescendo (cresc.)", "Diminuendo (dim.)", "Legato", "Staccato", "Dolce"],
+    2: ["Grave", "Vivace", "Presto", "Allegretto", "pp (pianissimo)", "ff (fortissimo)", "Cantabile", "Tenuto (ten.)", "Da capo (D.C.)", "Dal segno (D.S.)", "Fine", "Coda", "Fermata (pause)", "Marcato", "Espressivo (espress.)", "Con moto", "Maestoso", "Più mosso", "Meno mosso", "Sostenuto", "Ritenuto (riten.)", "Simile (sim.)"],
+    3: ["Prestissimo", "sfz (sforzando)", "fp (fortepiano)", "Allargando", "Stringendo", "Rubato", "Grazioso", "Con brio", "Tranquillo", "Agitato", "Pizzicato (pizz.)", "Arco", "Staccatissimo", "Giocoso", "Calando", "Morendo", "Sotto voce", "Slur"],
+    4: ["Smorzando (smorz.)", "Perdendosi", "Tacet", "Mouvement (mouvt)"],
+  };
+  TERMS.forEach((t) => {
+    for (const lvl of [1, 2, 3, 4]) {
+      if (TERM_LEVEL[lvl].indexOf(t.term) !== -1) { t.lvl = lvl; break; }
+    }
+  });
+  function termQuestion(rng, maxLvl) {
+    const pool = maxLvl ? TERMS.filter((x) => (x.lvl || 5) <= maxLvl) : TERMS;
+    const t = pick(rng, pool);
     const langNote = t.lang === "It." ? ` Italian dominated music notation from c.1600-1750 because opera, the sonata, and the concerto all originated in Italy; the convention stuck even as German and French composers later took the lead.`
       : t.lang === "Ger." ? ` German terms appear from the early 19th century onward: Beethoven and Schumann deliberately used their own language as a point of national pride rather than defaulting to Italian.`
       : t.lang === "Fr." ? ` French terms became prominent with French Romantic and Impressionist composers (Debussy, Fauré) who preferred their own language for expression markings.`
@@ -939,6 +1092,24 @@
           what: "<p>C major (no sharps or flats), then G major (1 sharp) and D major (2 sharps) clockwise, and F major (1 flat) anticlockwise. Plus naming simple intervals by number.</p>",
           questions: (rng) => (rng.bool() ? keySigSubset(rng, ["C", "G", "D", "F"]) : intervalNumberQuestion(rng, ["C", "G", "D", "F"])),
         },
+        {
+          id: "g1-time", title: "Time signatures & beats",
+          why: "Two numbers stacked at the start of a piece tell you how to feel it: how many beats fill a bar, and which note value <i>is</i> the beat. They look like a fraction but aren't one - the bar is a measure of time, not a sum.",
+          what: "<p>The <b>top</b> number counts the beats per bar; the <b>bottom</b> names the beat by how many fit a semibreve (2 = minim, 4 = crotchet, 8 = quaver). So <b>2/4</b> is two crotchet beats, <b>3/4</b> three, <b>4/4</b> four. Bar-lines fall after each full group of beats.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why a bottom number at all?</b> Because every note value is built by halving the semibreve, any beat unit is a power of two - which is exactly what the bottom number reports. The double bar-line and the bar itself were Renaissance inventions for keeping many singers aligned; before that, unbarred plainchant simply flowed.</p>",
+          questions: (rng) => simpleTimeQuestion(rng),
+        },
+        {
+          id: "g1-triad", title: "The tonic triad",
+          why: "The very first chord: stack a 3rd and a 5th on the key note and you have the tonic triad - the sound a piece rests on, and the seed every other chord grows from.",
+          what: "<p>A <b>triad</b> is three notes a 3rd apart: a root, the note a 3rd above, and the note a 5th above. Built on the <b>tonic</b> (the key note), it is the <b>tonic triad</b> - C-E-G in C major. It is the most stable chord in the key, which is why so many pieces begin and end on it.</p>",
+          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F"]),
+        },
+        {
+          id: "g1-terms", title: "Everyday terms & signs",
+          why: "The words on the page are mostly Italian because Italy led European music when notation was standardising (c.1600-1750) - so 'play loudly' became <i>forte</i> everywhere, and the convention stuck.",
+          what: "<p>The common speed words (<i>Adagio, Andante, Allegro</i>), the loud/soft marks (<i>p, f, mf</i>), the gradual changes (<i>crescendo, diminuendo, ritardando</i>) and the touch marks (<i>legato, staccato</i>).</p>",
+          questions: (rng) => termQuestion(rng, 1),
+        },
       ],
     },
     {
@@ -962,6 +1133,18 @@
           what: "<p>The same halving relationships extend to rests, which mirror the note values. Knowing how many of one value fill another is the key skill.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why notate silence at all?</b> Early plainchant had no rests - a single voice simply paused. Rests became essential once Renaissance music wove several independent lines together: to keep parts lined up, a singer needed to count exactly how long to wait, so each note value was given a matching symbol for its silence.</p>",
           questions: (rng) => noteValueQuestion(rng),
         },
+        {
+          id: "g2-triad", title: "Tonic triads, major & minor",
+          why: "A minor key has its own tonic triad, and the single note that separates it from the major's is the 3rd - lower it a semitone and bright turns dark.",
+          what: "<p>The tonic triad is still root + 3rd + 5th on the key note. In a <b>minor</b> key the 3rd is a semitone lower than in major (A-C-E, not A-C♯-E), which is the whole difference in colour. The 5th is unchanged.</p>",
+          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "E"], ["major", "minor"]),
+        },
+        {
+          id: "g2-terms", title: "More terms & signs",
+          why: "Each grade widens the vocabulary outward from the everyday words - here the extremes of speed and volume, the structural signs that tell you where to jump, and a few more shades of character.",
+          what: "<p>Faster and slower extremes (<i>Presto, Grave, Vivace</i>), the loud/soft extremes (<i>pp, ff</i>), the navigation signs (<i>Da capo, Dal segno, Fine, Coda</i>) and expressive words like <i>cantabile</i> and <i>espressivo</i>.</p>",
+          questions: (rng) => termQuestion(rng, 2),
+        },
       ],
     },
     {
@@ -984,6 +1167,18 @@
           why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the only intervals you could end a phrase on. Everything else was 'imperfect' - pleasant but unsettled.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
           questions: (rng) => intervalQuestion(rng),
+        },
+        {
+          id: "g3-notation", title: "Demisemiquavers & octave transposition",
+          why: "Two ways the page stretches at Grade 3: the note tree gains another rung downward (the demisemiquaver), and a line too high or low can be shifted a whole octave - same notes, new register - to keep it readable.",
+          what: "<p>A <b>demisemiquaver</b> is half a semiquaver: two of them fill one semiquaver, 32 fill a semibreve. The halving just continues. <b>Octave transposition</b> rewrites a melody an octave higher or lower; because an octave is the 'same note' higher, every letter name and interval is kept - only the octave number changes, which is how a part hops between treble and bass clef without ledger-line pile-ups.</p>",
+          questions: (rng) => (rng.bool() ? noteValueQuestion(rng, VALUE_PAIRS_DEMI) : octaveTransposeQuestion(rng)),
+        },
+        {
+          id: "g3-terms", title: "Terms & signs",
+          why: "By Grade 3 the words start naming character and touch, not just speed and volume - <i>grazioso</i>, <i>agitato</i>, <i>pizzicato</i> - and the sudden accents (<i>sf, fp</i>) that punctuate a line.",
+          what: "<p>Character and mood (<i>grazioso, con brio, tranquillo, agitato</i>), string touch (<i>pizzicato, arco</i>), sudden accents (<i>sforzando, fortepiano</i>) and the flexible-time word <i>rubato</i>.</p>",
+          questions: (rng) => termQuestion(rng, 3),
         },
       ],
     },
@@ -1021,10 +1216,10 @@
           questions: (rng) => enharmonicQuestion(rng),
         },
         {
-          id: "g4-time", title: "Simple & compound time, duplets, double dots",
+          id: "g4-time", title: "Time, duplets, double dots & the breve",
           why: "Whether a beat splits in two or in three is what gives a march its stride and a jig its lilt - it's the difference between simple and compound time.",
-          what: "<p>In <b>simple time</b> (2/4, 3/4, 4/4) each beat divides into two. In <b>compound time</b> (6/8, 9/8, 12/8) each beat is a <i>dotted</i> note that divides into three; the top number divided by three gives the number of beats. A <b>dot</b> adds half a note's value, a <b>second dot</b> adds half again. A <b>duplet</b> fits two notes into the time of three; a <b>triplet</b> fits three into the time of two.</p>",
-          questions: (rng) => timeSignatureQuestion(rng),
+          what: "<p>In <b>simple time</b> (2/4, 3/4, 4/4) each beat divides into two. In <b>compound time</b> (6/8, 9/8, 12/8) each beat is a <i>dotted</i> note that divides into three; the top number divided by three gives the number of beats. A <b>dot</b> adds half a note's value, a <b>second dot</b> adds half again. A <b>duplet</b> fits two notes into the time of three; a <b>triplet</b> fits three into the time of two. The <b>breve</b> is the longest common value - twice a semibreve - a survival of the medieval <i>brevis</i>, which despite its name ('short') was once one of the briefer notes.</p>",
+          questions: (rng) => breveValueQuestion(rng),
         },
         {
           id: "g4-triads", title: "Tonic, subdominant & dominant triads",
@@ -1037,6 +1232,18 @@
           why: "Ornaments are shorthand for decorations performers once improvised. The harpsichord was the culprit: its strings are plucked, not struck, so notes decay immediately with no sustain. Players ornamented notes to prolong and emphasise them - rapid alternation (trill, mordent) kept the sound alive on long notes. The piano sustains naturally, so ornaments became purely expressive. Baroque performers improvised far more of this than is written down.",
           what: "<p>The common ornaments: the <b>trill</b> (rapid alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), the <b>turn</b> (above-note-below-note), and the grace notes - the crushed <b>acciaccatura</b> and the leaning <b>appoggiatura</b>.</p>",
           questions: (rng) => ornamentQuestion(rng),
+        },
+        {
+          id: "g4-chromatic", title: "The chromatic scale",
+          why: "Major and minor scales pick seven notes and skip the rest. The chromatic scale skips nothing: it walks all twelve semitones in the octave, the complete palette every other scale is carved from.",
+          what: "<p>A <b>chromatic scale</b> rises or falls entirely by <b>semitones</b>, so it sounds all twelve different pitches before repeating at the octave. The name is from Greek <i>chroma</i> (colour) - the extra notes 'colour' the plain diatonic scale. The seven notes of a major scale plus these five in-between notes make the full twelve.</p>",
+          questions: (rng) => chromaticScaleQuestion(rng),
+        },
+        {
+          id: "g4-terms", title: "Terms & signs",
+          why: "The last of the common Italian vocabulary before Grade 5 brings in French and German - the fading-away words (<i>smorzando, perdendosi</i>) and the score direction <i>tacet</i>.",
+          what: "<p>The remaining everyday Italian terms - the dying-away dynamics (<i>smorzando, perdendosi</i>), <i>tacet</i> ('silent - do not play') and the rest - consolidated before the French and German vocabulary of Grade 5.</p>",
+          questions: (rng) => termQuestion(rng, 4),
         },
       ],
     },
@@ -1087,6 +1294,12 @@
           why: "Knowing the instrument families and the four voice types (SATB) is the groundwork for reading scores and understanding how music is laid out.",
           what: "<p>The four families - <b>strings, woodwind, brass, percussion</b> - and the four standard voices from highest to lowest: <b>soprano, alto, tenor, bass</b>.</p><p class=\"muted\" style=\"font-size:.9em\"><b>What defines the families?</b> Strings are bowed or plucked (the vibrating string is the source). Woodwind produce sound by a reed (oboe, clarinet, bassoon, saxophone) or an edge-tone across a hole (flute, piccolo) - the material doesn't matter, which is why the saxophone is woodwind despite being metal. Brass use the player's vibrating lips against a cup mouthpiece (trumpet, horn, trombone, tuba). Percussion are struck or shaken.</p>",
           questions: (rng) => instrumentQuestion(rng),
+        },
+        {
+          id: "g5-irregular", title: "Irregular time signatures",
+          why: "Not every bar splits evenly. A top number of 5 or 7 won't divide into neat 2s or 3s, so the beats fall into unequal groups - the off-kilter drive of a Balkan dance or 'Take Five'.",
+          what: "<p><b>Irregular</b> (or asymmetric) metres like <b>5/4, 7/8, 5/8</b> have a beat count that won't divide evenly into twos or threes. The bar is felt as a mix of duple and triple groups - 5/8 as 3+2 or 2+3, 7/8 often as 2+2+3 - and the grouping of the written notes shows which.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why so rare in older music?</b> European art music inherited a strong duple/triple framework from medieval mensural notation, where metre was either 'perfect' (three) or 'imperfect' (two). Asymmetric metres lived on in folk traditions (Bulgarian and Greek dance especially) and only entered the concert mainstream in the 20th century, with composers like Bartók and Stravinsky drawing on those folk roots.</p>",
+          questions: (rng) => irregularTimeQuestion(rng),
         },
       ],
     },
@@ -1183,6 +1396,7 @@
     { id: "keyboard", title: "Semitones on a keyboard", blurb: "Count the keys, name the interval." },
     { id: "four-clefs", title: "The four clefs", blurb: "Same note, four different positions - middle C as your anchor." },
     { id: "note-values", title: "Note values and duration", blurb: "The subdivision hierarchy from semibreve to semiquaver." },
+    { id: "metre", title: "How beats group", blurb: "Simple, compound and irregular - hear the pulse split in twos, threes and unequal groups." },
   ];
 
   // Link topics to a relevant "Why" explainer so the answer reveal can offer a
@@ -1191,6 +1405,8 @@
     "g1-keys": "circle-of-fifths", "g2-keys": "circle-of-fifths",
     "g4-key-signatures": "circle-of-fifths", "g5-key-id": "circle-of-fifths",
     "g3-melodic": "three-minors",
+    "g1-time": "metre", "g3-compound": "metre", "g4-time": "metre", "g5-irregular": "metre",
+    "g4-chromatic": "keyboard",
     "g2-intervals": "monochord",
     "g3-quality": "consonance", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
     "g1-notes": "four-clefs", "g4-alto-clef": "four-clefs", "g5-clefs": "four-clefs",
