@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Why & What - a self-contained music theory trainer (Grades 1-8), grounded in why as well as what.">
+  <title>Why &amp; What - music theory trainer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="appbar">
+    <span class="brand"><span class="note-glyph" aria-hidden="true">♪</span> Why &amp; What</span>
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" data-tab="home" class="active">Home</button>
+      <button type="button" data-tab="learn">Learn</button>
+      <button type="button" data-tab="explore">Why</button>
+      <button type="button" data-tab="play">Playground</button>
+    </nav>
+    <label class="grade-select" title="Your music theory grade">
+      <span>Grade</span>
+      <select id="grade-select" aria-label="Your music theory grade"></select>
+    </label>
+    <span class="streak-chip" id="streak" aria-label="Current day streak">🔥 0</span>
+    <label class="muted sound-label">
+      <input type="checkbox" id="sound-toggle" checked> sound
+    </label>
+  </header>
+
+  <main id="main" tabindex="-1"></main>
+
+  <footer class="note">
+    Music theory practice (Grades 1-8) · progress is saved in this browser only.
+  </footer>
+
+  <!--
+    Classic scripts (no ES modules) so the app runs over file:// with no build
+    step. Each attaches its API to a single global `MTT` namespace; load order
+    follows the module dependency graph. See README "Architecture".
+  -->
+  <script src="src/core/rng.js"></script>
+  <script src="src/music.js"></script>
+  <script src="src/core/validate.js"></script>
+  <script src="src/core/diagnose.js"></script>
+  <script src="src/notation.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/core/srs.js"></script>
+  <script src="src/core/analytics.js"></script>
+  <script src="src/core/storage.js"></script>
+  <script src="src/content.js"></script>
+  <script src="src/core/session.js"></script>
+  <script src="src/core/state.js"></script>
+  <script src="src/ui/components.js"></script>
+  <script src="src/ui/router.js"></script>
+  <script src="src/ui/views/home.js"></script>
+  <script src="src/ui/views/learn.js"></script>
+  <script src="src/ui/views/quiz.js"></script>
+  <script src="src/ui/views/explainer.js"></script>
+  <script src="src/ui/views/playground.js"></script>
+  <script src="src/ui/app.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>

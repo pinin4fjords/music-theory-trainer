@@ -1,0 +1,24 @@
+{
+  "name": "music-theory-trainer",
+  "version": "2.0.0",
+  "description": "A self-contained, no-build music theory trainer (Grades 1-8) grounded in why as well as what.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint src test",
+    "lint:fix": "eslint src test --fix",
+    "validate-content": "node scripts/validate-content.mjs",
+    "check": "npm run lint && npm run validate-content && npm run test"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.8",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "jsdom": "^25.0.1",
+    "vitest": "^2.1.8"
+  },
+  "license": "MIT"
+}

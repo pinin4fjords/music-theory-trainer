@@ -1,0 +1,28 @@
+name: "💡 Feature request"
+description: Suggest a new topic, generator, explainer or capability.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      description: The feature, topic or improvement, and who it helps.
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - New practice topic / question generator
+        - New "Why" explainer
+        - Playground capability
+        - Spaced-repetition / learning behaviour
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: detail
+    attributes:
+      label: Any detail (optional)
+      description: If it's a new topic, what should a learner be able to DO, and how could questions be generated? See CONTRIBUTING.md for how topics are added.

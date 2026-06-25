@@ -1,0 +1,224 @@
+/* ui/views/explainer.js - the interactive "why" explainers.
+ *
+ * Short, playable teaching pages: the circle of fifths, temperament (hear the
+ * comma), the harmonic series, the three forms of minor, and the modes. Each
+ * grounds a "why" in sound and notation rather than prose alone.
+ *
+ * Public surface: global `MTT.ui.views.explainer`.
+ */
+(function (global) {
+  "use strict";
+
+  function render(main, ctx) {
+    const C = ctx.C;
+    const M = ctx.music;
+    const N = ctx.notation;
+    const A = ctx.audio;
+
+    const playBtn = (label, fn) => C.playButton(label, () => { try { fn(); } catch { /* ignore */ } });
+    const controls = () => C.el(`<div class="explainer-controls"></div>`);
+    const lessonCard = (html) => C.el(`<div class="card lesson">${html}</div>`);
+
+    const view = C.el(`<div class="view"><h1 tabindex="-1">Why</h1><p class="muted">Short interactive explainers - open one and use the buttons to hear it.</p></div>`);
+    main.appendChild(view);
+    const grid = C.el(`<div class="grid" style="margin-top:18px"></div>`);
+    ctx.content.explainers.forEach((e) => {
+      grid.appendChild(C.cardButton(`<h3>${e.title}</h3><div class="why">${e.blurb}</div>`, () => openExplainer(e)));
+    });
+    view.appendChild(grid);
+
+    function openExplainer(e) {
+      C.clear(main);
+      const v = C.el(`<div class="view"></div>`);
+      v.appendChild(C.button("← Back", () => ctx.router.navigate("explore"), { className: "ghost" }));
+      v.appendChild(C.el(`<h1 tabindex="-1" style="margin-top:14px">${e.title}</h1>`));
+      (builders[e.id] || ((host) => host.appendChild(C.el(`<div class="card"><p class="muted">Coming soon.</p></div>`))))(v);
+      main.appendChild(v);
+      C.focus(v.querySelector("h1"));
+    }
+
+    const builders = {
+      "circle-of-fifths": buildCircleOfFifths,
+      temperament: buildTemperament,
+      "harmonic-series": buildHarmonicSeries,
+      "three-minors": buildThreeMinors,
+      modes: buildModes,
+    };
+
+    function buildCircleOfFifths(host) {
+      host.appendChild(lessonCard(`
+        <p><b>What it is.</b> The circle of fifths is a map of all twelve keys, arranged so that each step clockwise rises by a <b>perfect 5th</b>. It gives you every key signature, shows which keys are related, and explains the order sharps and flats appear in.</p>
+        <p><b>How to read it.</b> Start at <b>C</b> at the top - no sharps, no flats. Step clockwise to <b>G</b> and you add one sharp; to <b>D</b>, two; each clockwise step adds one more sharp. Go <i>anticlockwise</i> from C - to <b>F</b>, then <b>B♭</b> - and you add one flat at a time.</p>
+        <p><b>Why the order never changes.</b> Sharps always appear as F♯ C♯ G♯ D♯ A♯ E♯ B♯, and flats as B♭ E♭ A♭ D♭ G♭ C♭ F♭ - and those orders are themselves circles of fifths. At the bottom of the wheel the two sides meet: F♯ major (6 sharps) is the same set of piano keys as G♭ major (6 flats), <b>enharmonic</b> spellings of one sound.</p>
+        <p>Choose any key to see its signature and relative minor, and hear it.</p>`));
+      const keys = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"];
+      const card = C.el(`<div class="card center"></div>`);
+      const wheel = C.el(`<div class="cof-wheel" role="group" aria-label="Circle of fifths"></div>`);
+      keys.forEach((key, i) => {
+        const ang = (i * 30 - 90) * Math.PI / 180;
+        const x = 150 + 118 * Math.cos(ang), y = 150 + 118 * Math.sin(ang);
+        const btn = document.createElement("button");
+        btn.className = "cof-key";
+        btn.type = "button";
+        btn.style.left = x + "px";
+        btn.style.top = y + "px";
+        btn.textContent = key;
+        btn.addEventListener("click", () => selectCofKey(key));
+        wheel.appendChild(btn);
+      });
+      card.appendChild(wheel);
+      const infoEl = C.el(`<div class="cof-info" role="region" aria-live="polite"></div>`);
+      card.appendChild(infoEl);
+      host.appendChild(card);
+      host.appendChild(lessonCard(`
+        <p><b>Relative minors.</b> Every major key shares its signature with a minor key a <b>minor 3rd below</b> - its <i>relative minor</i> (A minor lives inside C major). One signature, two keys: the same notes, a different home note.</p>
+        <p><b>Using it.</b> Keys next to each other on the wheel differ by just one accidental, so they're closely related - which is why pieces modulate to their neighbours (especially the dominant, one step clockwise) so smoothly.</p>`));
+      selectCofKey("C");
+
+      function selectCofKey(key) {
+        [...wheel.querySelectorAll(".cof-key")].forEach((b) => {
+          const on = b.textContent === key;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        const sig = M.keySignature(key, "major");
+        const n = Math.abs(sig.count);
+        const desc = n === 0 ? "no sharps or flats"
+          : `${n} ${sig.type}${n > 1 ? "s" : ""} (${sig.accidentals.map((l) => l + (sig.type === "sharp" ? "♯" : "♭")).join(" ")})`;
+        const relMinor = M.spelledName(M.scale(key, "major")[5]);
+        infoEl.innerHTML = `<h3 style="margin:0 0 4px">${key} major</h3>`
+          + `<p class="muted" style="margin:0 0 10px">${desc} · relative minor: <b>${relMinor} minor</b></p>`
+          + N.staffHTML({ clef: "treble", keySignature: sig, notes: M.scale(key, "major") });
+        const row = controls();
+        row.appendChild(playBtn("Hear the scale", () => A.sequence(M.scale(key, "major"))));
+        row.appendChild(playBtn("Hear the tonic chord", () => A.chord(M.triad(key, "major", 1))));
+        infoEl.appendChild(row);
+      }
+    }
+
+    function buildTemperament(host) {
+      host.appendChild(lessonCard(`
+        <p><b>The idea.</b> Two notes sound consonant when their frequencies form a simple ratio: an octave is exactly 2:1, a perfect 5th 3:2, a major 3rd 5:4. Tune intervals to those pure ratios - <b>just intonation</b> - and chords lock together without beating.</p>
+        <p><b>The problem.</b> Those pure ratios don't agree with each other. Stack enough pure 5ths and you overshoot the octave you should land on (the comma below). So you can't tune a fixed-pitch instrument like a piano to be pure in every key at once - tune it sweet in C and remote keys turn sour.</p>
+        <p><b>The fix.</b> <b>Equal temperament</b> divides the octave into twelve <i>equal</i> semitones (each a ratio of the 12th root of 2). Every interval except the octave is now slightly impure - but equally so in every key, so you can play in all of them. The major 3rd is the biggest casualty. Hear it:</p>`));
+      const f = M.noteToFreq("C4");
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Hear a major 3rd, two ways</h3>`));
+      card.appendChild(C.el(`<p class="muted">C and E together. The pure version sits still; the equal-tempered version beats slightly (listen for the wobble).</p>`));
+      const row1 = controls();
+      row1.appendChild(playBtn("Just 3rd (5:4, pure)", () => A.freqChord([f, f * 5 / 4], 2.2)));
+      row1.appendChild(playBtn("Equal-tempered 3rd", () => A.freqChord([f, f * Math.pow(2, 4 / 12)], 2.2)));
+      card.appendChild(row1);
+      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">In cents: just 3rd = 386, equal = 400, Pythagorean = 408. The ear notices ~5 cents, so the 14-cent equal 3rd is a real compromise.</p>`));
+      host.appendChild(card);
+
+      const card2 = C.el(`<div class="card"></div>`);
+      card2.appendChild(C.el(`<h3 style="margin-top:0">The comma: why it can't all line up</h3>`));
+      card2.appendChild(C.el(`<p class="muted">Twelve pure 5ths (ratio 3:2) should land seven octaves up - but they overshoot by about a quarter of a semitone, the Pythagorean comma. Hear the target octave, then where the stacked 5ths actually arrive.</p>`));
+      const base = M.noteToFreq("C2");
+      const row2 = controls();
+      row2.appendChild(playBtn("Seven octaves (2⁷)", () => A.freqSequence([base, base * 128], 0.6, 0.55)));
+      row2.appendChild(playBtn("Twelve pure 5ths", () => A.freqSequence([base, base * Math.pow(3 / 2, 12)], 0.6, 0.55)));
+      row2.appendChild(playBtn("Both together (the comma)", () => A.freqChord([base * 128, base * Math.pow(3 / 2, 12)], 2.4)));
+      card2.appendChild(row2);
+      host.appendChild(card2);
+    }
+
+    function buildHarmonicSeries(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Where it comes from.</b> Pluck a string and it doesn't only vibrate as a whole - it simultaneously vibrates in halves, thirds, quarters and so on. Each division adds a quieter tone, a <b>partial</b>, at a whole-number multiple of the lowest note (the fundamental). The mix of partials is what gives every instrument its tone colour.</p>
+        <p><b>Why it matters.</b> The partials spell out the consonant intervals in order - octave, then 5th, then 4th, then major 3rd - because those are the simplest frequency ratios, and they're literally present in every note you play. The 4th, 5th and 6th partials are a ready-made <b>major triad</b>, a big part of why that chord sounds so resolved. Play the partials and hear it assemble:</p>`));
+      const f = M.noteToFreq("C2");
+      const partials = [
+        { n: 1, note: "C", role: "fundamental" }, { n: 2, note: "C", role: "octave (1:2)" },
+        { n: 3, note: "G", role: "+ perfect 5th (2:3)" }, { n: 4, note: "C", role: "+ perfect 4th (3:4)" },
+        { n: 5, note: "E", role: "+ major 3rd (4:5)" }, { n: 6, note: "G", role: "+ minor 3rd (5:6)" },
+        { n: 7, note: "B♭", role: "(flat 7th - sits low)" }, { n: 8, note: "C", role: "octave" },
+      ];
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">The first eight partials</h3>`));
+      const list = C.el(`<div class="partial-list"></div>`);
+      partials.forEach((p) => {
+        const b = document.createElement("button");
+        b.className = "partial-chip";
+        b.type = "button";
+        b.innerHTML = `<b>${p.n}</b> · ${p.note} <span class="muted">${p.role}</span>`;
+        b.addEventListener("click", () => A.freqSequence([f * p.n], 0, 0.9));
+        list.appendChild(b);
+      });
+      card.appendChild(list);
+      const row = controls();
+      row.appendChild(playBtn("Play all eight in turn", () => A.freqSequence(partials.map((p) => f * p.n), 0.5, 0.48)));
+      row.appendChild(playBtn("Hear the major triad (4:5:6)", () => A.freqChord([4 * f, 5 * f, 6 * f], 2)));
+      card.appendChild(row);
+      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 are C, E and G - a major triad arrives ready-made, which is why it sounds so settled.</p>`));
+      host.appendChild(card);
+    }
+
+    function buildThreeMinors(host) {
+      host.appendChild(lessonCard(`
+        <p><b>The problem minor has to solve.</b> In a major key the 7th note is a semitone below the tonic - a <b>leading note</b> that pulls strongly home. The natural minor's 7th sits a whole tone below, so it lacks that pull. The three forms of minor are three answers to that one problem.</p>
+        <p><b>Natural</b> keeps the key signature untouched (no leading note). <b>Harmonic</b> raises the 7th to get the leading note - but that opens a yawning <b>augmented 2nd</b> between the (unraised) 6th and the raised 7th. <b>Melodic</b> raises the 6th as well on the way up to close that gap, then drops both back to natural minor on the way down. Hear all three in A minor:</p>`));
+      const forms = [
+        { type: "naturalMinor", title: "Natural minor", note: "The 7th (G) is a whole tone below A, so it doesn't lead home." },
+        { type: "harmonicMinor", title: "Harmonic minor", note: "The raised 7th (G♯) leads to A - but F to G♯ is an augmented 2nd, the exotic-sounding gap." },
+        { type: "melodicMinorAsc", title: "Melodic minor (ascending)", note: "Raising the 6th too (F♯) removes the gap; descending, it reverts to natural minor." },
+      ];
+      forms.forEach((form) => {
+        const card = C.el(`<div class="card"></div>`);
+        card.appendChild(C.el(`<h3 style="margin-top:0">${form.title}</h3>`));
+        card.appendChild(C.el(`<div class="staff-wrap">${N.staffHTML({ clef: "treble", notes: M.scale("A", form.type) })}</div>`));
+        card.appendChild(C.el(`<p class="muted" style="font-size:.9rem">${form.note}</p>`));
+        const row = controls();
+        row.appendChild(playBtn("Hear it", () => A.sequence(M.scale("A", form.type))));
+        card.appendChild(row);
+        host.appendChild(card);
+      });
+    }
+
+    function buildModes(host) {
+      host.appendChild(lessonCard(`
+        <p><b>What a mode is.</b> Take the seven white notes and treat a different one as "home" each time. The notes are identical; only the starting point - the tonic - moves. That shift changes which intervals land where, and so changes the whole character. Major (Ionian) and natural minor (Aeolian) are just two of the seven.</p>
+        <p><b>The trick to hearing them.</b> Compare each mode to the major or minor scale it's closest to and listen for the one note that differs - its <b>characteristic note</b>. Lydian is major with a sharp 4th; Mixolydian is major with a flat 7th; Dorian is minor with a raised 6th; Phrygian is minor with a flat 2nd. Play them and listen for it:</p>`));
+      const modes = [
+        { root: "C", type: "ionian", name: "Ionian", char: "the major scale - bright, resolved" },
+        { root: "D", type: "dorian", name: "Dorian", char: "minor with a raised 6th - cool, jazzy" },
+        { root: "E", type: "phrygian", name: "Phrygian", char: "minor with a flat 2nd - dark, Spanish" },
+        { root: "F", type: "lydian", name: "Lydian", char: "major with a sharp 4th - dreamy, floating" },
+        { root: "G", type: "mixolydian", name: "Mixolydian", char: "major with a flat 7th - bluesy, folk" },
+        { root: "A", type: "aeolian", name: "Aeolian", char: "the natural minor scale" },
+        { root: "B", type: "locrian", name: "Locrian", char: "diminished - unstable, rarely a home key" },
+      ];
+      const card = C.el(`<div class="card"></div>`);
+      const out = C.el(`<div class="staff-wrap" id="mode-staff">${N.staffHTML({ clef: "treble", notes: M.scale("C", "ionian") })}</div>`);
+      const caption = C.el(`<p class="muted" id="mode-caption" aria-live="polite" style="font-size:.9rem">C Ionian - the major scale - bright, resolved</p>`);
+      const list = C.el(`<div class="explainer-controls"></div>`);
+      modes.forEach((m) => {
+        const b = document.createElement("button");
+        b.className = "audio-btn";
+        b.type = "button";
+        b.textContent = `${m.root} ${m.name}`;
+        b.addEventListener("click", () => {
+          [...list.children].forEach((c) => c.classList.remove("sel"));
+          b.classList.add("sel");
+          out.innerHTML = N.staffHTML({ clef: "treble", notes: M.scale(m.root, m.type) });
+          caption.innerHTML = `<b>${m.root} ${m.name}</b> - ${m.char}`;
+          A.sequence(M.scale(m.root, m.type));
+        });
+        list.appendChild(b);
+      });
+      card.appendChild(list);
+      card.appendChild(out);
+      card.appendChild(caption);
+      host.appendChild(card);
+    }
+  }
+
+  const api = { render };
+
+  global.MTT = global.MTT || {};
+  global.MTT.ui = global.MTT.ui || {};
+  global.MTT.ui.views = global.MTT.ui.views || {};
+  global.MTT.ui.views.explainer = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);

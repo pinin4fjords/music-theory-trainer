@@ -1,0 +1,58 @@
+/* ui/views/learn.js - lessons browser and topic detail.
+ *
+ * Lists every grade and its topics as keyboard-operable cards. Selecting a topic
+ * shows its "why" hook and "what" lesson, then either a "practise this topic"
+ * button (for drillable topics) or a clear "coming next" note for the
+ * composition/free-writing topics that aren't auto-drillable.
+ *
+ * Public surface: global `MTT.ui.views.learn`.
+ */
+(function (global) {
+  "use strict";
+
+  function isComingNext(t) {
+    return typeof t.questions !== "function" || (t.tags && t.tags.indexOf("comingNext") !== -1);
+  }
+
+  function render(main, ctx) {
+    const C = ctx.C;
+    const view = C.el(`<div class="view"><h1 tabindex="-1">Learn</h1></div>`);
+    main.appendChild(view);
+
+    ctx.content.grades.forEach((g) => {
+      view.appendChild(C.el(`<h2 style="margin-top:26px">${g.title}</h2>`));
+      const grid = C.el(`<div class="grid"></div>`);
+      g.topics.forEach((t) => {
+        const badge = isComingNext(t) ? `<span class="pill outline">coming next</span>` : "";
+        const card = C.cardButton(`<div class="topic-head"><h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
+          () => renderTopic(Object.assign({}, t, { grade: g.grade })));
+        grid.appendChild(card);
+      });
+      view.appendChild(grid);
+    });
+
+    function renderTopic(t) {
+      C.clear(main);
+      const v = C.el(`<div class="view"></div>`);
+      v.appendChild(C.button("← Back", () => ctx.router.navigate("learn"), { className: "ghost" }));
+      v.appendChild(C.el(`<h1 tabindex="-1" style="margin-top:14px">${t.title}</h1>`));
+      if (t.why) v.appendChild(C.el(`<div class="why-box"><strong>Why:</strong> ${t.why}</div>`));
+      v.appendChild(C.el(`<div class="card">${t.what || ""}</div>`));
+      if (!isComingNext(t)) {
+        v.appendChild(C.button("Practise this topic", () => ctx.router.navigate("quiz", { single: t })));
+      } else {
+        v.appendChild(C.el(`<p class="muted">This is an open-ended writing topic - guided practice for it is coming next. The related drillable topics in this grade build the underlying skills.</p>`));
+      }
+      main.appendChild(v);
+      C.focus(v.querySelector("h1"));
+    }
+  }
+
+  const api = { render };
+
+  global.MTT = global.MTT || {};
+  global.MTT.ui = global.MTT.ui || {};
+  global.MTT.ui.views = global.MTT.ui.views || {};
+  global.MTT.ui.views.learn = api;
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);

@@ -1,0 +1,40 @@
+name: "♿ Accessibility / UX issue"
+description: Something is hard to use - keyboard, screen reader, contrast, motion, layout.
+labels: ["accessibility", "ux"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Accessibility is a first-class goal here. Please describe what got in your way.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: What you were trying to do and what made it difficult.
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of issue
+      multiple: true
+      options:
+        - Keyboard operability (can't reach/activate a control)
+        - Screen reader (missing/incorrect announcement or label)
+        - Focus visibility / focus order
+        - Colour contrast
+        - Motion / animation
+        - Layout / responsive
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: tech
+    attributes:
+      label: Assistive tech / browser (optional)
+      placeholder: "VoiceOver + Safari, NVDA + Firefox, keyboard only, etc."
+  - type: textarea
+    id: expected
+    attributes:
+      label: What would good look like?
+      description: How you'd expect it to behave.

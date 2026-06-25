@@ -1,0 +1,43 @@
+name: "🎵 Theory correctness bug"
+description: A question, explanation, scale, interval, chord or key signature looks musically wrong.
+labels: ["theory-correctness"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the theory honest. Musical correctness is the thing
+        we most want to get right, so please be as specific as you can.
+  - type: input
+    id: location
+    attributes:
+      label: Where did you see it?
+      description: Grade and topic (and the exact prompt if you can copy it).
+      placeholder: "Grade 5 · All intervals - 'Name the interval from C up to Gb'"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What is musically correct, and why?
+      description: What the app showed, what it should be, and the reasoning (with a reference if handy).
+      placeholder: "C up to Gb is a diminished 5th (6 semitones, 5 letter names), not an augmented 4th. The app labelled it..."
+    validations:
+      required: true
+  - type: input
+    id: reproduce
+    attributes:
+      label: Can you reproduce it? (optional)
+      description: If you can, the topic plus roughly how often it appears helps us track it down. Generators are seeded, so exact repro is possible from a seed if you have one.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Interval (number/quality/inversion)
+        - Scale or mode spelling
+        - Key signature
+        - Chord / triad / cadence
+        - Note reading / clef
+        - Rhythm / time signature
+        - Explanation text
+        - Other
