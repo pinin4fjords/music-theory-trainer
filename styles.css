@@ -458,3 +458,42 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .grade-row-detail { font-size: .82rem; }
 .bar { height: 8px; background: var(--bg-2); border-radius: 999px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s ease; }
+
+/* --- Reference ---------------------------------------------------------- */
+.ref-search {
+  width: 100%; font: inherit; font-size: 1rem; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  padding: 12px 14px; margin: 6px 0 18px;
+}
+.ref-search:focus-visible { border-color: var(--accent); }
+.ref-section { padding-top: 18px; }
+.ref-table-wrap { overflow-x: auto; }
+.ref-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+.ref-table th {
+  text-align: left; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--ink-faint); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line-strong);
+}
+.ref-table td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.ref-table tr:last-child td { border-bottom: 0; }
+.ref-table .ref-key { font-weight: 600; color: var(--ink); white-space: nowrap; }
+.ref-glossary { margin: 0; display: grid; gap: 0; }
+.ref-term { display: grid; grid-template-columns: 200px 1fr; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.ref-term:last-child { border-bottom: 0; }
+.ref-term dt { font-weight: 600; color: var(--ink); }
+.ref-term dd { margin: 0; color: var(--ink-soft); }
+@media (max-width: 520px) { .ref-term { grid-template-columns: 1fr; gap: 2px; } }
+
+/* --- Monochord diagram (the string-over-a-box explainer) ---------------- */
+.monochord { width: 100%; max-width: 560px; margin: 6px auto 4px; display: block; color: var(--ink); }
+.monochord .box { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.5; }
+.monochord .damped { stroke: var(--line-strong); stroke-width: 2; }
+.monochord .vibrate { stroke: var(--accent); stroke-width: 2.5; fill: none; }
+.monochord .vibrate.echo { opacity: .28; }
+.monochord .bridge { fill: var(--accent); }
+.monochord .peg { fill: var(--ink-faint); }
+.monochord text { fill: var(--ink-soft); font-size: 11px; font-weight: 600; }
+@media (prefers-reduced-motion: no-preference) {
+  .monochord .vibrate { animation: mono-vib .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+  .monochord .vibrate.echo { animation-duration: .62s; }
+}
+@keyframes mono-vib { from { transform: scaleY(.5); } to { transform: scaleY(1); } }

@@ -69,6 +69,7 @@
     router.register("play", global.MTT.ui.views.playground.render);
     router.register("quiz", global.MTT.ui.views.quiz.render);
     router.register("progress", global.MTT.ui.views.progress.render);
+    router.register("reference", global.MTT.ui.views.reference.render);
 
     navButtons.forEach((b) => b.addEventListener("click", () => router.navigate(b.dataset.tab)));
 

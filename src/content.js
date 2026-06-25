@@ -1080,8 +1080,63 @@
     if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];
   }));
 
+  // === Reference (look-up) tables ========================================
+  // A static, searchable reference built from the same data the drills use, so
+  // learners can find a fact directly instead of only meeting it in practice.
+
+  function keySignatureRows() {
+    const glyph = (sig) => sig.accidentals.map((l) => l + (sig.type === "sharp" ? "♯" : "♭")).join(" ");
+    return Object.keys(M.MAJOR_SIGNATURES).map((key) => {
+      const sig = M.keySignature(key, "major");
+      const n = Math.abs(sig.count);
+      const count = n === 0 ? "none" : `${n} ${sig.type}${n > 1 ? "s" : ""}`;
+      return [key + " major", count, n === 0 ? "-" : glyph(sig), M.relativeMinorOf(key) + " minor"];
+    });
+  }
+
+  const INTERVAL_REF = [
+    ["Perfect unison", "0", "C - C"], ["Minor 2nd", "1", "C - D♭"], ["Major 2nd", "2", "C - D"],
+    ["Minor 3rd", "3", "C - E♭"], ["Major 3rd", "4", "C - E"], ["Perfect 4th", "5", "C - F"],
+    ["Aug 4th / dim 5th (tritone)", "6", "C - F♯ / C - G♭"], ["Perfect 5th", "7", "C - G"],
+    ["Minor 6th", "8", "C - A♭"], ["Major 6th", "9", "C - A"], ["Minor 7th", "10", "C - B♭"],
+    ["Major 7th", "11", "C - B"], ["Perfect octave", "12", "C - C"],
+  ];
+
+  const DEGREE_REF = [
+    ["1", "Tonic", "the home note the key is named after"],
+    ["2", "Supertonic", "one step above the tonic"],
+    ["3", "Mediant", "midway between tonic and dominant"],
+    ["4", "Subdominant", "a 5th below the tonic"],
+    ["5", "Dominant", "a 5th above the tonic - the strongest pull home"],
+    ["6", "Submediant", "midway between tonic and subdominant going down"],
+    ["7", "Leading note", "a semitone below the tonic, leaning up into it"],
+  ];
+
+  const VALUE_REF = [
+    ["Semibreve", "4 beats", "= 2 minims = 4 crotchets"],
+    ["Minim", "2 beats", "= 2 crotchets"],
+    ["Crotchet", "1 beat", "= 2 quavers"],
+    ["Quaver", "½ beat", "= 2 semiquavers"],
+    ["Semiquaver", "¼ beat", "= 2 demisemiquavers"],
+  ];
+
+  const reference = [
+    { id: "keys", title: "Key signatures", type: "table", columns: ["Key", "Signature", "Accidentals", "Relative minor"], rows: keySignatureRows() },
+    { id: "intervals", title: "Intervals", type: "table", columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
+    { id: "degrees", title: "Scale-degree names", type: "table", columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
+    { id: "values", title: "Note values (in 4/4)", type: "table", columns: ["Note", "Worth", "Divides into"], rows: VALUE_REF },
+    { id: "time", title: "Time signatures", type: "table", columns: ["Signature", "Type", "Feel"], rows: TIMES.map((t) => [t.sig, t.cat, t.why]) },
+    { id: "ornaments", title: "Ornaments", type: "glossary", items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc })) },
+    { id: "terms", title: "Italian, French & German terms", type: "glossary", items: TERMS.map((t) => ({ term: `${t.term} (${t.lang})`, def: t.meaning })) },
+    { id: "cadences", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: c.why })) },
+    { id: "figured", title: "Figured bass", type: "glossary", items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
+    { id: "chromatic", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc })) },
+    { id: "instruments", title: "Instruments & families", type: "table", columns: ["Instrument", "Family"], rows: INSTRUMENTS.map((i) => [i.name, i.family]) },
+    { id: "voices", title: "Voices (SATB)", type: "glossary", items: VOICES.map((v) => ({ term: v.name, def: v.note })) },
+  ];
+
   const api = {
-    grades, explainers,
+    grades, explainers, reference,
     helpers: { choices, pick, staffBlock },
   };
 

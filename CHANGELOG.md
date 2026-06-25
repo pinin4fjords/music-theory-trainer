@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.4.0 - Reference look-up + graphical monochord
+
+- **Reference section** (new tab): the curriculum's facts in look-up form -
+  key signatures, intervals, scale degrees, note values, time signatures,
+  ornaments, foreign terms, cadences, figured bass, chromatic chords, instruments
+  and voices - as tables/glossaries with a single search box that filters across
+  every section. Built from the same data the drills use.
+- **Graphical monochord**: the "A string over a box" explainer now shows an
+  interactive SVG of a string over a soundbox that visibly shortens and vibrates
+  (a standing-wave arch, animated unless reduced-motion) as you pick each
+  whole-number fraction, wired to the audio.
+- Tests: 154 total (reference rendering + search filtering).
+
 ## 2.3.0 - Progress view + explainer thread in lessons
 
 - **Progress view**: estimated level, overall accuracy, per-grade mastery bars

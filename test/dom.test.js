@@ -215,3 +215,26 @@ describe("DOM - progress view", () => {
     expect(document.querySelector("#main").textContent).toMatch(/No data yet/);
   });
 });
+
+describe("DOM - reference", () => {
+  it("renders look-up tables and a search box", () => {
+    instance.router.navigate("reference");
+    expect(document.querySelector("#main h1").textContent).toMatch(/Reference/);
+    expect(document.querySelector("#ref-search")).toBeTruthy();
+    const text = document.querySelector("#main").textContent;
+    expect(text).toMatch(/Key signatures/);
+    expect(text).toMatch(/Adagio/);
+    expect(document.querySelector(".ref-table")).toBeTruthy();
+  });
+
+  it("search filters across sections", () => {
+    instance.router.navigate("reference");
+    const input = document.getElementById("ref-search");
+    input.value = "dolce";
+    input.dispatchEvent(new window.Event("input"));
+    const text = document.querySelector("#ref-results").textContent;
+    expect(text).toMatch(/Dolce/);
+    expect(text).not.toMatch(/Adagio/); // unrelated entries filtered out
+    expect(text).not.toMatch(/Key signatures/);
+  });
+});

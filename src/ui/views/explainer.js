@@ -60,20 +60,46 @@
 
       const base = M.noteToFreq("C3");
       const stops = [
-        { label: "Open string (1:1)", ratio: 1, note: "C - the fundamental" },
-        { label: "½ the string (2:1)", ratio: 2, note: "C an octave up" },
-        { label: "⅔ the string (3:2)", ratio: 3 / 2, note: "G - a perfect 5th" },
-        { label: "¾ the string (4:3)", ratio: 4 / 3, note: "F - a perfect 4th" },
-        { label: "⅘ the string (5:4)", ratio: 5 / 4, note: "E - a major 3rd" },
+        { label: "Open (1:1)", ratio: 1, note: "C - the fundamental" },
+        { label: "½ (2:1)", ratio: 2, note: "C an octave up" },
+        { label: "⅔ (3:2)", ratio: 3 / 2, note: "G - a perfect 5th" },
+        { label: "¾ (4:3)", ratio: 4 / 3, note: "F - a perfect 4th" },
+        { label: "⅘ (5:4)", ratio: 5 / 4, note: "E - a major 3rd" },
       ];
+
+      // The vibrating fraction of the string is 1/ratio; pitch rises as it shortens.
+      function diagram(s) {
+        const X0 = 40, X1 = 520, Y = 46, L = X1 - X0, amp = 17;
+        const f = 1 / s.ratio;
+        const stopX = X0 + f * L, mid = X0 + (f * L) / 2;
+        const arch = `M ${X0} ${Y} Q ${r(mid)} ${Y - amp} ${r(stopX)} ${Y}`;
+        const echo = `M ${X0} ${Y} Q ${r(mid)} ${Y + amp} ${r(stopX)} ${Y}`;
+        const damped = f < 1 ? `<line class="damped" x1="${r(stopX)}" y1="${Y}" x2="${X1}" y2="${Y}"/>` : "";
+        const bridge = f < 1 ? `<polygon class="bridge" points="${r(stopX - 6)},${Y + 9} ${r(stopX + 6)},${Y + 9} ${r(stopX)},${Y - 1}"/>` : "";
+        const label = `Monochord: the vibrating ${s.label.split(" ")[0]} of the string sounds ${s.note}.`;
+        return `<svg class="monochord" viewBox="0 0 560 132" role="img" aria-label="${label}">
+          <rect class="box" x="26" y="60" width="508" height="56" rx="9"/>
+          <circle class="peg" cx="${X0}" cy="${Y}" r="4.5"/><circle class="peg" cx="${X1}" cy="${Y}" r="4.5"/>
+          <path class="vibrate echo" d="${echo}"/>
+          <path class="vibrate" d="${arch}"/>
+          ${damped}${bridge}
+          <text x="${X0}" y="128" text-anchor="start">nut</text>
+          <text x="${X1}" y="128" text-anchor="end">bridge</text>
+        </svg>`;
+      }
+      function r(n) { return Math.round(n * 10) / 10; }
+
       const card = C.el(`<div class="card"></div>`);
-      card.appendChild(C.el(`<h3 style="margin-top:0">Divide the string</h3>`));
-      const out = C.el(`<p class="muted" id="mono-caption" aria-live="polite" style="font-size:.92rem">Pluck the open string, then hear what each simple fraction gives you.</p>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Pluck &amp; divide the string</h3>`));
+      const stage = C.el(`<div id="mono-stage">${diagram(stops[0])}</div>`);
+      card.appendChild(stage);
+      const out = C.el(`<p class="muted" id="mono-caption" aria-live="polite" style="font-size:.92rem">Pick a fraction: watch the string shorten and hear the pitch rise.</p>`);
       const list = C.el(`<div class="explainer-controls"></div>`);
       stops.forEach((s) => {
         const b = playBtn(s.label, () => {
-          A.freqChord([base, base * s.ratio], 1.8);
+          stage.innerHTML = diagram(s);
           out.innerHTML = `<b>${s.label}</b> &rarr; ${s.note}.`;
+          A.freqChord(s.ratio === 1 ? [base] : [base, base * s.ratio], 1.8);
         });
         list.appendChild(b);
       });
