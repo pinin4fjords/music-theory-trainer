@@ -46,6 +46,23 @@
     return text + " " + N.describe(spec);
   }
 
+  // Inline SVG glyph for a note value (semibreve, minim, crotchet, quaver, semiquaver).
+  function noteValueGlyph(name) {
+    const cfg = { semibreve: [true, false, 0], minim: [true, true, 0], crotchet: [false, true, 0], quaver: [false, true, 1], semiquaver: [false, true, 2] }[name];
+    if (!cfg) return "";
+    const [open, hasStem, flags] = cfg;
+    const H = hasStem ? 40 : 18;
+    const cy = hasStem ? 33 : 9;
+    const headAttr = open ? `fill="none" stroke="currentColor" stroke-width="1.5"` : `fill="currentColor"`;
+    let g = `<ellipse cx="8" cy="${cy}" rx="6.5" ry="4.5" transform="rotate(-20 8 ${cy})" ${headAttr}/>`;
+    if (hasStem) g += `<line x1="14" y1="${cy - 4}" x2="14" y2="4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`;
+    for (let f = 0; f < flags; f++) {
+      const fy = 4 + f * 7;
+      g += `<path d="M14,${fy} C21,${fy + 4} 21,${fy + 14} 14,${fy + 18}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>`;
+    }
+    return `<svg viewBox="0 0 22 ${H}" height="${hasStem ? "1.5em" : "0.9em"}" style="vertical-align:${hasStem ? "-0.55em" : "-0.1em"};display:inline-block;margin:0 3px" aria-hidden="true">${g}</svg>`;
+  }
+
   function intervalContrast(iv) {
     const noun = M.ordinal(iv.number);
     if ([1, 4, 5, 8].indexOf(M.simpleNumber(iv.number)) !== -1) {
@@ -91,11 +108,13 @@
   ];
   function noteValueQuestion(rng) {
     const [big, small, n] = pick(rng, VALUE_PAIRS);
+    const smallSingular = small.replace(/s$/, "");
     return {
-      prompt: `How many <b>${small}</b> are there in a <b>${big}</b>?`,
+      prompt: `How many <b>${noteValueGlyph(smallSingular)}${small}</b> fit in a <b>${noteValueGlyph(big)}${big}</b>?`,
+      a11yText: `How many ${small} fit in a ${big}?`,
       choices: choices(rng, String(n), ["1", "2", "3", "4", "6", "8", "16"]),
       answer: String(n),
-      explanation: `A ${big} is worth <b>${n} ${small}</b>.`,
+      explanation: `A ${big} lasts <b>${n} ${small}</b>. ${noteValueGlyph(big)} = ${n} × ${noteValueGlyph(smallSingular)}`,
     };
   }
 
@@ -1144,7 +1163,6 @@
     "g3-melodic": "three-minors",
     "g2-intervals": "monochord",
     "g3-quality": "harmonic-series", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
-    "g1-rhythm": "monochord",
   };
   grades.forEach((g) => g.topics.forEach((t) => {
     if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];

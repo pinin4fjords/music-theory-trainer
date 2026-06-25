@@ -514,3 +514,69 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
   .monochord .vibrate.echo { animation-duration: .62s; }
 }
 @keyframes mono-vib { from { transform: scaleY(.5); } to { transform: scaleY(1); } }
+
+/* --- Mobile (≤ 600 px) -------------------------------------------------- */
+@media (max-width: 600px) {
+  /* Header: strip back to brand + grade select + streak + settings.
+   * Remove backdrop-filter so it doesn't trap fixed-position children
+   * (Chromium treats backdrop-filter as a containing block for fixed elements). */
+  header.appbar {
+    padding: 8px 14px; gap: 10px;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    background: var(--bg);
+  }
+  .level-chip { display: none; }          /* visible in Progress view instead */
+  .grade-select span { display: none; }   /* keep the <select>, drop the label */
+  .streak-chip { padding: 4px 8px; font-size: .78rem; gap: 4px; }
+
+  /* Nav tabs become a fixed bottom bar - backdrop-filter is on the nav itself now */
+  nav.tabs {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+    margin-left: 0; gap: 0; flex-wrap: nowrap; justify-content: stretch;
+    background: var(--header-bg);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    border-top: 1px solid var(--line); border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  nav.tabs button {
+    flex: 1; border-radius: 0; min-height: 52px;
+    padding: 8px 2px 6px; font-size: 0; /* collapse original text */
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  }
+  nav.tabs button:hover { background: var(--hover); color: var(--ink); }
+  /* Active: underline moves to the top of the tab to connect to content above */
+  nav.tabs button.active { color: var(--ink); box-shadow: inset 0 2px 0 var(--accent); border-radius: 0; }
+  /* Short labels from data-tab attribute */
+  nav.tabs button::after { display: block; font-size: .72rem; font-weight: 500; line-height: 1; color: currentColor; }
+  nav.tabs button[data-tab="home"]::after      { content: "Home"; }
+  nav.tabs button[data-tab="learn"]::after     { content: "Learn"; }
+  nav.tabs button[data-tab="reference"]::after { content: "Ref"; }
+  nav.tabs button[data-tab="explore"]::after   { content: "Why"; }
+  nav.tabs button[data-tab="play"]::after      { content: "Play"; }
+
+  /* Push content clear of the bottom bar */
+  main { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); }
+  footer.note { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); }
+
+  /* Hero: prevent the stave-line decoration from triggering horizontal scroll */
+  .hero { overflow-x: hidden; }
+  .hero h1::before { width: calc(100% + 32px); }
+
+  /* Quiz choices: larger touch target */
+  .choice { padding: 16px 14px; }
+
+  /* idk-btn: full width */
+  .idk-btn { width: 100%; box-sizing: border-box; }
+
+  /* Start card: full-width primary button, stretched mode toggle */
+  .start-card .btn { width: 100%; }
+  .mode-toggle { align-self: stretch; }
+  .mode-toggle button { flex: 1; text-align: center; }
+
+  /* Focus-area chips: taller touch target */
+  .focus-chip { padding: 10px 14px; }
+
+  /* Quiz finish: buttons stack vertically */
+  .finish-card + * [style*="display:flex"][style*="gap:10px"] { flex-direction: column; }
+}
