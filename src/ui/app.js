@@ -68,6 +68,7 @@
     router.register("explore", global.MTT.ui.views.explainer.render);
     router.register("play", global.MTT.ui.views.playground.render);
     router.register("quiz", global.MTT.ui.views.quiz.render);
+    router.register("progress", global.MTT.ui.views.progress.render);
 
     navButtons.forEach((b) => b.addEventListener("click", () => router.navigate(b.dataset.tab)));
 
@@ -155,6 +156,17 @@
     const levelChip = doc.getElementById("level");
     const allTopics = global.MTT.session.quizableTopics(global.MTT.content);
     store.subscribe(syncHeader);
+
+    // The level chip opens the progress view.
+    if (levelChip) {
+      levelChip.setAttribute("role", "button");
+      levelChip.setAttribute("tabindex", "0");
+      const openProgress = () => router.navigate("progress");
+      levelChip.addEventListener("click", openProgress);
+      levelChip.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openProgress(); }
+      });
+    }
 
     function syncHeader() {
       if (gradeSelect) gradeSelect.value = String(store.settings().grade);

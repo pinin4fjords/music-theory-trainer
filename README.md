@@ -165,6 +165,8 @@ or hand-edited state is merged onto defaults so no key is ever missing.
   question straight into the explainer behind it.
 - **First-run onboarding** (a one-step grade picker) and a per-topic **finish-screen
   breakdown** so a session opens and closes with structure.
+- **Progress view** (open the header level chip): estimated level, overall accuracy,
+  per-grade mastery bars, and tappable weak-area shortcuts.
 - **Grades 1-6** carry full practice drills; **Grades 7-8** carry the drillable
   identification items (chromatic chords, augmented sixths, secondary dominants) plus
   clearly-flagged "coming next" topics for the open-ended composition/analysis work that

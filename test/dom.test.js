@@ -172,3 +172,46 @@ describe("DOM - reset", () => {
     expect(instance.store.settings().grade).toBe(4); // preference kept
   });
 });
+
+describe("DOM - progress view", () => {
+  const card = (box, seen, correct) => ({ box, seen, correct, streak: correct, lapses: seen - correct, avgMs: 1500, lastSeen: 0, dueAt: 0 });
+  const SEEDED = {
+    stateVersion: 2,
+    totalAnswered: 30,
+    streak: 3,
+    settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
+    srs: {
+      "g1-notes": card(5, 8, 8),
+      "g1-rhythm": card(5, 8, 8),
+      "g1-keys": card(4, 8, 7),
+      "g4-key-signatures": card(0, 6, 1), // weak
+    },
+  };
+
+  it("renders per-grade mastery bars, an estimated level, and weak areas", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(SEEDED), now: () => NOW, seed: "p" });
+    inst.router.navigate("progress");
+    const text = document.querySelector("#main").textContent;
+    expect(document.querySelector("#main h1").textContent).toMatch(/Your progress/);
+    expect(text).toMatch(/By grade/);
+    expect(text).toMatch(/Grade 1/);
+    expect(document.querySelectorAll(".grade-row").length).toBeGreaterThanOrEqual(4); // grades 1-4
+    expect(document.querySelector(".bar-fill")).toBeTruthy();
+    expect(text).toMatch(/Focus areas/);
+  });
+
+  it("the level chip opens the progress view", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(SEEDED), now: () => NOW, seed: "p2" });
+    document.getElementById("level").click();
+    expect(inst.router.getCurrent()).toBe("progress");
+  });
+
+  it("shows an empty state before any practice", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "p3" });
+    inst.router.navigate("progress");
+    expect(document.querySelector("#main").textContent).toMatch(/No data yet/);
+  });
+});

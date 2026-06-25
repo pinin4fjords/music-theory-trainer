@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.3.0 - Progress view + explainer thread in lessons
+
+- **Progress view**: estimated level, overall accuracy, per-grade mastery bars
+  (up to the current grade) and tappable weak-area chips - reached by clicking the
+  header level chip or the new Progress card on home. Empty state before any practice.
+- **Explainer thread in lessons**: Learn topic pages now carry the same "dig
+  deeper" link into the relevant explainer that the quiz reveal does.
+- Tests: 152 total (added progress-view rendering, level-chip navigation, empty state).
+
 ## 2.2.0 - UX-review fixes, onboarding, reset, science content
 
 Acting on a UX review, plus a "science of music" content pass.

@@ -447,3 +447,14 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .breakdown-score { font-variant-numeric: tabular-nums; color: var(--ink-soft); font-weight: 600; }
 
 .linkish.danger { color: var(--bad); }
+
+/* --- Progress view ------------------------------------------------------ */
+.level-chip[role="button"] { cursor: pointer; }
+.level-chip[role="button"]:hover { border-color: var(--accent); background: var(--accent-soft); }
+.grade-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.grade-row:first-of-type { border-top: 0; }
+.grade-row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 7px; }
+.grade-row-name { font-weight: 600; }
+.grade-row-detail { font-size: .82rem; }
+.bar { height: 8px; background: var(--bg-2); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .4s ease; }

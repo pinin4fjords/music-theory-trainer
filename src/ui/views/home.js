@@ -137,7 +137,8 @@
     const cards = view.querySelector("#home-cards");
     [["📚", "Learn", "Lessons by grade", "learn"],
       ["💡", "Explainers", "The why behind the theory", "explore"],
-      ["🎹", "Playground", "Build & hear it", "play"]].forEach(([icon, title, sub, tab]) => {
+      ["🎹", "Playground", "Build & hear it", "play"],
+      ["📈", "Progress", "Level & weak areas", "progress"]].forEach(([icon, title, sub, tab]) => {
       const c = C.cardButton(`<div style="font-size:1.8rem" aria-hidden="true">${icon}</div><h3>${title}</h3><div class="why">${sub}</div>`,
         () => ctx.router.navigate(tab));
       cards.appendChild(c);

@@ -39,5 +39,6 @@ if (typeof document !== "undefined") {
   src("ui/views/quiz.js");
   src("ui/views/explainer.js");
   src("ui/views/playground.js");
+  src("ui/views/progress.js");
   src("ui/app.js");
 }

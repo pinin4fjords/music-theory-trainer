@@ -43,6 +43,19 @@
       } else {
         v.appendChild(C.el(`<p class="muted">This is an open-ended writing topic - guided practice for it is coming next. The related drillable topics in this grade build the underlying skills.</p>`));
       }
+      // Thread into the science behind the topic.
+      if (t.explainer) {
+        const ex = (ctx.content.explainers || []).find((e) => e.id === t.explainer);
+        if (ex) {
+          const dig = document.createElement("button");
+          dig.type = "button";
+          dig.className = "dig-deeper";
+          dig.style.marginLeft = "12px";
+          dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
+          dig.addEventListener("click", () => ctx.router.navigate("explore", { open: t.explainer }));
+          v.appendChild(dig);
+        }
+      }
       main.appendChild(v);
       C.focus(v.querySelector("h1"));
     }
