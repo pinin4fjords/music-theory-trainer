@@ -66,7 +66,7 @@
   function intervalContrast(iv) {
     const noun = M.ordinal(iv.number);
     if ([1, 4, 5, 8].indexOf(M.simpleNumber(iv.number)) !== -1) {
-      if (iv.quality === "perfect") return `A semitone wider and it would be an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>. These intervals are called 'perfect' because medieval theorists considered them the purest consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the only intervals stable enough to end a phrase on.`;
+      if (iv.quality === "perfect") return `A semitone wider and it would be an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>. These intervals are called 'perfect' because medieval theorists considered them the purest consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were stable enough to end an early phrase on.`;
       if (iv.quality === "augmented") return `Narrow it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
       return `Widen it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
     }
@@ -1164,7 +1164,7 @@
         },
         {
           id: "g3-quality", title: "Interval quality",
-          why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the only intervals you could end a phrase on. Everything else was 'imperfect' - pleasant but unsettled.",
+          why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the intervals early music came to rest on. Everything else was 'imperfect' - pleasant but unsettled.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
           questions: (rng) => intervalQuestion(rng),
         },
@@ -1555,24 +1555,24 @@
       note: "The order is not arbitrary: each new sharp sits a perfect 5th above the last (F♯→C♯→G♯→D♯…), the very interval that generates the keys around the circle of fifths. The flats run in the exact reverse.",
       items: ORDER_REF },
     { id: "intervals", group: "Pitch & keys", title: "Intervals", type: "table",
-      note: "Intervals are counted <i>inclusively</i> by letter name (C up to G counts C-D-E-F-G = a 5th), a habit inherited from medieval theorists who numbered the notes themselves, not the gaps. Unison, 4th, 5th and octave are <b>perfect</b> because their simple ratios (1:1, 4:3, 3:2, 2:1) were the only consonances early music would end a phrase on; the rest were <b>imperfect</b>.",
+      note: "Intervals are counted <i>inclusively</i> by letter name (C up to G counts C-D-E-F-G = a 5th), a habit inherited from medieval theorists who numbered the notes themselves, not the gaps. Unison, 4th, 5th and octave are <b>perfect</b> because their simple ratios (1:1, 4:3, 3:2, 2:1) were the consonances early music resolved its cadences onto; the rest were <b>imperfect</b>.",
       columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
     { id: "enharmonics", group: "Pitch & keys", title: "Enharmonic equivalents", type: "table", columns: ["Note", "Same pitch as"], rows: ENHARM.map((e) => [e.a, e.b]) },
     { id: "scales", group: "Pitch & keys", title: "Scales & modes", type: "table",
-      note: "The mode names are Greek - Dorian, Phrygian, Lydian, Mixolydian - but they are a medieval mislabelling: Renaissance theorists borrowed the ancient names and pinned them to the wrong scales. Major and minor are simply two modes (Ionian and Aeolian) that won out as tonal harmony took hold after about 1600.",
+      note: "The mode names are Greek - Dorian, Phrygian, Lydian, Mixolydian - but they are a medieval mislabelling: theorists from around the 9th century borrowed the ancient names and pinned them to the wrong scales. Major and minor are simply two modes (Ionian and Aeolian) that won out as tonal harmony took hold after about 1600.",
       columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
     { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table",
       note: "The names describe each note's <i>pull</i>, not its letter. <b>Dominant</b> (a 5th above) and <b>subdominant</b> (a 5th below) mirror the tonic; <b>mediant</b> and <b>submediant</b> sit midway between them; the <b>leading note</b> leans up a semitone into the tonic. <i>Super-</i> means 'above', <i>sub-</i> 'below'.",
       columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
     // Acoustics & physics
     { id: "ratios", group: "Acoustics & physics", title: "Interval ratios: just vs equal", type: "table",
-      note: "No keyboard can sound all these pure (<i>just</i>) ratios at once: tune the 5ths perfectly and the 3rds go sour, and vice versa. Equal temperament resolves the clash by detuning every interval slightly so all keys are equally usable - the compromise that made music like Bach's <i>Well-Tempered Clavier</i> (1722) possible.",
+      note: "No keyboard can sound all these pure (<i>just</i>) ratios at once: tune the 5ths perfectly and the 3rds go sour, and vice versa. Equal temperament resolves the clash by detuning every interval slightly so all keys are equally usable. Earlier 'well' temperaments solved it differently - keeping every key playable but each with its own colour - which is the world of Bach's <i>Well-Tempered Clavier</i> (1722); equal temperament became the keyboard norm only later.",
       columns: ["Interval", "Just ratio", "Just (cents)", "Equal (cents)", "Equal is"], rows: RATIO_REF },
     { id: "frequencies", group: "Acoustics & physics", title: "Note frequencies (A4 = 440 Hz)", type: "table", columns: ["Note", "Frequency", "Distance"], rows: FREQ_REF },
     { id: "constants", group: "Acoustics & physics", title: "Acoustic constants", type: "glossary", items: ACOUSTICS_CONST },
     // Chords & harmony
     { id: "chordtypes", group: "Chords & harmony", title: "Chord types", type: "glossary",
-      note: "Building chords by stacking <b>3rds</b> is recent: medieval music heard 3rds as mild dissonances and built on open 4ths and 5ths. Only from the 15th century did the triad become the unit of harmony, and the dominant 7th's urge to resolve made it the engine of tonal music from the Baroque onward.",
+      note: "Building chords by stacking <b>3rds</b> is recent: medieval theory ranked 3rds as unstable <i>imperfect</i> consonances and built on open 4ths and 5ths. Only from the 15th century did the triad become the unit of harmony, and the dominant 7th's urge to resolve made it the engine of tonal music from the Baroque onward.",
       items: CHORD_TYPE_REF },
     { id: "cadences", group: "Chords & harmony", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: cap(c.why) + ". " + c.nameNote })) },
     { id: "figured", group: "Chords & harmony", title: "Figured bass", type: "glossary",
@@ -1581,7 +1581,7 @@
     { id: "chromatic", group: "Chords & harmony", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc + ". " + cap(c.why) + "." })) },
     // Rhythm & metre
     { id: "values", group: "Rhythm & metre", title: "Note values", type: "table",
-      note: "The names are medieval fossils. The <b>breve</b> ('short') was once the basic beat; a <b>semibreve</b> is half of it; the <b>minim</b> was the 'smallest' note early notation could write (Latin <i>minima</i>). <b>Crotchet</b> comes from French <i>crochet</i> (a little hook) and <b>quaver</b> from an old word for trembling. The American names - whole, half, quarter, eighth - just count the halving.",
+      note: "The names are medieval fossils. The <b>breve</b> ('short') was once the basic beat; a <b>semibreve</b> is half of it; the <b>minim</b> took its name from Latin <i>minima</i>, 'the smallest', because it was the shortest note written when it first appeared. <b>Crotchet</b> comes from French <i>crochet</i> (a little hook) and <b>quaver</b> from an old word for trembling. The American names - whole, half, quarter, eighth - just count the halving.",
       columns: ["Note", "Worth (in 4/4)", "Divides into"], rows: VALUE_REF },
     { id: "time", group: "Rhythm & metre", title: "Time signatures", type: "table",
       note: "Medieval notation called triple time <i>tempus perfectum</i> - 'perfect', drawn as a full circle - because three stood for the Holy Trinity; duple time was <i>imperfect</i>, a broken circle. That broken circle survives as the <b>C</b> we still write for 4/4 (it is not an abbreviation for 'common'). Compound metres like 6/8 carry the swing of sung and danced music - the jig, the barcarolle.",
@@ -1603,7 +1603,7 @@
       items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc + (o.ety ? ` (${o.ety})` : "") })) },
     // French & German
     { id: "french", group: "French & German", title: "French terms", type: "glossary",
-      note: "French and German terms appear because not every composer wrote in Italian. Some Romantic composers - Schumann, Debussy, late Beethoven - deliberately marked their scores in their own language as a point of national pride.",
+      note: "French and German terms appear because not every composer wrote in Italian. Some Romantic composers - Debussy, Fauré, Ravel - deliberately marked their scores in French as a point of national pride.",
       items: termsBy("french") },
     { id: "german", group: "French & German", title: "German terms", type: "glossary",
       note: "German markings (in Schumann, Brahms, Mahler, late Beethoven) reflect the same 19th-century turn away from Italian as music's automatic lingua franca.",
