@@ -167,9 +167,14 @@ or hand-edited state is merged onto defaults so no key is ever missing.
   breakdown** so a session opens and closes with structure.
 - **Progress view** (open the header level chip): estimated level, overall accuracy,
   per-grade mastery bars, and tappable weak-area shortcuts.
-- **Reference tab**: every fact in look-up form (key signatures, intervals, terms,
-  time signatures, cadences, figured bass, instruments...) with a search box that
-  filters across all of it - for finding things directly, not only via practice.
+- **Reference tab**: every fact in look-up form (key signatures, clefs, intervals,
+  scales & modes, chord types, cadences, figured bass, time signatures, tuplets, a
+  large tempo/dynamics/articulation/expression glossary incl. French & German,
+  instruments & transposing) - a grouped menu plus a search box that filters across
+  all of it, for finding things directly, not only via practice.
+- **Linkable pages**: hash routing (`#reference/keys`, `#explore/harmonic-series`,
+  `#learn/g4-key-signatures`) makes individual pages bookmarkable/shareable and the
+  back/forward buttons work - with no server (fine on GitHub Pages and file://).
 - **Grades 1-6** carry full practice drills; **Grades 7-8** carry the drillable
   identification items (chromatic chords, augmented sixths, secondary dominants) plus
   clearly-flagged "coming next" topics for the open-ended composition/analysis work that

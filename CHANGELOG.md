@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.5.0 - Linkable pages, reference menu, clearer acoustics
+
+- **Linkable pages (hash routing)**: the URL hash now reflects the page -
+  `#reference/keys`, `#explore/harmonic-series`, `#learn/g4-key-signatures` - so
+  individual pages can be linked/bookmarked and the browser back/forward buttons
+  work. No server needed (fine on GitHub Pages and file://).
+- **Reference: menu instead of a monolith**: sections are grouped in a sidebar
+  menu (Pitch & keys, Chords & harmony, Rhythm & metre, Tempo & expression,
+  French & German, Instruments & voices) with a content pane; search still filters
+  across everything.
+- **Much fuller reference**: added clefs, scales & modes, chord types, transposing
+  instruments, enharmonic equivalents, tuplets, order of sharps/flats, and a far
+  bigger terms glossary (tempo, dynamics, articulation, expression, navigation,
+  French & German).
+- **Clearer acoustics**: the harmonic-series and monochord explainers now spell
+  out the difference between multiplying frequency (×2, ×3, ×4 - intervals shrink
+  as you climb) and an interval as a ratio (a 5th = 3:2, e.g. 440→660 Hz), with
+  concrete Hz throughout (both pages anchored on A, so 440 = the 4th partial).
+- Tests: 158 total (reference menu + search, hash deep-links).
+
 ## 2.4.0 - Reference look-up + graphical monochord
 
 - **Reference section** (new tab): the curriculum's facts in look-up form -

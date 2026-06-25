@@ -466,6 +466,23 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
   padding: 12px 14px; margin: 6px 0 18px;
 }
 .ref-search:focus-visible { border-color: var(--accent); }
+
+/* Menu + content layout. */
+.ref-layout { display: grid; grid-template-columns: 210px 1fr; gap: 22px; align-items: start; }
+.ref-menu { display: flex; flex-direction: column; gap: 1px; position: sticky; top: 72px; }
+.ref-menu-group { font-size: .68rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); font-weight: 700; margin: 16px 0 4px; padding: 0 10px; }
+.ref-menu-group:first-child { margin-top: 0; }
+.ref-menu-item { text-align: left; border: 0; background: transparent; color: var(--ink-soft); font: inherit; font-size: .9rem; font-weight: 500; padding: 7px 10px; border-radius: var(--radius-sm); cursor: pointer; transition: background .12s, color .12s; }
+.ref-menu-item:hover { background: var(--hover); color: var(--ink); }
+.ref-menu-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.ref-content { min-width: 0; }
+.ref-result-count { margin: 0 0 12px; }
+@media (max-width: 680px) {
+  .ref-layout { grid-template-columns: 1fr; gap: 12px; }
+  .ref-menu { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; position: static; gap: 6px; padding-bottom: 4px; }
+  .ref-menu-group { display: none; }
+  .ref-menu-item { white-space: nowrap; border: 1px solid var(--line); }
+}
 .ref-section { padding-top: 18px; }
 .ref-table-wrap { overflow-x: auto; }
 .ref-table { width: 100%; border-collapse: collapse; font-size: .92rem; }

@@ -14,8 +14,18 @@
     return typeof t.questions !== "function" || (t.tags && t.tags.indexOf("comingNext") !== -1);
   }
 
-  function render(main, ctx) {
+  function render(main, ctx, arg) {
     const C = ctx.C;
+
+    // Deep-link: open a specific topic directly (from the hash or a link).
+    const topicId = typeof arg === "string" ? arg : null;
+    if (topicId) {
+      for (const g of ctx.content.grades) {
+        const t = g.topics.find((x) => x.id === topicId);
+        if (t) { renderTopic(Object.assign({}, t, { grade: g.grade })); return; }
+      }
+    }
+
     const view = C.el(`<div class="view"><h1 tabindex="-1">Learn</h1></div>`);
     main.appendChild(view);
 
@@ -25,7 +35,7 @@
       g.topics.forEach((t) => {
         const badge = isComingNext(t) ? `<span class="pill outline">coming next</span>` : "";
         const card = C.cardButton(`<div class="topic-head"><h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
-          () => renderTopic(Object.assign({}, t, { grade: g.grade })));
+          () => ctx.router.navigate("learn", t.id));
         grid.appendChild(card);
       });
       view.appendChild(grid);
@@ -52,7 +62,7 @@
           dig.className = "dig-deeper";
           dig.style.marginLeft = "12px";
           dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
-          dig.addEventListener("click", () => ctx.router.navigate("explore", { open: t.explainer }));
+          dig.addEventListener("click", () => ctx.router.navigate("explore", t.explainer));
           v.appendChild(dig);
         }
       }

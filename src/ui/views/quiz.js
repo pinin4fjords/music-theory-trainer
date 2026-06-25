@@ -161,7 +161,7 @@
             dig.type = "button";
             dig.className = "dig-deeper";
             dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
-            dig.addEventListener("click", () => ctx.router.navigate("explore", { open: topic.explainer }));
+            dig.addEventListener("click", () => ctx.router.navigate("explore", topic.explainer));
             revealEl.appendChild(dig);
           }
         }

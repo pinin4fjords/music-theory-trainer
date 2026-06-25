@@ -39,7 +39,7 @@
     const main = doc.getElementById("main");
     const navButtons = [...doc.querySelectorAll("nav.tabs button")];
 
-    const router = global.MTT.ui.router.create({ mainEl: main, navButtons });
+    const router = global.MTT.ui.router.create({ mainEl: main, navButtons, window: opts.window || global });
 
     const ctx = {
       store,
@@ -204,7 +204,7 @@
 
     applyTheme();
     syncHeader();
-    router.navigate("home");
+    router.fromHash(); // open the page named in the URL hash (or home)
 
     // After first paint, request durable storage and adopt any newer stored copy
     // (e.g. localStorage was cleared but IndexedDB or the linked file survived).

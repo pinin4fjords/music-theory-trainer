@@ -40,6 +40,7 @@ const NOW = 1700000000000;
 
 let instance;
 beforeEach(() => {
+  window.location.hash = ""; // start each test from a clean URL
   scaffold();
   instance = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "dom-seed" });
 });
@@ -217,24 +218,67 @@ describe("DOM - progress view", () => {
 });
 
 describe("DOM - reference", () => {
-  it("renders look-up tables and a search box", () => {
+  it("renders a grouped menu and shows the first section by default", () => {
     instance.router.navigate("reference");
     expect(document.querySelector("#main h1").textContent).toMatch(/Reference/);
     expect(document.querySelector("#ref-search")).toBeTruthy();
-    const text = document.querySelector("#main").textContent;
-    expect(text).toMatch(/Key signatures/);
-    expect(text).toMatch(/Adagio/);
-    expect(document.querySelector(".ref-table")).toBeTruthy();
+    // Menu lists many sections, grouped.
+    expect(document.querySelectorAll(".ref-menu-item").length).toBeGreaterThan(10);
+    expect(document.querySelector(".ref-menu-group")).toBeTruthy();
+    // The first section (key signatures) is shown in the content pane.
+    const content = document.getElementById("ref-content").textContent;
+    expect(content).toMatch(/Relative minor/);
+    expect(document.querySelector("#ref-content .ref-table")).toBeTruthy();
   });
 
-  it("search filters across sections", () => {
+  it("selecting a menu item swaps the content pane", () => {
+    instance.router.navigate("reference");
+    const tempo = [...document.querySelectorAll(".ref-menu-item")].find((b) => b.textContent === "Tempo");
+    expect(tempo).toBeTruthy();
+    tempo.click(); // navigates + re-renders
+    const content = document.getElementById("ref-content").textContent;
+    expect(content).toMatch(/Allegro/);
+    expect(content).not.toMatch(/Relative minor/); // key-sig section no longer shown
+    // The re-rendered menu marks the chosen section active.
+    expect(document.querySelector(".ref-menu-item.active").textContent).toBe("Tempo");
+  });
+
+  it("search filters across all sections", () => {
     instance.router.navigate("reference");
     const input = document.getElementById("ref-search");
     input.value = "dolce";
     input.dispatchEvent(new window.Event("input"));
-    const text = document.querySelector("#ref-results").textContent;
-    expect(text).toMatch(/Dolce/);
-    expect(text).not.toMatch(/Adagio/); // unrelated entries filtered out
-    expect(text).not.toMatch(/Key signatures/);
+    const content = document.getElementById("ref-content").textContent;
+    expect(content).toMatch(/Dolce/);
+    expect(content).not.toMatch(/Allegro/); // unrelated entries filtered out
+    expect(content).not.toMatch(/Relative minor/);
+  });
+});
+
+describe("DOM - linkable pages (hash routing)", () => {
+  it("navigating updates the URL hash, including the section id", () => {
+    instance.router.navigate("reference", "scales");
+    expect(window.location.hash).toBe("#reference/scales");
+    instance.router.navigate("play");
+    expect(window.location.hash).toBe("#play");
+  });
+
+  it("booting with a hash opens that page directly", () => {
+    window.location.hash = "#explore/harmonic-series";
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "h" });
+    expect(inst.router.getCurrent()).toBe("explore");
+    // The explainer page itself is shown, not the list.
+    expect(document.querySelector("#main h1").textContent).toMatch(/harmonic series/i);
+    window.location.hash = "";
+  });
+
+  it("a deep link to a lesson opens that topic", () => {
+    window.location.hash = "#learn/g4-key-signatures";
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "h2" });
+    expect(inst.router.getCurrent()).toBe("learn");
+    expect(document.querySelector("#main h1").textContent).toMatch(/Keys up to 5 sharps/);
+    window.location.hash = "";
   });
 });

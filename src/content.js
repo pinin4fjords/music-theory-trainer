@@ -609,26 +609,96 @@
     };
   }
 
-  // Foreign technical terms (Italian core, plus a little French/German).
+  // Foreign technical terms, grouped by function (cat) and language (lang).
   const TERMS = [
-    { term: "Adagio", lang: "It.", meaning: "slow" },
-    { term: "Allegro", lang: "It.", meaning: "fast, lively" },
-    { term: "Andante", lang: "It.", meaning: "at a walking pace" },
-    { term: "Ritardando", lang: "It.", meaning: "gradually getting slower" },
-    { term: "Accelerando", lang: "It.", meaning: "gradually getting faster" },
-    { term: "Smorzando", lang: "It.", meaning: "dying away" },
-    { term: "Sostenuto", lang: "It.", meaning: "sustained" },
-    { term: "Dolce", lang: "It.", meaning: "sweetly" },
-    { term: "Legato", lang: "It.", meaning: "smoothly, notes connected" },
-    { term: "Staccato", lang: "It.", meaning: "short, detached" },
-    { term: "Crescendo", lang: "It.", meaning: "gradually getting louder" },
-    { term: "Diminuendo", lang: "It.", meaning: "gradually getting quieter" },
-    { term: "Lent", lang: "Fr.", meaning: "slow" },
-    { term: "Vite", lang: "Fr.", meaning: "quick" },
-    { term: "Doux", lang: "Fr.", meaning: "sweet, soft" },
-    { term: "Lebhaft", lang: "Ger.", meaning: "lively" },
-    { term: "Langsam", lang: "Ger.", meaning: "slow" },
-    { term: "Mässig", lang: "Ger.", meaning: "moderate" },
+    // Tempo (Italian), broadly slow -> fast.
+    { term: "Grave", lang: "It.", meaning: "very slow and solemn", cat: "tempo" },
+    { term: "Largo", lang: "It.", meaning: "broad and very slow", cat: "tempo" },
+    { term: "Lento", lang: "It.", meaning: "slow", cat: "tempo" },
+    { term: "Adagio", lang: "It.", meaning: "slow", cat: "tempo" },
+    { term: "Andante", lang: "It.", meaning: "at a walking pace", cat: "tempo" },
+    { term: "Moderato", lang: "It.", meaning: "at a moderate speed", cat: "tempo" },
+    { term: "Allegretto", lang: "It.", meaning: "fairly quick", cat: "tempo" },
+    { term: "Allegro", lang: "It.", meaning: "fast and lively", cat: "tempo" },
+    { term: "Vivace", lang: "It.", meaning: "lively and brisk", cat: "tempo" },
+    { term: "Presto", lang: "It.", meaning: "very fast", cat: "tempo" },
+    { term: "Prestissimo", lang: "It.", meaning: "as fast as possible", cat: "tempo" },
+    // Changing the tempo.
+    { term: "Accelerando (accel.)", lang: "It.", meaning: "gradually getting faster", cat: "tempochange" },
+    { term: "Ritardando (rit.)", lang: "It.", meaning: "gradually getting slower", cat: "tempochange" },
+    { term: "Rallentando (rall.)", lang: "It.", meaning: "gradually slowing down", cat: "tempochange" },
+    { term: "Ritenuto (riten.)", lang: "It.", meaning: "held back, immediately slower", cat: "tempochange" },
+    { term: "Allargando", lang: "It.", meaning: "broadening - slower and often louder", cat: "tempochange" },
+    { term: "Stringendo", lang: "It.", meaning: "pressing on, getting faster", cat: "tempochange" },
+    { term: "Rubato", lang: "It.", meaning: "with flexible, expressive timing", cat: "tempochange" },
+    { term: "A tempo", lang: "It.", meaning: "return to the original speed", cat: "tempochange" },
+    { term: "Meno mosso", lang: "It.", meaning: "less movement - slower", cat: "tempochange" },
+    { term: "Più mosso", lang: "It.", meaning: "more movement - faster", cat: "tempochange" },
+    // Dynamics.
+    { term: "pp (pianissimo)", lang: "It.", meaning: "very quiet", cat: "dynamics" },
+    { term: "p (piano)", lang: "It.", meaning: "quiet", cat: "dynamics" },
+    { term: "mp (mezzo-piano)", lang: "It.", meaning: "moderately quiet", cat: "dynamics" },
+    { term: "mf (mezzo-forte)", lang: "It.", meaning: "moderately loud", cat: "dynamics" },
+    { term: "f (forte)", lang: "It.", meaning: "loud", cat: "dynamics" },
+    { term: "ff (fortissimo)", lang: "It.", meaning: "very loud", cat: "dynamics" },
+    { term: "Crescendo (cresc.)", lang: "It.", meaning: "gradually getting louder", cat: "dynamics" },
+    { term: "Diminuendo (dim.)", lang: "It.", meaning: "gradually getting quieter", cat: "dynamics" },
+    { term: "sfz (sforzando)", lang: "It.", meaning: "a sudden strong accent", cat: "dynamics" },
+    { term: "fp (fortepiano)", lang: "It.", meaning: "loud, then immediately quiet", cat: "dynamics" },
+    { term: "Calando", lang: "It.", meaning: "getting quieter (and often slower)", cat: "dynamics" },
+    { term: "Morendo", lang: "It.", meaning: "dying away", cat: "dynamics" },
+    { term: "Smorzando (smorz.)", lang: "It.", meaning: "dying away in tone and speed", cat: "dynamics" },
+    { term: "Perdendosi", lang: "It.", meaning: "fading away to nothing", cat: "dynamics" },
+    // Articulation & touch.
+    { term: "Legato", lang: "It.", meaning: "smoothly, notes connected", cat: "articulation" },
+    { term: "Staccato", lang: "It.", meaning: "short and detached", cat: "articulation" },
+    { term: "Staccatissimo", lang: "It.", meaning: "very short and detached", cat: "articulation" },
+    { term: "Tenuto (ten.)", lang: "It.", meaning: "held for its full value", cat: "articulation" },
+    { term: "Marcato", lang: "It.", meaning: "marked and accented", cat: "articulation" },
+    { term: "Pizzicato (pizz.)", lang: "It.", meaning: "plucked (strings)", cat: "articulation" },
+    { term: "Arco", lang: "It.", meaning: "with the bow (strings)", cat: "articulation" },
+    { term: "Legato, slur", lang: "It.", meaning: "a curved line: play the notes smoothly in one gesture", cat: "articulation" },
+    // Expression & mood.
+    { term: "Dolce", lang: "It.", meaning: "sweetly", cat: "expression" },
+    { term: "Cantabile", lang: "It.", meaning: "in a singing style", cat: "expression" },
+    { term: "Espressivo (espress.)", lang: "It.", meaning: "expressively", cat: "expression" },
+    { term: "Grazioso", lang: "It.", meaning: "gracefully", cat: "expression" },
+    { term: "Maestoso", lang: "It.", meaning: "majestically", cat: "expression" },
+    { term: "Con brio", lang: "It.", meaning: "with vigour and spirit", cat: "expression" },
+    { term: "Con moto", lang: "It.", meaning: "with movement", cat: "expression" },
+    { term: "Tranquillo", lang: "It.", meaning: "calmly", cat: "expression" },
+    { term: "Agitato", lang: "It.", meaning: "agitated and restless", cat: "expression" },
+    { term: "Giocoso", lang: "It.", meaning: "playfully", cat: "expression" },
+    { term: "Sotto voce", lang: "It.", meaning: "in an undertone, hushed", cat: "expression" },
+    { term: "Sostenuto", lang: "It.", meaning: "sustained", cat: "expression" },
+    { term: "Simile (sim.)", lang: "It.", meaning: "continue in the same manner", cat: "expression" },
+    // Navigation / structure.
+    { term: "Da capo (D.C.)", lang: "It.", meaning: "from the beginning", cat: "navigation" },
+    { term: "Dal segno (D.S.)", lang: "It.", meaning: "from the sign", cat: "navigation" },
+    { term: "Fine", lang: "It.", meaning: "the end", cat: "navigation" },
+    { term: "Coda", lang: "It.", meaning: "a closing section", cat: "navigation" },
+    { term: "Fermata (pause)", lang: "It.", meaning: "hold the note or rest longer than written", cat: "navigation" },
+    { term: "Tacet", lang: "It.", meaning: "silent - do not play", cat: "navigation" },
+    // French.
+    { term: "Lent", lang: "Fr.", meaning: "slow", cat: "french" },
+    { term: "Modéré", lang: "Fr.", meaning: "at a moderate speed", cat: "french" },
+    { term: "Vite", lang: "Fr.", meaning: "quick", cat: "french" },
+    { term: "Vif", lang: "Fr.", meaning: "lively", cat: "french" },
+    { term: "Animé", lang: "Fr.", meaning: "animated, lively", cat: "french" },
+    { term: "Doux", lang: "Fr.", meaning: "soft, sweet", cat: "french" },
+    { term: "Retenu", lang: "Fr.", meaning: "held back, slower", cat: "french" },
+    { term: "Cédez", lang: "Fr.", meaning: "yield - slow down", cat: "french" },
+    { term: "Mouvement (mouvt)", lang: "Fr.", meaning: "tempo, or 'movement'", cat: "french" },
+    // German.
+    { term: "Langsam", lang: "Ger.", meaning: "slow", cat: "german" },
+    { term: "Mässig", lang: "Ger.", meaning: "at a moderate speed", cat: "german" },
+    { term: "Schnell", lang: "Ger.", meaning: "fast", cat: "german" },
+    { term: "Lebhaft", lang: "Ger.", meaning: "lively", cat: "german" },
+    { term: "Bewegt", lang: "Ger.", meaning: "with movement, agitated", cat: "german" },
+    { term: "Ruhig", lang: "Ger.", meaning: "calm, peaceful", cat: "german" },
+    { term: "Zart", lang: "Ger.", meaning: "tender, delicate", cat: "german" },
+    { term: "Kräftig", lang: "Ger.", meaning: "strong, vigorous", cat: "german" },
+    { term: "Mit Ausdruck", lang: "Ger.", meaning: "with expression", cat: "german" },
   ];
   function termQuestion(rng) {
     const t = pick(rng, TERMS);
@@ -1113,26 +1183,95 @@
   ];
 
   const VALUE_REF = [
-    ["Semibreve", "4 beats", "= 2 minims = 4 crotchets"],
-    ["Minim", "2 beats", "= 2 crotchets"],
-    ["Crotchet", "1 beat", "= 2 quavers"],
-    ["Quaver", "½ beat", "= 2 semiquavers"],
-    ["Semiquaver", "¼ beat", "= 2 demisemiquavers"],
+    ["Semibreve (whole note)", "4 beats", "= 2 minims = 4 crotchets"],
+    ["Minim (half note)", "2 beats", "= 2 crotchets"],
+    ["Crotchet (quarter note)", "1 beat", "= 2 quavers"],
+    ["Quaver (eighth note)", "½ beat", "= 2 semiquavers"],
+    ["Semiquaver (sixteenth)", "¼ beat", "= 2 demisemiquavers"],
+    ["Dotted note", "1½ × its value", "a dot adds half the note's value again"],
   ];
 
+  const CLEF_REF = [
+    ["Treble (G)", "2nd line up = G4", "violin, flute, oboe, right-hand piano, high voices"],
+    ["Bass (F)", "2nd line down = F3", "cello, bassoon, tuba, left-hand piano, low voices"],
+    ["Alto (C)", "middle line = middle C", "viola"],
+    ["Tenor (C)", "4th line up = middle C", "high cello, bassoon & trombone passages"],
+  ];
+
+  const scalePat = (type) => M.SCALE_STEPS[type].map((s) => (s === 1 ? "S" : s === 2 ? "T" : "T½")).join(" ");
+  const SCALE_REF = [
+    ["major", "Major", "bright, resolved"],
+    ["naturalMinor", "Natural minor", "uses the key signature as-is"],
+    ["harmonicMinor", "Harmonic minor", "raised 7th - an exotic augmented 2nd"],
+    ["melodicMinorAsc", "Melodic minor (ascending)", "raised 6th and 7th on the way up"],
+    ["dorian", "Dorian", "minor with a raised 6th"],
+    ["phrygian", "Phrygian", "minor with a flat 2nd"],
+    ["lydian", "Lydian", "major with a sharp 4th"],
+    ["mixolydian", "Mixolydian", "major with a flat 7th"],
+    ["aeolian", "Aeolian", "the natural minor scale"],
+    ["locrian", "Locrian", "diminished and unstable"],
+  ].map(([type, name, ch]) => [name, scalePat(type), ch]);
+
+  const CHORD_TYPE_REF = [
+    { term: "Major triad", def: "root + major 3rd + perfect 5th (C-E-G)" },
+    { term: "Minor triad", def: "root + minor 3rd + perfect 5th (C-E♭-G)" },
+    { term: "Diminished triad", def: "root + minor 3rd + diminished 5th (C-E♭-G♭)" },
+    { term: "Augmented triad", def: "root + major 3rd + augmented 5th (C-E-G♯)" },
+    { term: "Dominant 7th", def: "major triad + a minor 7th (G-B-D-F) - pulls to the tonic" },
+    { term: "Major 7th", def: "major triad + a major 7th (C-E-G-B)" },
+    { term: "Minor 7th", def: "minor triad + a minor 7th (C-E♭-G-B♭)" },
+    { term: "Diminished 7th", def: "four notes stacked in minor 3rds (B-D-F-A♭) - very tense" },
+    { term: "Half-diminished 7th", def: "diminished triad + a minor 7th (B-D-F-A)" },
+  ];
+
+  const TUPLET_REF = [
+    { term: "Triplet", def: "3 equal notes in the time of 2" },
+    { term: "Duplet", def: "2 equal notes in the time of 3 (in compound time)" },
+    { term: "Quadruplet", def: "4 equal notes in the time of 3" },
+    { term: "Quintuplet", def: "5 equal notes in the time of 4 (or 3)" },
+    { term: "Sextuplet", def: "6 equal notes in the time of 4" },
+  ];
+
+  const ORDER_REF = [
+    { term: "Order of sharps", def: "F♯ C♯ G♯ D♯ A♯ E♯ B♯ - each new sharp key adds the next one" },
+    { term: "Order of flats", def: "B♭ E♭ A♭ D♭ G♭ C♭ F♭ - the order of sharps reversed" },
+  ];
+
+  const termsBy = (cat) => TERMS.filter((t) => t.cat === cat).map((t) => ({ term: t.term, def: t.meaning }));
+
   const reference = [
-    { id: "keys", title: "Key signatures", type: "table", columns: ["Key", "Signature", "Accidentals", "Relative minor"], rows: keySignatureRows() },
-    { id: "intervals", title: "Intervals", type: "table", columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
-    { id: "degrees", title: "Scale-degree names", type: "table", columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
-    { id: "values", title: "Note values (in 4/4)", type: "table", columns: ["Note", "Worth", "Divides into"], rows: VALUE_REF },
-    { id: "time", title: "Time signatures", type: "table", columns: ["Signature", "Type", "Feel"], rows: TIMES.map((t) => [t.sig, t.cat, t.why]) },
-    { id: "ornaments", title: "Ornaments", type: "glossary", items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc })) },
-    { id: "terms", title: "Italian, French & German terms", type: "glossary", items: TERMS.map((t) => ({ term: `${t.term} (${t.lang})`, def: t.meaning })) },
-    { id: "cadences", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: c.why })) },
-    { id: "figured", title: "Figured bass", type: "glossary", items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
-    { id: "chromatic", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc })) },
-    { id: "instruments", title: "Instruments & families", type: "table", columns: ["Instrument", "Family"], rows: INSTRUMENTS.map((i) => [i.name, i.family]) },
-    { id: "voices", title: "Voices (SATB)", type: "glossary", items: VOICES.map((v) => ({ term: v.name, def: v.note })) },
+    // Pitch & keys
+    { id: "keys", group: "Pitch & keys", title: "Key signatures", type: "table", columns: ["Key", "Signature", "Accidentals", "Relative minor"], rows: keySignatureRows() },
+    { id: "clefs", group: "Pitch & keys", title: "Clefs", type: "table", columns: ["Clef", "Reference point", "Used by"], rows: CLEF_REF },
+    { id: "order", group: "Pitch & keys", title: "Order of sharps & flats", type: "glossary", items: ORDER_REF },
+    { id: "intervals", group: "Pitch & keys", title: "Intervals", type: "table", columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
+    { id: "enharmonics", group: "Pitch & keys", title: "Enharmonic equivalents", type: "table", columns: ["Note", "Same pitch as"], rows: ENHARM.map((e) => [e.a, e.b]) },
+    { id: "scales", group: "Pitch & keys", title: "Scales & modes", type: "table", columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
+    { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table", columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
+    // Chords & harmony
+    { id: "chordtypes", group: "Chords & harmony", title: "Chord types", type: "glossary", items: CHORD_TYPE_REF },
+    { id: "cadences", group: "Chords & harmony", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: c.why })) },
+    { id: "figured", group: "Chords & harmony", title: "Figured bass", type: "glossary", items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
+    { id: "chromatic", group: "Chords & harmony", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc })) },
+    // Rhythm & metre
+    { id: "values", group: "Rhythm & metre", title: "Note values", type: "table", columns: ["Note", "Worth (in 4/4)", "Divides into"], rows: VALUE_REF },
+    { id: "time", group: "Rhythm & metre", title: "Time signatures", type: "table", columns: ["Signature", "Type", "Feel"], rows: TIMES.map((t) => [t.sig, t.cat, t.why]) },
+    { id: "tuplets", group: "Rhythm & metre", title: "Tuplets", type: "glossary", items: TUPLET_REF },
+    // Tempo, dynamics & expression
+    { id: "tempo", group: "Tempo & expression", title: "Tempo", type: "glossary", items: termsBy("tempo") },
+    { id: "tempochange", group: "Tempo & expression", title: "Changing the tempo", type: "glossary", items: termsBy("tempochange") },
+    { id: "dynamics", group: "Tempo & expression", title: "Dynamics", type: "glossary", items: termsBy("dynamics") },
+    { id: "articulation", group: "Tempo & expression", title: "Articulation & touch", type: "glossary", items: termsBy("articulation") },
+    { id: "expression", group: "Tempo & expression", title: "Expression & mood", type: "glossary", items: termsBy("expression") },
+    { id: "navigation", group: "Tempo & expression", title: "Navigation & signs", type: "glossary", items: termsBy("navigation") },
+    { id: "ornaments", group: "Tempo & expression", title: "Ornaments", type: "glossary", items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc })) },
+    // French & German
+    { id: "french", group: "French & German", title: "French terms", type: "glossary", items: termsBy("french") },
+    { id: "german", group: "French & German", title: "German terms", type: "glossary", items: termsBy("german") },
+    // Instruments & voices
+    { id: "instruments", group: "Instruments & voices", title: "Instruments & families", type: "table", columns: ["Instrument", "Family"], rows: INSTRUMENTS.map((i) => [i.name, i.family]) },
+    { id: "voices", group: "Instruments & voices", title: "Voices (SATB)", type: "glossary", items: VOICES.map((v) => ({ term: v.name, def: v.note })) },
+    { id: "transposing", group: "Instruments & voices", title: "Transposing instruments", type: "table", columns: ["Instrument", "Sounds", "Written part"], rows: TRANSPOSERS.map((t) => [t.name, t.blurb, `a ${t.quality} ${M.ordinal(t.number)} higher than concert pitch`]) },
   ];
 
   const api = {

@@ -19,9 +19,22 @@
     const controls = () => C.el(`<div class="explainer-controls"></div>`);
     const lessonCard = (html) => C.el(`<div class="card lesson">${html}</div>`);
 
-    // Deep-link: open a specific explainer directly (e.g. "dig deeper" from a quiz).
-    if (arg && arg.open) {
-      const target = ctx.content.explainers.find((e) => e.id === arg.open);
+    // Declared before the deep-link branch below, which can call openExplainer
+    // immediately. (The build* functions are hoisted function declarations.)
+    const builders = {
+      monochord: buildMonochord,
+      "circle-of-fifths": buildCircleOfFifths,
+      temperament: buildTemperament,
+      "harmonic-series": buildHarmonicSeries,
+      "three-minors": buildThreeMinors,
+      modes: buildModes,
+    };
+
+    // Deep-link: open a specific explainer directly (from the hash, or a
+    // "dig deeper" link). arg is the explainer id (string) or { open: id }.
+    const openId = typeof arg === "string" ? arg : (arg && arg.open) || null;
+    if (openId) {
+      const target = ctx.content.explainers.find((e) => e.id === openId);
       if (target) { openExplainer(target); return; }
     }
 
@@ -29,7 +42,7 @@
     main.appendChild(view);
     const grid = C.el(`<div class="grid" style="margin-top:18px"></div>`);
     ctx.content.explainers.forEach((e) => {
-      grid.appendChild(C.cardButton(`<h3>${e.title}</h3><div class="why">${e.blurb}</div>`, () => openExplainer(e)));
+      grid.appendChild(C.cardButton(`<h3>${e.title}</h3><div class="why">${e.blurb}</div>`, () => ctx.router.navigate("explore", e.id)));
     });
     view.appendChild(grid);
 
@@ -43,28 +56,19 @@
       C.focus(v.querySelector("h1"));
     }
 
-    const builders = {
-      monochord: buildMonochord,
-      "circle-of-fifths": buildCircleOfFifths,
-      temperament: buildTemperament,
-      "harmonic-series": buildHarmonicSeries,
-      "three-minors": buildThreeMinors,
-      modes: buildModes,
-    };
-
     function buildMonochord(host) {
       host.appendChild(lessonCard(`
         <p><b>Where it all starts.</b> Stretch a single string over a box and pluck it: one note. Now stop the string partway and pluck again - a different note. That's the whole of pitch in one object. The ancient Greeks built exactly this - a <b>monochord</b> - and discovered that the notes that sound <i>good</i> together are the ones where the string is divided into <b>simple whole-number fractions</b>.</p>
-        <p><b>The big one: halve the string.</b> Stop a string exactly in the middle and each half vibrates <b>twice as fast</b>. Double the frequency and you get the <b>octave</b> - so similar to the original that we give it the same letter name. A 2:1 ratio is the simplest there is, which is why the octave is the most consonant interval of all.</p>
-        <p><b>The next simplest fractions are the next-sweetest intervals.</b> Take two-thirds of the string (a 3:2 ratio) and you get a <b>perfect 5th</b>; three-quarters (4:3) gives a <b>perfect 4th</b>; four-fifths (5:4) a <b>major 3rd</b>. The simpler the fraction, the more consonant the interval. Every interval you name in theory is, underneath, one of these string-length ratios. Hear the string divide:</p>`));
+        <p><b>Shorter string, higher pitch - length and frequency are inverses.</b> Say the open string sounds <b>A = 220 Hz</b>. Stop it exactly in the middle and the vibrating half goes <b>twice as fast: 440 Hz</b>, an octave up (the 2:1 ratio - the simplest there is, and the most consonant interval). Take <b>two-thirds</b> of the length and the frequency rises to <b>3/2 = 330 Hz</b> - a <b>perfect 5th</b>. Three-quarters of the length gives 4/3 (≈293 Hz, a perfect 4th); four-fifths gives 5/4 (275 Hz, a major 3rd). The simple fractions of <i>length</i> are just the simple <i>frequency ratios</i> turned upside down.</p>
+        <p><b>A ratio, not a multiple.</b> A "perfect 5th" is the <b>ratio 3:2 between two notes</b> (220→330 Hz here). Don't confuse it with the harmonic series, where multiplying by 3 (220→660 Hz) lands a whole octave higher - a 12th, not a 5th. Same number, different question. Pick a fraction and watch the string divide:</p>`));
 
-      const base = M.noteToFreq("C3");
+      const base = M.noteToFreq("A3"); // 220 Hz - clean numbers that match the harmonic-series page
       const stops = [
-        { label: "Open (1:1)", ratio: 1, note: "C - the fundamental" },
-        { label: "½ (2:1)", ratio: 2, note: "C an octave up" },
-        { label: "⅔ (3:2)", ratio: 3 / 2, note: "G - a perfect 5th" },
-        { label: "¾ (4:3)", ratio: 4 / 3, note: "F - a perfect 4th" },
-        { label: "⅘ (5:4)", ratio: 5 / 4, note: "E - a major 3rd" },
+        { label: "Open (1:1)", ratio: 1, note: "A3, 220 Hz - the fundamental" },
+        { label: "½ (2:1)", ratio: 2, note: "A4, 440 Hz - an octave up" },
+        { label: "⅔ (3:2)", ratio: 3 / 2, note: "E4, 330 Hz - a perfect 5th" },
+        { label: "¾ (4:3)", ratio: 4 / 3, note: "D4, ≈293 Hz - a perfect 4th" },
+        { label: "⅘ (5:4)", ratio: 5 / 4, note: "C♯4, 275 Hz - a major 3rd" },
       ];
 
       // The vibrating fraction of the string is 1/ratio; pitch rises as it shortens.
@@ -196,23 +200,29 @@
 
     function buildHarmonicSeries(host) {
       host.appendChild(lessonCard(`
-        <p><b>Where it comes from.</b> Pluck a string and it doesn't only vibrate as a whole - it simultaneously vibrates in halves, thirds, quarters and so on. Each division adds a quieter tone, a <b>partial</b>, at a whole-number multiple of the lowest note (the fundamental). The mix of partials is what gives every instrument its tone colour.</p>
-        <p><b>Why it matters.</b> The partials spell out the consonant intervals in order - octave, then 5th, then 4th, then major 3rd - because those are the simplest frequency ratios, and they're literally present in every note you play. The 4th, 5th and 6th partials are a ready-made <b>major triad</b>, a big part of why that chord sounds so resolved. Play the partials and hear it assemble:</p>`));
-      const f = M.noteToFreq("C2");
+        <p><b>Where it comes from.</b> Pluck a string and it doesn't only vibrate as a whole - it simultaneously vibrates in halves, thirds, quarters and so on. Each division adds a quieter tone, a <b>partial</b>, at a <b>whole-number multiple</b> of the fundamental's frequency. The mix of partials is what gives every instrument its tone colour.</p>
+        <p><b>Multiply the frequency by 1, 2, 3, 4...</b> If the fundamental is <b>A = 110 Hz</b>, the partials sit at 220, 330, 440, 550, 660, 770, 880 Hz. (The 4th partial, 440 Hz, is the A we tune to.) Crucially, the <i>gaps</i> between them <b>shrink</b> as you climb, even though each step adds the same 110 Hz: 110→220 is an octave, 220→330 a perfect 5th, 330→440 a perfect 4th, 440→550 a major 3rd. Your ear judges an interval by the <b>ratio</b> of the two frequencies, and those ratios get closer to 1 as you go up (2:1, 3:2, 4:3, 5:4...), so each step is a smaller interval.</p>
+        <p><b>Why the same letters keep returning.</b> Doubling the frequency is always an octave, so partials 1, 2, 4 and 8 are all <b>A</b>. Partial 3 (×3 = 330 Hz) is a 5th above the <i>second</i> partial - i.e. an octave-and-a-fifth above the fundamental - which is why it's a high E, not the E just above the bottom A. Play the partials and watch the steps shrink:</p>`));
+      const f = M.noteToFreq("A2"); // 110 Hz, so the numbers match the text exactly
       const partials = [
-        { n: 1, note: "C", role: "fundamental" }, { n: 2, note: "C", role: "octave (1:2)" },
-        { n: 3, note: "G", role: "+ perfect 5th (2:3)" }, { n: 4, note: "C", role: "+ perfect 4th (3:4)" },
-        { n: 5, note: "E", role: "+ major 3rd (4:5)" }, { n: 6, note: "G", role: "+ minor 3rd (5:6)" },
-        { n: 7, note: "B♭", role: "(flat 7th - sits low)" }, { n: 8, note: "C", role: "octave" },
+        { n: 1, note: "A", role: "the fundamental" },
+        { n: 2, note: "A", role: "octave above #1" },
+        { n: 3, note: "E", role: "5th above #2" },
+        { n: 4, note: "A", role: "4th above #3 - this is A440" },
+        { n: 5, note: "C♯", role: "major 3rd above #4" },
+        { n: 6, note: "E", role: "minor 3rd above #5" },
+        { n: 7, note: "G", role: "flatter than a normal G" },
+        { n: 8, note: "A", role: "octave above #4" },
       ];
       const card = C.el(`<div class="card"></div>`);
-      card.appendChild(C.el(`<h3 style="margin-top:0">The first eight partials</h3>`));
+      card.appendChild(C.el(`<h3 style="margin-top:0">The first eight partials of A (110 Hz)</h3>`));
       const list = C.el(`<div class="partial-list"></div>`);
       partials.forEach((p) => {
+        const hz = Math.round(f * p.n);
         const b = document.createElement("button");
         b.className = "partial-chip";
         b.type = "button";
-        b.innerHTML = `<b>${p.n}</b> · ${p.note} <span class="muted">${p.role}</span>`;
+        b.innerHTML = `<b>×${p.n}</b> ${p.note} <span class="muted">${hz} Hz · ${p.role}</span>`;
         b.addEventListener("click", () => A.freqSequence([f * p.n], 0, 0.9));
         list.appendChild(b);
       });
@@ -221,8 +231,11 @@
       row.appendChild(playBtn("Play all eight in turn", () => A.freqSequence(partials.map((p) => f * p.n), 0.5, 0.48)));
       row.appendChild(playBtn("Hear the major triad (4:5:6)", () => A.freqChord([4 * f, 5 * f, 6 * f], 2)));
       card.appendChild(row);
-      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 are C, E and G - a major triad arrives ready-made, which is why it sounds so settled.</p>`));
+      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 (A, C♯, E - 440:550:660 Hz) are a major triad, ready-made, which is why it sounds so settled.</p>`));
       host.appendChild(card);
+
+      host.appendChild(lessonCard(`
+        <p><b>Multiples vs ratios - the thing that trips people up.</b> "×3" and "a perfect 5th" are not the same idea. <b>×3</b> measures a partial against the <i>fundamental</i> (330 Hz is a 12th - an octave <i>plus</i> a 5th - above 110 Hz). A <b>perfect 5th</b> is the <i>ratio between two notes</i>, 3:2 - for example 440 Hz up to 660 Hz. That 3:2 turns up here as the gap between the 2nd and 3rd partials (220→330). It's the same 3:2 that makes <b>two-thirds of a string</b> sound a 5th - see <i>A string over a box</i> for the length side of the story.</p>`));
     }
 
     function buildThreeMinors(host) {
