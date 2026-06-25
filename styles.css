@@ -1,34 +1,78 @@
 /* styles.css - design system for the theory trainer.
- * Clean, warm, friendly. Light by default with a calm paper background, one warm
- * accent, generous type, rounded cards and gentle motion. */
+ * Warm, calm and modern. Tokens drive both a light and a dark theme; the app sets
+ * data-theme on <html> (light / dark, or resolved from the OS for "system"). */
 
-:root {
-  --bg: #f6f4ee;
-  --paper: #fffdf8;
-  --ink: #2b2722;
-  --ink-soft: #6f675c;
-  --line: #e7e1d6;
-  --accent: #c8553d;      /* warm terracotta */
-  --accent-soft: #f3d9d1;
-  --good: #3f8f6b;
-  --good-soft: #d8efe4;
+:root, [data-theme="light"] {
+  --bg: #f3f1ea;          /* page */
+  --bg-2: #ece8df;        /* recessed wells (segmented controls) */
+  --paper: #fffdf9;       /* card surface */
+  --surface-2: #faf7f0;   /* secondary surface */
+  --ink: #221f1b;
+  --ink-soft: #6c6459;
+  --line: #e6e0d4;        /* hairlines */
+  --line-strong: #d8d1c2;
+  --accent: #c2543c;      /* warm terracotta */
+  --accent-strong: #a8442f;
+  --accent-soft: #f6ddd5;
+  --good: #2f8763;
+  --good-soft: #dcefe5;
   --bad: #b5483a;
-  --gold: #e0a64e;
-  --radius: 16px;
-  --shadow: 0 6px 24px rgba(40, 30, 20, 0.08);
+  --bad-soft: #f7dcd7;
+  --gold: #d99a3e;
+  --chip: #fff5e6;
+  --chip-border: #f0e0bf;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 2px rgba(40, 30, 20, .06), 0 1px 1px rgba(40, 30, 20, .04);
+  --shadow: 0 2px 8px rgba(40, 30, 20, .06), 0 8px 24px rgba(40, 30, 20, .06);
+  --shadow-lg: 0 12px 36px rgba(40, 30, 20, .14);
   --maxw: 880px;
+  --header-bg: rgba(255, 253, 249, .8);
+  color-scheme: light;
   font-size: 17px;
+}
+
+[data-theme="dark"] {
+  --bg: #16140f;
+  --bg-2: #211d16;
+  --paper: #211e18;
+  --surface-2: #26221b;
+  --ink: #efe9df;
+  --ink-soft: #a89e8d;
+  --line: #332e25;
+  --line-strong: #423b30;
+  --accent: #e3795f;
+  --accent-strong: #ee8d75;
+  --accent-soft: #3a261f;
+  --good: #4cae84;
+  --good-soft: #1d3329;
+  --bad: #e0786a;
+  --bad-soft: #3a2420;
+  --gold: #e0a64e;
+  --chip: #2c2417;
+  --chip-border: #473a20;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow: 0 2px 10px rgba(0, 0, 0, .4), 0 10px 30px rgba(0, 0, 0, .35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, .5);
+  --header-bg: rgba(28, 25, 19, .8);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 
+html { scroll-behavior: smooth; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 600px at 70% -10%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
   color: var(--ink);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
+  transition: background-color .3s ease, color .3s ease;
 }
 
 h1, h2, h3 { font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
@@ -242,6 +286,13 @@ footer.note { text-align: center; color: var(--ink-soft); font-size: .85rem; pad
 /* Don't show the ring on mouse click, only keyboard. */
 :focus:not(:focus-visible) { outline: none; }
 
+/* Section headings and <main> are focused programmatically only, to orient
+   screen-reader users after a view change. Keyboard users never tab to them
+   (tabindex="-1"), so they don't need - and shouldn't show - a focus ring. */
+h1[tabindex="-1"]:focus, h2[tabindex="-1"]:focus, main[tabindex="-1"]:focus {
+  outline: none;
+}
+
 .sound-label { font-size: .8rem; display: flex; align-items: center; gap: 6px; }
 
 /* Buttons that look like cards (keyboard-operable clickable cards). */
@@ -305,3 +356,100 @@ footer.note { text-align: center; color: var(--ink-soft); font-size: .85rem; pad
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
 }
+
+/* =======================================================================
+   Refresh: slicker surfaces, theme-aware chrome, dark mode, new chips.
+   These override the earlier base rules (same specificity, later wins).
+   ======================================================================= */
+
+header.appbar {
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--line);
+  gap: 12px;
+}
+
+/* Theme-aware chips + new header controls. */
+.streak-chip {
+  background: var(--chip); border: 1px solid var(--chip-border); color: var(--gold);
+}
+.level-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-weight: 700; font-size: .82rem; color: var(--accent);
+  background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  padding: 6px 12px; border-radius: 999px; white-space: nowrap;
+}
+.theme-toggle {
+  border: 1px solid var(--line); background: var(--surface-2); cursor: pointer;
+  width: 36px; height: 36px; border-radius: 999px; font-size: 1rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background .15s, border-color .15s, transform .08s;
+}
+.theme-toggle:hover { border-color: var(--accent); }
+.theme-toggle:active { transform: scale(.94); }
+
+/* Cards: lighter, layered elevation; lift interactive ones on hover. */
+.card {
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .18s ease, border-color .18s ease, transform .12s ease, background-color .3s ease;
+}
+.topic:hover, .as-button:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--line-strong); }
+.as-button:active { transform: translateY(0); }
+
+/* Buttons: solid, confident, with a soft press. */
+.btn {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  box-shadow: var(--shadow-sm); border-radius: var(--radius-sm);
+  transition: filter .15s, transform .08s, box-shadow .15s;
+}
+.btn:hover { filter: brightness(1.06); box-shadow: var(--shadow); }
+.btn.ghost { background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--line); box-shadow: none; }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+.btn.secondary { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
+
+/* Tabs. */
+nav.tabs button { transition: background .15s, color .15s; }
+nav.tabs button.active { background: var(--accent); color: #fff; }
+
+/* Quiz choices: crisper, calmer, clear states. */
+.quiz-prompt { font-size: 1.22rem; }
+.choice {
+  border: 1.5px solid var(--line); background: var(--surface-2); border-radius: var(--radius-sm);
+  transition: border-color .12s, background .12s, transform .06s;
+}
+.choice:hover:not(:disabled) { border-color: var(--accent); background: var(--paper); }
+.choice:active:not(:disabled) { transform: scale(.995); }
+.choice.correct { border-color: var(--good); background: var(--good-soft); }
+.choice.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.choice-key { background: var(--bg-2); }
+
+/* Answer reveal. */
+.reveal.good { background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
+.reveal.bad { background: var(--bad-soft); border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+.reveal.idk { background: var(--surface-2); border-color: var(--line); }
+.reveal .why-line { color: var(--ink); }
+
+/* Disclaimer + boxes use themed surfaces. */
+.disclaimer { background: var(--surface-2); border: 1px solid var(--line); }
+.why-box { background: var(--accent-soft); }
+
+/* Segmented controls (playground + mode toggle) recessed well. */
+.seg, .mode-toggle { background: var(--bg-2); border-color: var(--line); }
+
+/* Data card on the home screen. */
+.data-card h3 { margin-bottom: 4px; }
+.ok-line { color: var(--good); font-weight: 600; }
+.ok-line b { color: var(--good); }
+
+/* Stats tiles: subtle. */
+.stat { box-shadow: var(--shadow-sm); }
+.stat-num { letter-spacing: -0.02em; }
+
+/* Keyboard widget in dark mode: white keys stay light, black keys dark. */
+.pg-key { background: #fbfaf6; color: #222; border-color: var(--line-strong); }
+.pg-key.black { background: #1c1916; }
+.pg-key.active, .pg-key.black.active { background: var(--accent); }
+
+/* Smooth most interactive elements through a theme switch. */
+.choice, .card, .btn, .focus-chip, .audio-btn, .cof-key, .partial-chip, .stat,
+.streak-chip, .level-chip, select, input { transition-property: background-color, color, border-color, box-shadow, transform, filter; }

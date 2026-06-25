@@ -14,8 +14,10 @@ function scaffold() {
         <button type="button" data-tab="play">Playground</button>
       </nav>
       <select id="grade-select"></select>
+      <span id="level">·</span>
       <span id="streak">🔥 0</span>
       <input type="checkbox" id="sound-toggle" checked>
+      <button id="theme-toggle" type="button">🌗</button>
     </header>
     <main id="main" tabindex="-1"></main>`;
 }
@@ -107,5 +109,23 @@ describe("DOM - settings", () => {
     t.checked = false;
     t.dispatchEvent(new window.Event("change"));
     expect(instance.store.settings().sound).toBe(false);
+  });
+
+  it("the theme toggle cycles and persists the theme + sets data-theme", () => {
+    const t = document.getElementById("theme-toggle");
+    t.click(); // system -> light
+    expect(instance.store.settings().theme).toBe("light");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("light");
+    t.click(); // light -> dark
+    expect(instance.store.settings().theme).toBe("dark");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
+  });
+
+  it("the estimated-level badge updates after practice", () => {
+    const level = document.getElementById("level");
+    expect(level.textContent).toBe("New");
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    expect(level.textContent).not.toBe("New"); // reflects that some practice happened
   });
 });

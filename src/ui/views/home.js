@@ -46,9 +46,14 @@
         </div>
         <div id="focus-area"></div>
         <div class="grid" id="home-cards"></div>
-        <p class="muted backup-line">Progress is saved in this browser.
-          <button class="linkish" id="backup" type="button">Back up to a file</button> ·
-          <button class="linkish" id="restore" type="button">Restore</button></p>
+        <div class="card data-card">
+          <h3 style="margin-top:0">Your data</h3>
+          <p class="muted" id="durability-line" style="margin-top:0"></p>
+          <div id="file-link-area"></div>
+          <p class="muted backup-line">Or keep a manual copy:
+            <button class="linkish" id="backup" type="button">Back up to a file</button> ·
+            <button class="linkish" id="restore" type="button">Restore</button></p>
+        </div>
         <input type="file" id="restore-file" accept="application/json" hidden>
       </div>`);
     main.appendChild(view);
@@ -97,6 +102,58 @@
         () => ctx.router.navigate(tab));
       cards.appendChild(c);
     });
+
+    // Durability status + linked-file controls.
+    renderDataStatus();
+    function renderDataStatus() {
+      const status = ctx.persistStatus || {};
+      const durable = status.persisted;
+      const line = view.querySelector("#durability-line");
+      if (line) {
+        line.textContent = store.storageOK
+          ? (durable
+            ? "Saved in this browser with durable storage (the browser has been asked not to clear it)."
+            : "Saved in this browser. For the strongest safety, link a save file below.")
+          : "This browser won't reliably keep data on its own - linking a save file (or manual backup) is recommended.";
+      }
+      const area = view.querySelector("#file-link-area");
+      if (!area) return;
+      C.clear(area);
+      if (!status.fileSupported) {
+        area.appendChild(C.el(`<p class="muted" style="font-size:.85rem;margin:6px 0 0">Tip: this browser doesn't support linked auto-save files. Use a manual backup, or open the app in a Chromium browser to auto-save to a file in a synced folder.</p>`));
+        return;
+      }
+      if (status.fileLinked && !status.needsPermission) {
+        area.appendChild(C.el(`<p class="ok-line" style="margin:6px 0">✓ Auto-saving to <b>${escapeHtml(status.fileName || "your linked file")}</b> on every change.</p>`));
+        const unlink = C.button("Stop auto-saving", async () => { await ctx.persist.unlinkFile(); await ctx.refreshPersistStatus(); renderDataStatus(); }, { className: "ghost" });
+        area.appendChild(unlink);
+      } else if (status.fileLinked && status.needsPermission) {
+        area.appendChild(C.el(`<p class="muted" style="margin:6px 0">A save file is linked but the browser needs permission again.</p>`));
+        const reconnect = C.button("Reconnect save file", async () => {
+          await ctx.persist.reconnectFile();
+          await ctx.refreshPersistStatus();
+          renderDataStatus();
+        });
+        area.appendChild(reconnect);
+      } else {
+        area.appendChild(C.el(`<p class="muted" style="margin:6px 0;font-size:.9rem">Link a save file once and your progress auto-saves to it on every change - put it in a Drive/Dropbox folder and it follows you across devices. No accounts, no server.</p>`));
+        const link = C.button("Link a save file (auto-save)", async () => {
+          try {
+            await ctx.persist.linkFile(store.get());
+            await ctx.refreshPersistStatus();
+            renderDataStatus();
+            C.announce("Save file linked. Progress now auto-saves to it.");
+          } catch {
+            C.announce("Couldn't link a save file.", true);
+          }
+        });
+        area.appendChild(link);
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
 
     // Backup / restore.
     view.querySelector("#backup").addEventListener("click", () => exportProgress());

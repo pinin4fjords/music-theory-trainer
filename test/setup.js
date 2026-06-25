@@ -25,6 +25,7 @@ src("audio.js");
 src("core/srs.js");
 src("core/analytics.js");
 src("core/storage.js");
+src("core/persist.js");
 src("content.js");
 src("core/session.js");
 src("core/state.js");

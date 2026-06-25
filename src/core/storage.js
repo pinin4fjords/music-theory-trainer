@@ -34,7 +34,7 @@
       lastDay: null,
       totalAnswered: 0,
       srs: {}, // topicId -> Card (see core/srs.js)
-      settings: { sound: true, grade: 4, mode: "daily", reducedMotion: false },
+      settings: { sound: true, grade: 4, mode: "daily", reducedMotion: false, theme: "system" },
     };
   }
 
@@ -120,6 +120,7 @@
     out.stateVersion = CURRENT_VERSION;
     if (![1, 2, 3, 4, 5, 6, 7, 8].includes(out.settings.grade)) out.settings.grade = 4;
     if (out.settings.mode !== "path") out.settings.mode = "daily";
+    if (!["light", "dark", "system"].includes(out.settings.theme)) out.settings.theme = "system";
     return out;
   }
 

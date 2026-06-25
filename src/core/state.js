@@ -31,8 +31,29 @@
     let state = storage().load(store);
     const storageOK = storage().probe(store);
 
+    // Stamp each save so the persistence layer can reconcile newest-wins across
+    // localStorage / IndexedDB / a linked file. `onPersist` mirrors to the sturdy
+    // sinks (set up by the app); hydrate() deliberately skips it.
     function persist() {
+      state.savedAt = clock();
       storage().save(state, store);
+      if (opts.onPersist) {
+        try { opts.onPersist(state); } catch { /* mirroring must never break a save */ }
+      }
+    }
+
+    // Adopt a stored copy found by the persistence layer if it is newer than what
+    // we have (e.g. localStorage was cleared but IndexedDB or the linked file
+    // survived). Writes through to localStorage only - never back to the sinks.
+    function hydrate(candidate) {
+      if (!candidate) return false;
+      const at = typeof candidate.savedAt === "number" ? candidate.savedAt : 0;
+      const cur = typeof state.savedAt === "number" ? state.savedAt : 0;
+      if (at <= cur) return false;
+      state = storage().normalize(candidate);
+      storage().save(state, store);
+      notify();
+      return true;
     }
     function notify() {
       listeners.forEach((fn) => {
@@ -109,7 +130,7 @@
     return {
       get, settings, srsMap, cardFor, subscribe,
       setSetting, recordAnswer, recordSessionDay, doneToday,
-      restore, exportJSON,
+      restore, hydrate, exportJSON,
       get storageOK() { return storageOK; },
     };
   }

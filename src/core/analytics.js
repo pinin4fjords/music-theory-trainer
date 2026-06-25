@@ -69,7 +69,66 @@
     return out;
   }
 
-  const api = { topicStats, weakAreas, overall, byGrade };
+  // Per-grade coverage and mastery (0..1), used to estimate an overall level.
+  function gradeMastery(srsMap, topics) {
+    const S = srs();
+    const map = srsMap || {};
+    const byG = {};
+    topics.forEach((t) => { (byG[t.grade] = byG[t.grade] || []).push(t); });
+    const out = {};
+    Object.keys(byG).forEach((g) => {
+      const list = byG[g];
+      const cards = list.map((t) => map[t.id]).filter((c) => c && c.seen > 0);
+      const coverage = list.length ? cards.length / list.length : 0;
+      let mastery = 0;
+      if (cards.length) {
+        mastery = cards.reduce((a, c) =>
+          a + (0.5 * (c.correct / c.seen) + 0.5 * (S.clampBox(c.box) / S.MAX_BOX)), 0) / cards.length;
+      }
+      out[+g] = { grade: +g, coverage, mastery, seen: cards.length, total: list.length };
+    });
+    return out;
+  }
+
+  // Coverage/mastery thresholds at which a grade counts as "demonstrated".
+  const DEMO_COVERAGE = 0.5;
+  const DEMO_MASTERY = 0.75;
+
+  /**
+   * Estimate the learner's overall theory level from local performance. The level
+   * is the highest grade for which that grade AND every grade below it are
+   * "demonstrated" (enough topics seen, high enough mastery) - a competence floor,
+   * not a single lucky topic. This is an estimate from practice here, not an
+   * assessment.
+   * @returns {{ level: number|null, label: string, detail: string, grades: object }}
+   */
+  function estimatedLevel(srsMap, topics) {
+    const gm = gradeMastery(srsMap, topics);
+    const grades = Object.values(gm).sort((a, b) => a.grade - b.grade);
+    const anySeen = grades.some((g) => g.seen > 0);
+    if (!anySeen) {
+      return { level: null, label: "New", detail: "Answer a few questions and your estimated level appears here.", grades: gm };
+    }
+    let level = 0;
+    for (const g of grades) {
+      if (g.coverage >= DEMO_COVERAGE && g.mastery >= DEMO_MASTERY) level = g.grade;
+      else break;
+    }
+    const working = grades.find((g) => g.grade > level && g.seen > 0);
+    let label, detail;
+    if (level === 0) {
+      label = "Starting out";
+      detail = "Building the Grade 1 foundations.";
+    } else {
+      label = "Grade " + level;
+      detail = working
+        ? `Solid through Grade ${level}; working on Grade ${working.grade}.`
+        : `Solid through Grade ${level}.`;
+    }
+    return { level, label, detail, grades: gm };
+  }
+
+  const api = { topicStats, weakAreas, overall, byGrade, gradeMastery, estimatedLevel };
 
   global.MTT = global.MTT || {};
   global.MTT.analytics = api;

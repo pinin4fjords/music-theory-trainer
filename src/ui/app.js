@@ -19,7 +19,18 @@
     const doc = opts.document || global.document;
     const components = global.MTT.ui.components;
 
-    const store = global.MTT.state.create({ storage: opts.storage || null, now: opts.now });
+    // Durable persistence: mirrors every save to IndexedDB + an optional linked
+    // file, and reconciles the newest copy on load. Injectable for tests.
+    const persist = opts.persist || global.MTT.persist.create({
+      now: opts.now,
+      serialize: (s) => global.MTT.storage.exportJSON(s),
+    });
+
+    const store = global.MTT.state.create({
+      storage: opts.storage || null,
+      now: opts.now,
+      onPersist: (s) => persist.mirror(s),
+    });
     global.MTT.audio.setEnabled(store.settings().sound);
 
     // Create the ARIA-live announcement region up front so it is always present.
@@ -40,12 +51,15 @@
       diagnose: global.MTT.diagnose,
       analytics: global.MTT.analytics,
       storage: global.MTT.storage,
+      persist,
       rng: global.MTT.rng,
       router,
       C: components,
       now: opts.now || (() => Date.now()),
       seed: opts.seed, // fixed seed in tests; undefined => time-seeded in production
+      persistStatus: { supported: false, fileSupported: false, fileLinked: false },
       syncHeader,
+      refreshPersistStatus,
     };
     router.setContext(ctx);
 
@@ -85,16 +99,54 @@
       });
     }
 
-    // Keep the streak chip current whenever state changes.
+    // Theme toggle (cycles light -> dark -> system; system follows the OS).
+    const themeToggle = doc.getElementById("theme-toggle");
+    const THEME_ICON = { light: "☀️", dark: "🌙", system: "🌗" };
+    const THEME_NEXT = { light: "dark", dark: "system", system: "light" };
+    if (themeToggle) {
+      themeToggle.addEventListener("click", () => {
+        const next = THEME_NEXT[store.settings().theme] || "light";
+        store.setSetting("theme", next);
+        applyTheme();
+      });
+    }
+    function applyTheme() {
+      const setting = store.settings().theme || "system";
+      let resolved = setting;
+      if (setting === "system") {
+        let dark = false;
+        try { dark = global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)").matches; } catch { /* ignore */ }
+        resolved = dark ? "dark" : "light";
+      }
+      const docEl = doc.documentElement;
+      if (docEl) docEl.setAttribute("data-theme", resolved);
+      if (themeToggle) {
+        themeToggle.textContent = THEME_ICON[setting] || "🌗";
+        themeToggle.setAttribute("aria-label", "Colour theme: " + setting + " (click to change)");
+      }
+    }
+    // Re-resolve "system" when the OS preference changes.
+    try {
+      const mq = global.matchMedia && global.matchMedia("(prefers-color-scheme: dark)");
+      if (mq && mq.addEventListener) mq.addEventListener("change", () => { if (store.settings().theme === "system") applyTheme(); });
+    } catch { /* ignore */ }
+
+    // Keep the streak + estimated-level chips current whenever state changes.
     const streakChip = doc.getElementById("streak");
-    store.subscribe(() => {
-      if (streakChip) streakChip.textContent = "🔥 " + store.get().streak;
-    });
+    const levelChip = doc.getElementById("level");
+    const allTopics = global.MTT.session.quizableTopics(global.MTT.content);
+    store.subscribe(syncHeader);
 
     function syncHeader() {
       if (gradeSelect) gradeSelect.value = String(store.settings().grade);
       if (soundToggle) soundToggle.checked = store.settings().sound;
       if (streakChip) streakChip.textContent = "🔥 " + store.get().streak;
+      if (levelChip) {
+        const est = global.MTT.analytics.estimatedLevel(store.srsMap(), allTopics);
+        levelChip.textContent = est.level ? "Lvl " + est.level : est.label;
+        levelChip.title = est.detail;
+        levelChip.setAttribute("aria-label", "Estimated level: " + est.label + ". " + est.detail);
+      }
     }
 
     // Unlock audio on the first user gesture (autoplay policy).
@@ -111,8 +163,28 @@
       if (doc.body) doc.body.classList.toggle("reduce-motion", reduce);
     }
 
+    function refreshPersistStatus() {
+      return persist.init().then((status) => {
+        ctx.persistStatus = Object.assign({}, status);
+        return ctx.persistStatus;
+      }).catch(() => ctx.persistStatus);
+    }
+
+    applyTheme();
     syncHeader();
     router.navigate("home");
+
+    // After first paint, request durable storage and adopt any newer stored copy
+    // (e.g. localStorage was cleared but IndexedDB or the linked file survived).
+    Promise.resolve().then(async () => {
+      try {
+        ctx.persistStatus = await persist.init();
+        const best = await persist.readBest(store.get());
+        const changed = best ? store.hydrate(best) : false;
+        if (changed) { syncHeader(); router.refresh(); }
+        else if (router.getCurrent() === "home") router.refresh(); // reflect persist status in UI
+      } catch { /* persistence is best-effort */ }
+    });
 
     return { router, store, ctx };
   }

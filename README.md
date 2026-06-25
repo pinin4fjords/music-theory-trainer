@@ -56,6 +56,7 @@ index.html ── loads, in order:
 ├── src/core/srs.js        Leitner spaced repetition + response signals  MTT.srs
 ├── src/core/analytics.js  local-only weak-area analytics                MTT.analytics
 ├── src/core/storage.js    versioned persistence + migration + backup    MTT.storage
+├── src/core/persist.js    durable: persist()+IndexedDB+linked file      MTT.persist
 ├── src/content.js         the curriculum (Grades 1-8) + generators      MTT.content
 ├── src/core/session.js    session assembly (filter, order, validate)    MTT.session
 ├── src/core/state.js      central state store (DOM-free)                MTT.state
@@ -97,10 +98,23 @@ one bad generator can never crash practice.
 
 ## Persistence & migration
 
-Progress (streak, totals, per-topic spaced-repetition state, settings) is stored in
-`localStorage` under the key `mtt.v1`, **per-browser and per-device**. There is no server,
-by design - so every visitor gets their own private progress, and to move your own streak
-between devices you use **Back up** (downloads a JSON file) and **Restore**.
+Progress (streak, totals, per-topic spaced-repetition state, settings) is stored locally,
+**per-browser and per-device**. There is no server, by design - so every visitor gets their
+own private progress.
+
+Durability without a backend (`src/core/persist.js`):
+
+- **`navigator.storage.persist()`** is requested on load, asking the browser not to evict
+  the data under storage pressure.
+- An **IndexedDB mirror** (sturdier and larger than `localStorage`) is written on every
+  change, so a cleared `localStorage` can recover.
+- An optional **linked save-file** (File System Access API): pick a file once and every
+  change auto-saves to it. Point it at a Drive/Dropbox folder and progress follows you
+  across devices - no accounts, no server. Chromium-only; other browsers fall back to the
+  manual **Back up / Restore** file (still available everywhere).
+
+On load, the **newest** copy across `localStorage` / IndexedDB / the linked file wins (each
+save stamps `savedAt`), reconciled after first paint so the UI stays instant.
 
 State is **versioned** (`stateVersion`). On load, legacy data is run forward through a
 migration pipeline to the current shape, so a returning learner never loses progress:
@@ -108,7 +122,7 @@ migration pipeline to the current shape, so a returning learner never loses prog
 | Version | Shape | Migration |
 | --- | --- | --- |
 | v1 (legacy, no `stateVersion`) | `{ boxes: {id:int}, lastSeen: {id:ts}, streak, settings:{sound,grade} }` | → v2 |
-| **v2 (current)** | `{ stateVersion:2, srs: {id: Card}, streak, bestStreak, daysPracticed, totalAnswered, settings:{sound,grade,mode,reducedMotion} }` | the Leitner box and `lastSeen` become an SRS `Card`; box (the real progress) and scheduling are preserved |
+| **v2 (current)** | `{ stateVersion:2, savedAt, srs: {id: Card}, streak, bestStreak, daysPracticed, totalAnswered, settings:{sound,grade,mode,reducedMotion,theme} }` | the Leitner box and `lastSeen` become an SRS `Card`; box (the real progress) and scheduling are preserved. New settings default in via `normalize()`, so older v2 data needs no separate migration |
 
 Resilience: corrupt or unreadable stored data falls back to clean defaults; imported
 backups are parsed, validated (clear error messages on a bad file) and migrated; partial
@@ -124,6 +138,9 @@ or hand-edited state is merged onto defaults so no key is ever missing.
 - **Visible focus** via `:focus-visible`, plus a skip-to-content link.
 - **Reduced motion** - animations/transitions are disabled under
   `prefers-reduced-motion` (and a stored setting).
+- **Light / dark theme** - a header toggle cycles light → dark → system; "system"
+  follows (and live-updates with) the OS `prefers-color-scheme`. All colours are CSS
+  custom-property tokens themed for both modes.
 
 ## Pedagogy
 
@@ -132,6 +149,13 @@ or hand-edited state is merged onto defaults so no key is ever missing.
   "wrong".
 - **Spaced repetition** tracks per-topic accuracy and response time, and resurfaces weak
   or overdue topics first; the home screen surfaces "focus areas".
+- **Estimated level** - a constant header badge estimates the highest grade you've
+  *demonstrated* (enough topics seen, high enough mastery, all lower grades solid too),
+  computed locally from your practice (`analytics.estimatedLevel`). It's an estimate, not
+  an assessment.
+- **Lower-grade interleaving** - a higher-grade session always mixes in a diagnostic slice
+  of lower-grade questions, so the app can see what you *do* know even when the
+  grade-level questions are hard. "Learning path" mode still leads with the current grade.
 - **Two modes**: *Daily mix* (spaced review across the current grade and below) and a
   *Learning path* that leads with the current grade's new material.
 - **Grades 1-6** carry full practice drills; **Grades 7-8** carry the drillable

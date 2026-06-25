@@ -46,6 +46,19 @@ describe("session - assembly", () => {
     expect(s[0].topic.grade).toBe(5);
   });
 
+  it("a higher-grade session interleaves lower-grade diagnostic questions", () => {
+    for (const mode of ["daily", "path"]) {
+      const s = session.build({
+        content, settings: { grade: 5, mode }, srsMap: {}, rng: rng.create("mix-" + mode), now: 0,
+      });
+      const lower = s.filter((x) => x.topic.grade < 5).length;
+      const atGrade = s.filter((x) => x.topic.grade === 5).length;
+      expect(lower).toBeGreaterThanOrEqual(2); // guaranteed diagnostic slice
+      expect(atGrade).toBeGreaterThanOrEqual(1); // still mostly grade-level
+      expect(s.length).toBe(session.SESSION_LEN);
+    }
+  });
+
   it("orders weak/overdue topics first (SRS priority)", () => {
     // Make one grade-1 topic look very weak and overdue.
     const all = session.gradeTopics(content, 2);

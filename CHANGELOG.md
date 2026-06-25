@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.0 - Durable persistence, level badge, dark mode
+
+- **Durable, backup-free persistence** (`core/persist.js`): requests
+  `navigator.storage.persist()`, mirrors every save to IndexedDB, and adds an optional
+  linked save-file (File System Access API) that auto-saves on every change - point it at
+  a synced folder and progress follows you across devices, with no accounts or server.
+  Newest-wins reconciliation across localStorage / IndexedDB / the file (a `savedAt`
+  stamp); manual backup/restore stays as a universal fallback.
+- **Estimated-level badge**: a constant header chip estimates the highest grade you've
+  demonstrated, computed locally (`analytics.estimatedLevel`).
+- **Lower-grade interleaving**: higher-grade sessions guarantee a diagnostic slice of
+  lower-grade questions, so the app can gauge what a struggling learner already knows;
+  "learning path" mode still leads with the current grade.
+- **Light/dark theme**: header toggle (light → dark → system), system-aware and
+  live-updating; full token-based theming for both modes.
+- **Visual refresh**: lighter layered elevation, refined buttons/cards/quiz choices,
+  themed chrome and chips - less "clunky e-learning".
+- Tests: +16 (persist reconciliation, estimated level, session interleaving, theme
+  toggle, level badge) - 147 total.
+
 ## 2.0.0 - Production-quality upgrade
 
 A cohesive upgrade across architecture, correctness, pedagogy, accessibility,

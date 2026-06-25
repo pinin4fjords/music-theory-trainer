@@ -66,9 +66,11 @@
   }
 
   // Build distinct, valid questions by drawing topics round-robin from `pool`.
-  function assemble(pool, n, rng) {
+  // An optional shared `seen` set lets several assemble() calls avoid producing
+  // the same question across pools (used when interleaving grades).
+  function assemble(pool, n, rng, seen) {
     if (!pool.length) return [];
-    const seen = new Set();
+    seen = seen || new Set();
     const out = [];
     let i = 0, guard = 0;
     const maxGuard = n * 80;
@@ -100,8 +102,30 @@
     return out;
   }
 
+  // Fraction of a higher-grade session reserved for lower-grade questions, so we
+  // always sample what the learner already knows - useful diagnostically when
+  // they're struggling with grade-level material.
+  const LOWER_GRADE_FRACTION = 0.3;
+
+  // Spread the (minority) lower-grade picks evenly through the current-grade
+  // picks, starting with a current-grade question. Deterministic.
+  function interleave(current, lower) {
+    const out = [];
+    const total = current.length + lower.length;
+    let ai = 0, bi = 0;
+    for (let i = 0; i < total; i++) {
+      const wantLower = Math.round((i + 1) * lower.length / total);
+      if (bi < wantLower && bi < lower.length) out.push(lower[bi++]);
+      else if (ai < current.length) out.push(current[ai++]);
+      else if (bi < lower.length) out.push(lower[bi++]);
+    }
+    return out;
+  }
+
   /**
-   * Build a full practice session.
+   * Build a full practice session. For grade >= 2 a diagnostic slice of
+   * lower-grade questions is guaranteed alongside the grade-level questions; in
+   * "path" mode the session still leads with the current grade.
    * @param {{ content, settings:{grade,mode}, srsMap, rng, now, length? }} opts
    * @returns {Array<{ topic, q }>}
    */
@@ -110,8 +134,25 @@
     const length = opts.length || SESSION_LEN;
     const grade = settings.grade;
     const mode = settings.mode || "daily";
-    const pool = orderPool(gradeTopics(content, grade), srsMap, now, grade, mode);
-    return assemble(pool, length, rng);
+    const all = gradeTopics(content, grade);
+    const lowerTopics = orderPool(all.filter((t) => t.grade < grade), srsMap, now, grade, mode);
+    const currentTopics = orderPool(all.filter((t) => t.grade === grade), srsMap, now, grade, mode);
+
+    // No lower grades available (Grade 1, or nothing seen below): original mix.
+    if (grade <= 1 || !lowerTopics.length || !currentTopics.length) {
+      return assemble(orderPool(all, srsMap, now, grade, mode), length, rng);
+    }
+
+    const seen = new Set();
+    const lowerQuota = Math.min(length - 1, Math.max(2, Math.round(length * LOWER_GRADE_FRACTION)));
+    const current = assemble(currentTopics, length - lowerQuota, rng, seen);
+    const lower = assemble(lowerTopics, length - current.length, rng, seen);
+    let picks = interleave(current, lower);
+    // Backfill from the full pool if a sub-pool ran dry on a small curriculum.
+    if (picks.length < length) {
+      picks = picks.concat(assemble(orderPool(all, srsMap, now, grade, mode), length - picks.length, rng, seen));
+    }
+    return picks.slice(0, length);
   }
 
   // A single-topic session (the "practise this topic" button).
