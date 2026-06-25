@@ -247,6 +247,7 @@
   }
 
   const ALTO_NOTES = [
+    ["C", 3], ["D", 3], ["E", 3],
     ["F", 3], ["G", 3], ["A", 3], ["B", 3], ["C", 4], ["D", 4], ["E", 4],
     ["F", 4], ["G", 4], ["A", 4], ["B", 4], ["C", 5], ["D", 5], ["E", 5],
   ];
@@ -550,11 +551,14 @@
   function cadenceQuestion(rng) {
     const key = pick(rng, CADENCE_KEYS);
     const c = pick(rng, CADENCES);
-    const chord1 = M.triad(key, "major", c.prog[0], 0);
-    const chord2 = M.triad(key, "major", c.prog[1], 0);
+    // Imperfect cadences can end on V from I, ii, or IV; vary the starting chord.
+    const prog = (c.name === "imperfect") ? [pick(rng, [1, 2, 4]), 5] : c.prog;
+    const chord1 = M.triad(key, "major", prog[0], 0);
+    const chord2 = M.triad(key, "major", prog[1], 0);
     const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: [chord1, chord2] };
-    const r1 = c.prog[0] === 5 ? "V" : c.prog[0] === 4 ? "IV" : "I";
-    const r2 = c.prog[1] === 1 ? "I" : c.prog[1] === 5 ? "V" : "vi";
+    const ROMAN1 = { 1: "I", 2: "ii", 4: "IV", 5: "V" };
+    const r1 = ROMAN1[prog[0]] || String(prog[0]);
+    const r2 = prog[1] === 1 ? "I" : prog[1] === 5 ? "V" : "vi";
     return {
       prompt: `In <b>${key} major</b>, which cadence is this (${r1} - ${r2})?` + staffBlock(spec),
       a11yText: a11y(`In ${key} major, identify this cadence: chord ${r1} to chord ${r2}.`, spec),
