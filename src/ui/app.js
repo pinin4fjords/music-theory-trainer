@@ -41,6 +41,8 @@
 
     const router = global.MTT.ui.router.create({ mainEl: main, navButtons, window: opts.window || global });
 
+    const gist = global.MTT.gist || null;
+
     const ctx = {
       store,
       content: global.MTT.content,
@@ -52,6 +54,7 @@
       analytics: global.MTT.analytics,
       storage: global.MTT.storage,
       persist,
+      gist,
       rng: global.MTT.rng,
       router,
       C: components,
@@ -194,6 +197,27 @@
       }
     }
 
+    // Debounced Gist push: write to GitHub at most once per 5 s of inactivity,
+    // and flush immediately when the page is hidden (tab switch / close).
+    if (gist) {
+      let pushTimer = null;
+      function scheduleGistPush() {
+        if (!gist.isConnected()) return;
+        clearTimeout(pushTimer);
+        pushTimer = setTimeout(() => {
+          gist.push(Object.assign({}, store.get(), { savedAt: ctx.now() })).catch(() => {});
+        }, 5000);
+      }
+      store.subscribe(scheduleGistPush);
+      doc.addEventListener("visibilitychange", () => {
+        if (doc.visibilityState === "hidden" && gist.isConnected()) {
+          clearTimeout(pushTimer);
+          pushTimer = null;
+          gist.push(Object.assign({}, store.get(), { savedAt: ctx.now() })).catch(() => {});
+        }
+      });
+    }
+
     // Unlock audio on the first user gesture (autoplay policy).
     const unlock = () => global.MTT.audio.unlock();
     doc.addEventListener("pointerdown", unlock, { once: true });
@@ -219,8 +243,8 @@
     syncHeader();
     router.fromHash(); // open the page named in the URL hash (or home)
 
-    // After first paint, request durable storage and adopt any newer stored copy
-    // (e.g. localStorage was cleared but IndexedDB or the linked file survived).
+    // After first paint: request durable storage, reconcile local copies, and
+    // pull from GitHub Gist if the user is connected (adopts whichever is newest).
     Promise.resolve().then(async () => {
       try {
         ctx.persistStatus = await persist.init();
@@ -229,6 +253,13 @@
         if (changed) { syncHeader(); router.refresh(); }
         else if (router.getCurrent() === "home") router.refresh(); // reflect persist status in UI
       } catch { /* persistence is best-effort */ }
+
+      if (gist && gist.isConnected()) {
+        try {
+          const remote = await gist.pull();
+          if (remote && store.hydrate(remote)) { syncHeader(); router.refresh(); }
+        } catch { /* gist pull is best-effort */ }
+      }
     });
 
     return { router, store, ctx };

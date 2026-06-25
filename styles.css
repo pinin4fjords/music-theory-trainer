@@ -203,6 +203,9 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .data-card h3 { margin-bottom: 4px; }
 .ok-line { color: var(--good); font-weight: 600; margin: 6px 0; }
 .ok-line b { color: var(--good); }
+.github-auth-box { background: var(--surface-alt, var(--surface)); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 6px 0; }
+.device-code-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+.device-code { font-family: monospace; font-size: 1.5rem; font-weight: 700; letter-spacing: .12em; color: var(--ink); }
 
 /* --- Hero (the thesis): big headline set on a five-line stave ----------- */
 .hero { text-align: center; padding: clamp(38px, 7vw, 72px) 10px clamp(10px, 2vw, 18px); position: relative; }

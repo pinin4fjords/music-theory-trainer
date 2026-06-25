@@ -90,6 +90,7 @@
           <h3 style="margin-top:0">Your data</h3>
           <p class="muted" id="durability-line" style="margin-top:0"></p>
           <div id="file-link-area"></div>
+          <div id="github-sync-area"></div>
           <p class="muted backup-line">Or keep a manual copy:
             <button class="linkish" id="backup" type="button">Back up to a file</button> ·
             <button class="linkish" id="restore" type="button">Restore</button> ·
@@ -190,6 +191,103 @@
           }
         });
         area.appendChild(link);
+      }
+    }
+
+    // GitHub Gist sync controls.
+    renderGithubSync();
+    function renderGithubSync() {
+      const area = view.querySelector("#github-sync-area");
+      if (!area) return;
+      C.clear(area);
+
+      const gist = ctx.gist;
+      if (!gist) return; // not available in test environment
+
+      const pending = gist.getPending();
+      const connected = gist.isConnected();
+
+      if (pending) {
+        // Device Flow in progress - show the user code.
+        const box = C.el(`
+          <div class="github-auth-box">
+            <p style="margin:6px 0 4px"><b>Connect to GitHub</b></p>
+            <p class="muted" style="margin:0 0 8px;font-size:.9rem">Enter this code at github.com/login/device:</p>
+            <div class="device-code-row">
+              <span class="device-code">${escapeHtml(pending.userCode)}</span>
+              <button type="button" class="linkish" id="copy-code">Copy</button>
+            </div>
+            <p class="muted" style="margin:8px 0;font-size:.85rem">Waiting for you to authorise in GitHub...</p>
+          </div>`);
+        const openBtn = C.button("Open github.com/login/device", () => {
+          global.open(pending.verificationUri, "_blank", "noopener");
+        });
+        const cancelBtn = C.button("Cancel", () => {
+          gist.cancelAuth();
+          renderGithubSync();
+        }, { className: "ghost" });
+        box.appendChild(openBtn);
+        box.appendChild(cancelBtn);
+        box.querySelector("#copy-code").addEventListener("click", (e) => {
+          navigator.clipboard && navigator.clipboard.writeText(pending.userCode).catch(() => {});
+          e.target.textContent = "Copied!";
+          setTimeout(() => { if (e.target.isConnected) e.target.textContent = "Copy"; }, 2000);
+        });
+        area.appendChild(box);
+      } else if (connected) {
+        area.appendChild(C.el(`<p class="ok-line" style="margin:6px 0">✓ Progress syncs to a private GitHub Gist on every change.</p>`));
+        const syncBtn = C.button("Sync now", async () => {
+          syncBtn.disabled = true;
+          syncBtn.textContent = "Syncing...";
+          try {
+            await gist.push(Object.assign({}, store.get(), { savedAt: ctx.now() }));
+            C.announce("Synced to GitHub.");
+          } catch (e) {
+            C.announce("Sync failed: " + e.message, true);
+          } finally {
+            syncBtn.disabled = false;
+            syncBtn.textContent = "Sync now";
+          }
+        }, { className: "ghost" });
+        const disconnectBtn = C.button("Disconnect", () => {
+          gist.disconnect();
+          renderGithubSync();
+          C.announce("Disconnected from GitHub.");
+        }, { className: "ghost" });
+        area.appendChild(syncBtn);
+        area.appendChild(disconnectBtn);
+      } else {
+        area.appendChild(C.el(`<p class="muted" style="margin:6px 0;font-size:.9rem">Sync across devices via a private GitHub Gist - works in any browser, any device. Only needs a GitHub login.</p>`));
+        const connectBtn = C.button("Connect with GitHub", async () => {
+          connectBtn.disabled = true;
+          connectBtn.textContent = "Starting...";
+          try {
+            await gist.startDeviceFlow();
+            renderGithubSync();
+            // Begin polling in the background; re-render on completion or error.
+            gist.pollForToken().then(async (token) => {
+              const info = await gist.finishConnect(token);
+              // Pull from gist if it's newer than local progress.
+              try {
+                const remote = await gist.pull();
+                if (remote) store.hydrate(remote);
+              } catch { /* pull failure is non-fatal */ }
+              ctx.syncHeader();
+              renderGithubSync();
+              C.announce("Connected to GitHub" + (info.username ? " as " + info.username : "") + ".");
+            }).catch((err) => {
+              if (err.message === "cancelled") return;
+              gist.cancelAuth();
+              renderGithubSync();
+              C.announce("GitHub sign-in failed: " + err.message, true);
+            });
+          } catch (err) {
+            connectBtn.disabled = false;
+            connectBtn.textContent = "Connect with GitHub";
+            C.announce("Couldn't reach GitHub: " + err.message, true);
+          }
+        });
+        area.appendChild(connectBtn);
       }
     }
 
