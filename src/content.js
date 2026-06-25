@@ -393,23 +393,24 @@
   }
 
   const ORNAMENTS = [
-    { name: "trill", desc: "a rapid alternation between the written note and the note above", play: ["C5", "D5", "C5", "D5", "C5", "D5", "C5"] },
-    { name: "upper mordent", desc: "a single quick alternation with the note above, then back", play: ["C5", "D5", "C5"] },
-    { name: "lower mordent", desc: "a single quick alternation with the note below, then back", play: ["C5", "B4", "C5"] },
-    { name: "turn", desc: "the note above, the written note, the note below, then the note again", play: ["D5", "C5", "B4", "C5"] },
-    { name: "acciaccatura", desc: "a very quick 'crushed' grace note just before the main note", play: ["B4", "C5"] },
-    { name: "appoggiatura", desc: "a leaning grace note that takes part of the main note's value", play: ["D5", "C5"] },
+    { name: "trill", desc: "a rapid alternation between the written note and the note above", ety: "from Italian <i>trillo</i>, a warble", play: ["C5", "D5", "C5", "D5", "C5", "D5", "C5"] },
+    { name: "upper mordent", desc: "a single quick alternation with the note above, then back", ety: "from Italian <i>mordere</i>, to bite - it 'bites' at the note", play: ["C5", "D5", "C5"] },
+    { name: "lower mordent", desc: "a single quick alternation with the note below, then back", ety: "from Italian <i>mordere</i>, to bite", play: ["C5", "B4", "C5"] },
+    { name: "turn", desc: "the note above, the written note, the note below, then the note again", ety: "also called by its Italian name <i>gruppetto</i>, a 'little group'", play: ["D5", "C5", "B4", "C5"] },
+    { name: "acciaccatura", desc: "a very quick 'crushed' grace note just before the main note", ety: "from Italian <i>acciaccare</i>, to crush", play: ["B4", "C5"] },
+    { name: "appoggiatura", desc: "a leaning grace note that takes part of the main note's value", ety: "from Italian <i>appoggiare</i>, to lean", play: ["D5", "C5"] },
   ];
   function ornamentQuestion(rng) {
     const o = pick(rng, ORNAMENTS);
     const playIt = () => audio().sequence(o.play, 0.13, 0.16);
+    const ety = o.ety ? ` The name is ${o.ety}.` : "";
     const ornHist = `Ornaments grew out of Baroque harpsichord technique: the harpsichord's plucked strings decay immediately, so players alternated notes rapidly to keep long notes alive. On the piano, which sustains naturally, ornaments are now purely expressive.`;
     if (rng.bool()) {
       return {
         prompt: `Which ornament is this: "${o.desc}"?`,
         choices: choices(rng, o.name, ORNAMENTS.map((x) => x.name)),
         answer: o.name,
-        explanation: `That is the <b>${o.name}</b>: ${o.desc}. ${ornHist}`,
+        explanation: `That is the <b>${o.name}</b>: ${o.desc}.${ety} ${ornHist}`,
         audio: playIt,
       };
     }
@@ -417,7 +418,7 @@
       prompt: `What does a <b>${o.name}</b> do?`,
       choices: choices(rng, o.desc, ORNAMENTS.map((x) => x.desc)),
       answer: o.desc,
-      explanation: `A <b>${o.name}</b> is ${o.desc}. ${ornHist}`,
+      explanation: `A <b>${o.name}</b> is ${o.desc}.${ety} ${ornHist}`,
       audio: playIt,
     };
   }
@@ -923,7 +924,7 @@
         {
           id: "g1-notes", title: "Reading notes (treble & bass)",
           why: "The two staves are one system split around middle C - learn the landmark lines and you can read either clef without counting up from the bottom every time.",
-          what: "<p>Treble lines are <b>E G B D F</b>, spaces <b>F A C E</b>; bass lines are <b>G B D F A</b>, spaces <b>A C E G</b>. Middle C sits one ledger line below the treble staff and one above the bass.</p>",
+          what: "<p>Treble lines are <b>E G B D F</b>, spaces <b>F A C E</b>; bass lines are <b>G B D F A</b>, spaces <b>A C E G</b>. Middle C sits one ledger line below the treble staff and one above the bass.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why those squiggles?</b> Both clefs are stylised letters that medieval scribes wrote on a line to fix its pitch. The treble clef is an ornate <b>G</b> - its curl circles the line that is G; the bass clef is an <b>F</b> - its two dots sit either side of the F line. So each clef literally points at the note it names.</p>",
           questions: (rng) => readNotesQuestion(rng),
         },
         {
@@ -958,7 +959,7 @@
         {
           id: "g2-rhythm", title: "Note values & rests",
           why: "Reading rhythm fluently means knowing every value in terms of every other, not just counting beats.",
-          what: "<p>The same halving relationships extend to rests, which mirror the note values. Knowing how many of one value fill another is the key skill.</p>",
+          what: "<p>The same halving relationships extend to rests, which mirror the note values. Knowing how many of one value fill another is the key skill.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why notate silence at all?</b> Early plainchant had no rests - a single voice simply paused. Rests became essential once Renaissance music wove several independent lines together: to keep parts lined up, a singer needed to count exactly how long to wait, so each note value was given a matching symbol for its silence.</p>",
           questions: (rng) => noteValueQuestion(rng),
         },
       ],
@@ -968,13 +969,13 @@
       topics: [
         {
           id: "g3-melodic", title: "The three minor scales",
-          why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap.",
+          why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap. The three forms exist to solve one problem: natural minor has no leading note (its 7th sits a whole tone below the tonic), so it lacks the semitone pull that makes a cadence feel final. Harmonic minor raises the 7th to recover that pull - but that leaves an awkward augmented 2nd to the 6th. Melodic minor smooths the gap by raising the 6th too when ascending, then relaxes back to the natural form coming down, where the leading note isn't needed.",
           what: "<p><b>Natural</b> minor uses the key signature as-is; <b>harmonic</b> minor raises the 7th (making an augmented 2nd); <b>melodic</b> minor raises the 6th and 7th ascending, reverting descending.</p>",
           questions: (rng) => minorFormQuestion(rng),
         },
         {
           id: "g3-compound", title: "Simple & compound time",
-          why: "The lilt of 6/8 versus the march of 2/4 comes from whether each beat divides into two or three.",
+          why: "The lilt of 6/8 versus the march of 2/4 comes from whether each beat divides into two or three. Medieval notation treated triple division as <i>perfect</i> (tempus perfectum, written as a full circle, because three was the number of the Trinity) and duple as <i>imperfect</i> (a broken circle - the ancestor of the C we still write for 4/4). Compound time, where the beat divides into three, is the descendant of that 'perfect' triple feel, and it's the natural metre of sung and danced music like the jig.",
           what: "<p>In compound time (6/8, 9/8, 12/8) the beat is a dotted note dividing into three; divide the top number by three for the number of beats.</p>",
           questions: (rng) => timeClassifyQuestion(rng),
         },
@@ -1065,7 +1066,7 @@
         },
         {
           id: "g5-clefs", title: "The four clefs",
-          why: "Treble, bass, alto and tenor between them keep almost every instrument's part near the staff, with few ledger lines. Reading all four fluently is a Grade 5 staple.",
+          why: "Treble, bass, alto and tenor between them keep almost every instrument's part near the staff, with few ledger lines. Reading all four fluently is a Grade 5 staple. All four are descended from a single idea: a scribe writing a letter on a staff line to fix its pitch. The G, F and C clefs are those letters, stylised over centuries. The C clef in particular was movable - placed on whichever line kept a given voice or instrument off the ledger lines - which is why it survives in two positions: alto (middle line, for the viola) and tenor (fourth line, for the upper cello, bassoon and trombone).",
           what: "<p>The <b>tenor clef</b> is a C clef centring middle C on the <b>fourth line up</b> (used for higher cello, bassoon and trombone passages). With the alto clef (middle C on the centre line) you can now read all four common clefs.</p>",
           questions: (rng) => fourClefQuestion(rng),
         },
@@ -1192,6 +1193,7 @@
     "g3-melodic": "three-minors",
     "g2-intervals": "monochord",
     "g3-quality": "consonance", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
+    "g1-notes": "four-clefs", "g4-alto-clef": "four-clefs", "g5-clefs": "four-clefs",
   };
   grades.forEach((g) => g.topics.forEach((t) => {
     if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];
@@ -1326,43 +1328,80 @@
     { term: "Human hearing range", def: "≈ 20 Hz to 20,000 Hz; a piano spans about 27.5 Hz (A0) to 4186 Hz (C8)" },
   ];
 
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
   const reference = [
     // Pitch & keys
     { id: "keys", group: "Pitch & keys", title: "Key signatures", type: "table", columns: ["Key", "Signature", "Accidentals", "Relative minor"], rows: keySignatureRows() },
-    { id: "clefs", group: "Pitch & keys", title: "Clefs", type: "table", columns: ["Clef", "Reference point", "Used by"], rows: CLEF_REF },
-    { id: "order", group: "Pitch & keys", title: "Order of sharps & flats", type: "glossary", items: ORDER_REF },
-    { id: "intervals", group: "Pitch & keys", title: "Intervals", type: "table", columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
+    { id: "clefs", group: "Pitch & keys", title: "Clefs", type: "table",
+      note: "<b>Clefs are stylised letters.</b> In medieval manuscripts a scribe fixed pitch by writing a plain letter on one staff line. Those letters hardened into today's symbols: the treble clef is an ornate <b>G</b> curling around the G line, the bass clef an <b>F</b> with two dots flanking the F line, and the alto and tenor clefs a <b>C</b> centred on whichever line carries middle C.",
+      columns: ["Clef", "Reference point", "Used by"], rows: CLEF_REF },
+    { id: "order", group: "Pitch & keys", title: "Order of sharps & flats", type: "glossary",
+      note: "The order is not arbitrary: each new sharp sits a perfect 5th above the last (F♯→C♯→G♯→D♯…), the very interval that generates the keys around the circle of fifths. The flats run in the exact reverse.",
+      items: ORDER_REF },
+    { id: "intervals", group: "Pitch & keys", title: "Intervals", type: "table",
+      note: "Intervals are counted <i>inclusively</i> by letter name (C up to G counts C-D-E-F-G = a 5th), a habit inherited from medieval theorists who numbered the notes themselves, not the gaps. Unison, 4th, 5th and octave are <b>perfect</b> because their simple ratios (1:1, 4:3, 3:2, 2:1) were the only consonances early music would end a phrase on; the rest were <b>imperfect</b>.",
+      columns: ["Interval", "Semitones", "Example"], rows: INTERVAL_REF },
     { id: "enharmonics", group: "Pitch & keys", title: "Enharmonic equivalents", type: "table", columns: ["Note", "Same pitch as"], rows: ENHARM.map((e) => [e.a, e.b]) },
-    { id: "scales", group: "Pitch & keys", title: "Scales & modes", type: "table", columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
-    { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table", columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
+    { id: "scales", group: "Pitch & keys", title: "Scales & modes", type: "table",
+      note: "The mode names are Greek - Dorian, Phrygian, Lydian, Mixolydian - but they are a medieval mislabelling: Renaissance theorists borrowed the ancient names and pinned them to the wrong scales. Major and minor are simply two modes (Ionian and Aeolian) that won out as tonal harmony took hold after about 1600.",
+      columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
+    { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table",
+      note: "The names describe each note's <i>pull</i>, not its letter. <b>Dominant</b> (a 5th above) and <b>subdominant</b> (a 5th below) mirror the tonic; <b>mediant</b> and <b>submediant</b> sit midway between them; the <b>leading note</b> leans up a semitone into the tonic. <i>Super-</i> means 'above', <i>sub-</i> 'below'.",
+      columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
     // Acoustics & physics
-    { id: "ratios", group: "Acoustics & physics", title: "Interval ratios: just vs equal", type: "table", columns: ["Interval", "Just ratio", "Just (cents)", "Equal (cents)", "Equal is"], rows: RATIO_REF },
+    { id: "ratios", group: "Acoustics & physics", title: "Interval ratios: just vs equal", type: "table",
+      note: "No keyboard can sound all these pure (<i>just</i>) ratios at once: tune the 5ths perfectly and the 3rds go sour, and vice versa. Equal temperament resolves the clash by detuning every interval slightly so all keys are equally usable - the compromise that made music like Bach's <i>Well-Tempered Clavier</i> (1722) possible.",
+      columns: ["Interval", "Just ratio", "Just (cents)", "Equal (cents)", "Equal is"], rows: RATIO_REF },
     { id: "frequencies", group: "Acoustics & physics", title: "Note frequencies (A4 = 440 Hz)", type: "table", columns: ["Note", "Frequency", "Distance"], rows: FREQ_REF },
     { id: "constants", group: "Acoustics & physics", title: "Acoustic constants", type: "glossary", items: ACOUSTICS_CONST },
     // Chords & harmony
-    { id: "chordtypes", group: "Chords & harmony", title: "Chord types", type: "glossary", items: CHORD_TYPE_REF },
-    { id: "cadences", group: "Chords & harmony", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: c.why })) },
-    { id: "figured", group: "Chords & harmony", title: "Figured bass", type: "glossary", items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
-    { id: "chromatic", group: "Chords & harmony", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc })) },
+    { id: "chordtypes", group: "Chords & harmony", title: "Chord types", type: "glossary",
+      note: "Building chords by stacking <b>3rds</b> is recent: medieval music heard 3rds as mild dissonances and built on open 4ths and 5ths. Only from the 15th century did the triad become the unit of harmony, and the dominant 7th's urge to resolve made it the engine of tonal music from the Baroque onward.",
+      items: CHORD_TYPE_REF },
+    { id: "cadences", group: "Chords & harmony", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: cap(c.why) + ". " + c.nameNote })) },
+    { id: "figured", group: "Chords & harmony", title: "Figured bass", type: "glossary",
+      note: "Figured bass is Baroque shorthand. From roughly 1600 to 1750 a keyboard or lute player (the <i>continuo</i>) improvised the inner harmony live from just the bass line and these numbers; the composer wrote only melody and bass. Fully written-out accompaniments became standard only later.",
+      items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
+    { id: "chromatic", group: "Chords & harmony", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc + ". " + cap(c.why) + "." })) },
     // Rhythm & metre
-    { id: "values", group: "Rhythm & metre", title: "Note values", type: "table", columns: ["Note", "Worth (in 4/4)", "Divides into"], rows: VALUE_REF },
-    { id: "time", group: "Rhythm & metre", title: "Time signatures", type: "table", columns: ["Signature", "Type", "Feel"], rows: TIMES.map((t) => [t.sig, t.cat, t.why]) },
-    { id: "tuplets", group: "Rhythm & metre", title: "Tuplets", type: "glossary", items: TUPLET_REF },
+    { id: "values", group: "Rhythm & metre", title: "Note values", type: "table",
+      note: "The names are medieval fossils. The <b>breve</b> ('short') was once the basic beat; a <b>semibreve</b> is half of it; the <b>minim</b> was the 'smallest' note early notation could write (Latin <i>minima</i>). <b>Crotchet</b> comes from French <i>crochet</i> (a little hook) and <b>quaver</b> from an old word for trembling. The American names - whole, half, quarter, eighth - just count the halving.",
+      columns: ["Note", "Worth (in 4/4)", "Divides into"], rows: VALUE_REF },
+    { id: "time", group: "Rhythm & metre", title: "Time signatures", type: "table",
+      note: "Medieval notation called triple time <i>tempus perfectum</i> - 'perfect', drawn as a full circle - because three stood for the Holy Trinity; duple time was <i>imperfect</i>, a broken circle. That broken circle survives as the <b>C</b> we still write for 4/4 (it is not an abbreviation for 'common'). Compound metres like 6/8 carry the swing of sung and danced music - the jig, the barcarolle.",
+      columns: ["Signature", "Type", "Feel"], rows: TIMES.map((t) => [t.sig, t.cat, t.why]) },
+    { id: "tuplets", group: "Rhythm & metre", title: "Tuplets", type: "glossary",
+      note: "A tuplet borrows time from the prevailing beat: a triplet squeezes three notes where two belong (simple time), a duplet two where three belong (compound time). They let a composer cut across the metre's natural division without changing the time signature.",
+      items: TUPLET_REF },
     // Tempo, dynamics & expression
-    { id: "tempo", group: "Tempo & expression", title: "Tempo", type: "glossary", items: termsBy("tempo") },
+    { id: "tempo", group: "Tempo & expression", title: "Tempo", type: "glossary",
+      note: "Almost all of these are <b>Italian</b>, because Italy led European music when the vocabulary was standardised (roughly 1600-1750): opera, the sonata and the concerto all began there, and Italian publishers spread the notation across the continent. The convention held even after French and German composers came to the fore.",
+      items: termsBy("tempo") },
     { id: "tempochange", group: "Tempo & expression", title: "Changing the tempo", type: "glossary", items: termsBy("tempochange") },
     { id: "dynamics", group: "Tempo & expression", title: "Dynamics", type: "glossary", items: termsBy("dynamics") },
     { id: "articulation", group: "Tempo & expression", title: "Articulation & touch", type: "glossary", items: termsBy("articulation") },
     { id: "expression", group: "Tempo & expression", title: "Expression & mood", type: "glossary", items: termsBy("expression") },
     { id: "navigation", group: "Tempo & expression", title: "Navigation & signs", type: "glossary", items: termsBy("navigation") },
-    { id: "ornaments", group: "Tempo & expression", title: "Ornaments", type: "glossary", items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc })) },
+    { id: "ornaments", group: "Tempo & expression", title: "Ornaments", type: "glossary",
+      note: "Ornaments are relics of the harpsichord, whose plucked strings decay at once and cannot swell. Players alternated notes rapidly to keep a long note alive and to mark important beats - decoration the performer once improvised. The piano sustains by itself, so ornaments survive today as purely expressive gestures.",
+      items: ORNAMENTS.map((o) => ({ term: o.name, def: o.desc + (o.ety ? ` (${o.ety})` : "") })) },
     // French & German
-    { id: "french", group: "French & German", title: "French terms", type: "glossary", items: termsBy("french") },
-    { id: "german", group: "French & German", title: "German terms", type: "glossary", items: termsBy("german") },
+    { id: "french", group: "French & German", title: "French terms", type: "glossary",
+      note: "French and German terms appear because not every composer wrote in Italian. Some Romantic composers - Schumann, Debussy, late Beethoven - deliberately marked their scores in their own language as a point of national pride.",
+      items: termsBy("french") },
+    { id: "german", group: "French & German", title: "German terms", type: "glossary",
+      note: "German markings (in Schumann, Brahms, Mahler, late Beethoven) reflect the same 19th-century turn away from Italian as music's automatic lingua franca.",
+      items: termsBy("german") },
     // Instruments & voices
-    { id: "instruments", group: "Instruments & voices", title: "Instruments & families", type: "table", columns: ["Instrument", "Family"], rows: INSTRUMENTS.map((i) => [i.name, i.family]) },
-    { id: "voices", group: "Instruments & voices", title: "Voices (SATB)", type: "glossary", items: VOICES.map((v) => ({ term: v.name, def: v.note })) },
-    { id: "transposing", group: "Instruments & voices", title: "Transposing instruments", type: "table", columns: ["Instrument", "Sounds", "Written part"], rows: TRANSPOSERS.map((t) => [t.name, t.blurb, `a ${t.quality} ${M.ordinal(t.number)} higher than concert pitch`]) },
+    { id: "instruments", group: "Instruments & voices", title: "Instruments & families", type: "table",
+      note: "A family is defined by <b>how</b> the sound is made, not what the instrument is made of. Strings are bowed or plucked; woodwind use a reed or an edge-blown hole (which is why the metal saxophone counts as woodwind); brass use the player's buzzing lips against a cup mouthpiece; percussion are struck or shaken.",
+      columns: ["Instrument", "Family"], rows: INSTRUMENTS.map((i) => [i.name, i.family]) },
+    { id: "voices", group: "Instruments & voices", title: "Voices (SATB)", type: "glossary",
+      note: "The four-part SATB layout is the texture of Renaissance church choral writing, which is why harmony is still taught and written in four voices today.",
+      items: VOICES.map((v) => ({ term: v.name, def: v.note + " - " + v.why })) },
+    { id: "transposing", group: "Instruments & voices", title: "Transposing instruments", type: "table",
+      note: "Why write a part at the 'wrong' pitch? Because 18th-century horns and clarinets were built for a single key; to play in another the performer slotted in a <i>crook</i> - a length of tube that retuned the whole instrument - and kept the same fingerings and the same written notes. Valves and modern keywork made crooks obsolete, but the notation convention stayed.",
+      columns: ["Instrument", "Sounds", "Written part"], rows: TRANSPOSERS.map((t) => [t.name, t.blurb, `a ${t.quality} ${M.ordinal(t.number)} higher than concert pitch`]) },
   ];
 
   const api = {

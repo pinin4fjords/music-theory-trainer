@@ -529,6 +529,28 @@
       buildStaves(currentNote);
       host.appendChild(card);
 
+      // Where the shapes came from: each clef is a stylised letter sitting on
+      // the line of the note it names.
+      const originCard = C.el(`<div class="card"></div>`);
+      originCard.appendChild(C.el(`<h3 style="margin-top:0">The shapes are stylised letters</h3>`));
+      originCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Medieval scribes fixed pitch by writing a plain letter on one staff line. Over centuries those letters hardened into today's clef symbols - and each one still names a note by sitting on its line. The note shown in each staff below is exactly the letter the clef came from.</p>`));
+      const origins = [
+        { letter: "G", clef: "treble", note: M.spelled("G", 0, 4), cap: "Treble clef: an ornate <b>G</b>, its curl circling the <b>G</b> line" },
+        { letter: "F", clef: "bass", note: M.spelled("F", 0, 3), cap: "Bass clef: an <b>F</b>, its two dots straddling the <b>F</b> line" },
+        { letter: "C", clef: "alto", note: M.spelled("C", 0, 4), cap: "C clef: a <b>C</b> centred on <b>middle C</b> (here the alto line)" },
+      ];
+      const originGrid = C.el(`<div class="clef-origins"></div>`);
+      origins.forEach((o) => {
+        const row = C.el(`<div class="clef-origin-row"></div>`);
+        row.appendChild(C.el(`<div class="clef-origin-letter" aria-hidden="true">${o.letter}</div>`));
+        row.appendChild(C.el(`<div class="clef-origin-arrow" aria-hidden="true">→</div>`));
+        row.appendChild(C.el(`<div class="staff-wrap clef-origin-staff">${N.staffHTML({ clef: o.clef, notes: [o.note] })}</div>`));
+        row.appendChild(C.el(`<div class="clef-origin-cap">${o.cap}</div>`));
+        originGrid.appendChild(row);
+      });
+      originCard.appendChild(originGrid);
+      host.appendChild(originCard);
+
       host.appendChild(lessonCard(`
         <p><b>Which instruments use which clef?</b> Treble: violin, flute, right-hand piano, high voices (soprano, alto). Bass: cello, tuba, left-hand piano, low voices (tenor, bass). Alto (C clef on 3rd line): viola. Tenor (C clef on 4th line): upper range of cello, bassoon, trombone, tenor trombone.</p>
         <p><b>The trick.</b> For each clef, find middle C first. Once you know where C4 is, every other note is just counting up or down by letter - the same as treble or bass, just starting from a different anchor.</p>`));

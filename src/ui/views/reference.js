@@ -82,6 +82,7 @@
 
     function sectionEl(s) {
       const card = C.el(`<div class="card ref-section"><h3 style="margin-top:0">${s.title}</h3></div>`);
+      if (s.note) card.appendChild(C.el(`<p class="ref-note">${s.note}</p>`));
       if (s.type === "table") {
         const head = s.columns.map((c) => `<th>${c}</th>`).join("");
         const body = s.rows.map((r) => `<tr>${r.map((cell, i) => `<td${i === 0 ? ' class="ref-key"' : ""}>${cell}</td>`).join("")}</tr>`).join("");
