@@ -526,8 +526,8 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
     background: var(--bg);
   }
   .level-chip { display: none; }          /* visible in Progress view instead */
-  .grade-select span { display: none; }   /* keep the <select>, drop the label */
-  .streak-chip { padding: 4px 8px; font-size: .78rem; gap: 4px; }
+  .grade-select { font-size: .78rem; }    /* compact but keep the "Grade" label */
+  .streak-chip { margin-left: auto; padding: 4px 8px; font-size: .78rem; gap: 4px; }
 
   /* Nav tabs become a fixed bottom bar - backdrop-filter is on the nav itself now */
   nav.tabs {
