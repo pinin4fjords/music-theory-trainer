@@ -749,11 +749,19 @@
     { name: "timpani", family: "percussion" }, { name: "xylophone", family: "percussion" }, { name: "snare drum", family: "percussion" },
   ];
   const FAMILIES = ["strings", "woodwind", "brass", "percussion"];
+  // What defines each family is how the sound is made, not what the instrument
+  // is made of - which is why the (metal) saxophone is woodwind.
+  const FAMILY_WHY = {
+    strings: "the sound comes from a bowed or plucked string",
+    woodwind: "the sound is made by a vibrating reed or by blowing across an edge - the material is irrelevant, which is why the metal saxophone counts as woodwind",
+    brass: "the sound comes from the player's own lips buzzing against a cup mouthpiece, not from any reed",
+    percussion: "the sound comes from being struck or shaken",
+  };
   const VOICES = [
-    { name: "soprano", note: "highest female/treble voice" },
-    { name: "alto", note: "lower female voice" },
-    { name: "tenor", note: "higher male voice" },
-    { name: "bass", note: "lowest male voice" },
+    { name: "soprano", note: "highest female/treble voice", why: "from Italian <i>sopra</i> (above) - the part sitting above the others" },
+    { name: "alto", note: "lower female voice", why: "from Italian/Latin <i>altus</i> (high) - originally the high male voice <i>above</i> the tenor, before the term shifted to the low female voice" },
+    { name: "tenor", note: "higher male voice", why: "from Latin <i>tenere</i> (to hold) - in early polyphony this part 'held' the main plainchant melody while others decorated around it" },
+    { name: "bass", note: "lowest male voice", why: "from Italian <i>basso</i> (low) - the foundation the harmony is built up from" },
   ];
   function instrumentQuestion(rng) {
     if (rng.bool(0.6)) {
@@ -762,7 +770,7 @@
         prompt: `Which family does the <b>${inst.name}</b> belong to?`,
         choices: choices(rng, inst.family, FAMILIES),
         answer: inst.family,
-        explanation: `The ${inst.name} is a <b>${inst.family}</b> instrument.`,
+        explanation: `The ${inst.name} is a <b>${inst.family}</b> instrument: ${FAMILY_WHY[inst.family]}. A family is defined by <i>how</i> it makes its sound, not its shape or material.`,
       };
     }
     const order = rng.bool();
@@ -771,7 +779,7 @@
         prompt: `Which is the <b>lowest</b> of the four standard voices (SATB)?`,
         choices: choices(rng, "bass", VOICES.map((v) => v.name)),
         answer: "bass",
-        explanation: `SATB runs highest to lowest: soprano, alto, tenor, <b>bass</b>.`,
+        explanation: `SATB runs highest to lowest: soprano, alto, tenor, <b>bass</b> - and bass is from Italian <i>basso</i> (low). The names are an old four-voice texture from church choral writing, which is why so much harmony is still taught in four parts.`,
       };
     }
     const v = pick(rng, VOICES);
@@ -779,7 +787,7 @@
       prompt: `In SATB, which voice is the <b>${v.note}</b>?`,
       choices: choices(rng, v.name, VOICES.map((x) => x.name)),
       answer: v.name,
-      explanation: `The <b>${v.name}</b> is the ${v.note}.`,
+      explanation: `The <b>${v.name}</b> is the ${v.note} - ${v.why}.`,
     };
   }
 
@@ -830,12 +838,12 @@
 
   // Non-chord (melodic decoration) notes.
   const NON_CHORD = [
-    { name: "passing note", desc: "fills the gap between two different chord notes by step" },
-    { name: "auxiliary note", desc: "steps away from a chord note and back to the same note" },
-    { name: "suspension", desc: "a note held over from the previous chord, clashing, then resolving down by step" },
-    { name: "appoggiatura", desc: "a leaning accented non-chord note approached by leap and resolved by step" },
-    { name: "anticipation", desc: "a note of the next chord sounded early, before the chord arrives" },
-    { name: "changing note", desc: "a pair of notes stepping above and below a chord note before resolving" },
+    { name: "passing note", desc: "fills the gap between two different chord notes by step", why: "it bridges a leap smoothly, so the line walks rather than jumps - and being unaccented, the ear hears it as melodic motion, not a clash" },
+    { name: "auxiliary note", desc: "steps away from a chord note and back to the same note", why: "it decorates a static note by leaning briefly onto a neighbour, adding shape without changing the harmony" },
+    { name: "suspension", desc: "a note held over from the previous chord, clashing, then resolving down by step", why: "the held note is consonant in the old chord but dissonant in the new one; the ear wants that tension released, which is what the step-down resolution delivers - the core expressive device of Baroque part-writing" },
+    { name: "appoggiatura", desc: "a leaning accented non-chord note approached by leap and resolved by step", why: "it falls on the beat and delays the real chord note, so the dissonance is exposed and expressive (Italian <i>appoggiare</i>, to lean)" },
+    { name: "anticipation", desc: "a note of the next chord sounded early, before the chord arrives", why: "it pre-echoes where the harmony is heading, so the arrival feels prepared rather than abrupt" },
+    { name: "changing note", desc: "a pair of notes stepping above and below a chord note before resolving", why: "the two neighbours circle the chord note from both sides, decorating it more elaborately than a single auxiliary" },
   ];
   function nonChordToneQuestion(rng) {
     const nct = pick(rng, NON_CHORD);
@@ -843,17 +851,17 @@
       prompt: `Which non-chord note is this: "${nct.desc}"?`,
       choices: choices(rng, nct.name, NON_CHORD.map((x) => x.name)),
       answer: nct.name,
-      explanation: `That is a <b>${nct.name}</b>: ${nct.desc}.`,
+      explanation: `That is a <b>${nct.name}</b>: ${nct.desc}. ${nct.why[0].toUpperCase() + nct.why.slice(1)}.`,
     };
   }
 
   // === Grade 7-8 drillable identification ================================
 
   const CHROMATIC_CHORDS = [
-    { name: "diminished 7th", desc: "four notes stacked in minor 3rds, often built on the leading note (vii°7), very tense" },
-    { name: "Neapolitan 6th", desc: "a major triad on the flattened supertonic (♭II), usually in first inversion, with a pre-dominant function" },
-    { name: "supertonic 7th", desc: "a 7th chord built on the second degree (ii7), often leading to V" },
-    { name: "dominant 7th", desc: "a major triad on the dominant with a minor 7th added (V7), resolving to the tonic" },
+    { name: "diminished 7th", desc: "four notes stacked in minor 3rds, often built on the leading note (vii°7), very tense", why: "stacking equal minor 3rds makes it symmetrical - it divides the octave into four equal parts, so it has no clear root and the same four notes can resolve to several different keys, which is exactly why composers use it to pivot between distant keys" },
+    { name: "Neapolitan 6th", desc: "a major triad on the flattened supertonic (♭II), usually in first inversion, with a pre-dominant function", why: "flattening the supertonic puts a strong major chord a semitone above the tonic; in first inversion its bass leans down toward the dominant, giving the dark colour and the pull toward V" },
+    { name: "supertonic 7th", desc: "a 7th chord built on the second degree (ii7), often leading to V", why: "its notes overlap heavily with IV but its root lies a 5th above V, so it sets up the dominant with an even stronger root-motion pull" },
+    { name: "dominant 7th", desc: "a major triad on the dominant with a minor 7th added (V7), resolving to the tonic", why: "the added 7th forms a tritone with the chord's 3rd, and that tritone's inward resolution is what drives the chord home to the tonic" },
   ];
   function chromaticChordQuestion(rng) {
     const c = pick(rng, CHROMATIC_CHORDS);
@@ -861,15 +869,17 @@
       prompt: `Which chord is this: "${c.desc}"?`,
       choices: choices(rng, c.name, CHROMATIC_CHORDS.map((x) => x.name)),
       answer: c.name,
-      explanation: `That is the <b>${c.name}</b>: ${c.desc}.`,
+      explanation: `That is the <b>${c.name}</b>: ${c.desc}. ${c.why[0].toUpperCase() + c.why.slice(1)}.`,
     };
   }
 
   const AUG_SIXTHS = [
-    { name: "Italian 6th", desc: "augmented 6th + a major 3rd above the bass (three notes)" },
-    { name: "French 6th", desc: "augmented 6th + major 3rd + augmented 4th above the bass" },
-    { name: "German 6th", desc: "augmented 6th + major 3rd + perfect 5th above the bass (enharmonically a dominant 7th)" },
+    { name: "Italian 6th", desc: "augmented 6th + a major 3rd above the bass (three notes)", why: "the leanest of the three - it doubles the 3rd to fill out four-part texture" },
+    { name: "French 6th", desc: "augmented 6th + major 3rd + augmented 4th above the bass", why: "the extra augmented 4th adds a second tritone, giving its distinctive tense, whole-tone-flavoured sound" },
+    { name: "German 6th", desc: "augmented 6th + major 3rd + perfect 5th above the bass (enharmonically a dominant 7th)", why: "the added perfect 5th makes it sound exactly like a dominant 7th, so it needs careful voice-leading to dodge the parallel 5ths that would otherwise appear as it resolves" },
   ];
+  // All three share the augmented 6th interval, which is why they resolve alike.
+  const AUG6_RESOLVE = "All three are spelled around an <b>augmented 6th</b> (e.g. A♭ below, F♯ above): that interval strains to expand <i>outward</i> by a semitone in each direction onto the octave of the dominant, which is what gives every augmented 6th chord its strong pull to V.";
   function augmentedSixthQuestion(rng) {
     const a = pick(rng, AUG_SIXTHS);
     if (rng.bool()) {
@@ -877,14 +887,14 @@
         prompt: `Which augmented 6th chord is this: "${a.desc}"?`,
         choices: choices(rng, a.name, AUG_SIXTHS.map((x) => x.name)),
         answer: a.name,
-        explanation: `That is the <b>${a.name}</b>: ${a.desc}.`,
+        explanation: `That is the <b>${a.name}</b>: ${a.desc}. ${AUG6_RESOLVE}`,
       };
     }
     return {
       prompt: `What notes (above the bass) make up the <b>${a.name}</b>?`,
       choices: choices(rng, a.desc, AUG_SIXTHS.map((x) => x.desc)),
       answer: a.desc,
-      explanation: `The <b>${a.name}</b> is built from ${a.desc}.`,
+      explanation: `The <b>${a.name}</b> is built from ${a.desc} - ${a.why}. ${AUG6_RESOLVE}`,
     };
   }
 
