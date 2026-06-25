@@ -85,8 +85,27 @@
       gradeSelect.value = String(store.settings().grade);
       gradeSelect.addEventListener("change", () => {
         store.setSetting("grade", parseInt(gradeSelect.value, 10));
+        store.setSetting("gradeChosen", true); // changing grade is a deliberate choice
         router.refresh();
       });
+    }
+
+    // Settings menu (sound + theme live here to keep the bar light).
+    const settingsToggle = doc.getElementById("settings-toggle");
+    const settingsMenu = doc.getElementById("settings-menu");
+    if (settingsToggle && settingsMenu) {
+      const setOpen = (open) => {
+        settingsMenu.hidden = !open;
+        settingsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      };
+      settingsToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOpen(settingsMenu.hidden);
+      });
+      doc.addEventListener("click", (e) => {
+        if (!settingsMenu.hidden && !settingsMenu.contains(e.target) && e.target !== settingsToggle) setOpen(false);
+      });
+      doc.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
     }
 
     // Sound toggle.

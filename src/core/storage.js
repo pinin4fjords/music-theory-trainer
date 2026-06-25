@@ -34,7 +34,9 @@
       lastDay: null,
       totalAnswered: 0,
       srs: {}, // topicId -> Card (see core/srs.js)
-      settings: { sound: true, grade: 4, mode: "daily", reducedMotion: false, theme: "system" },
+      // gradeChosen: false marks a brand-new learner, so the home screen can show
+      // a first-run grade picker instead of a cold dashboard.
+      settings: { sound: true, grade: 4, mode: "daily", reducedMotion: false, theme: "system", gradeChosen: false },
     };
   }
 
@@ -121,6 +123,13 @@
     if (![1, 2, 3, 4, 5, 6, 7, 8].includes(out.settings.grade)) out.settings.grade = 4;
     if (out.settings.mode !== "path") out.settings.mode = "daily";
     if (!["light", "dark", "system"].includes(out.settings.theme)) out.settings.theme = "system";
+    // A returning learner with any history has effectively already chosen a grade,
+    // so they never see the first-run picker even if the flag is absent (legacy).
+    if (typeof out.settings.gradeChosen !== "boolean") {
+      const hasHistory = (out.totalAnswered > 0) || !!out.lastDay || (out.streak > 0)
+        || Object.keys(out.srs).length > 0;
+      out.settings.gradeChosen = hasHistory;
+    }
     return out;
   }
 

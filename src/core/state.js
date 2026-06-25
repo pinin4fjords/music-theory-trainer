@@ -123,6 +123,17 @@
       notify();
     }
 
+    // Wipe progress back to defaults while keeping preferences (grade, theme,
+    // sound). persist() then overwrites every sink, so the linked file /
+    // IndexedDB can't resurrect the old progress via reconciliation.
+    function reset() {
+      const keptSettings = Object.assign({}, state.settings);
+      state = storage().defaultState();
+      state.settings = Object.assign(state.settings, keptSettings);
+      persist();
+      notify();
+    }
+
     function exportJSON() {
       return storage().exportJSON(state);
     }
@@ -130,7 +141,7 @@
     return {
       get, settings, srsMap, cardFor, subscribe,
       setSetting, recordAnswer, recordSessionDay, doneToday,
-      restore, hydrate, exportJSON,
+      restore, reset, hydrate, exportJSON,
       get storageOK() { return storageOK; },
     };
   }

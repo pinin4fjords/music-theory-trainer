@@ -44,6 +44,7 @@
     let idx = 0;
     let score = 0;
     let questionStart = ctx.now();
+    const tally = {}; // topicId -> { title, grade, correct, total } for the finish summary
 
     nextQuestion();
 
@@ -58,8 +59,11 @@
 
       const dots = session.map((_, i) =>
         `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("");
-      view.appendChild(C.el(`<div class="progress-dots" role="img" aria-label="Question ${idx + 1} of ${session.length}">${dots}</div>`));
-      view.appendChild(C.el(`<div class="muted" style="font-size:.8rem">Grade ${topic.grade} · ${topic.title}</div>`));
+      view.appendChild(C.el(
+        `<div class="progress-row" role="img" aria-label="Question ${idx + 1} of ${session.length}">`
+        + `<div class="progress-dots" aria-hidden="true">${dots}</div>`
+        + `<span class="progress-count">${idx + 1} / ${session.length}</span></div>`));
+      view.appendChild(C.el(`<div class="topic-label">Grade ${topic.grade} · ${topic.title}</div>`));
 
       const prompt = C.el(`<div class="quiz-prompt"></div>`);
       try {
@@ -128,6 +132,10 @@
         const responseMs = ctx.now() - questionStart;
         ctx.store.recordAnswer(topic.id, { correct, responseMs, now: ctx.now() });
 
+        const t = tally[topic.id] || (tally[topic.id] = { title: topic.title, grade: topic.grade, correct: 0, total: 0 });
+        t.total++;
+        if (correct) t.correct++;
+
         choiceButtons.forEach((c) => {
           c.disabled = true;
           if (c._choice === q.answer) c.classList.add("correct");
@@ -145,6 +153,18 @@
         const diagLine = diag ? `<div class="why-line diag-line">${diag}</div>` : "";
         const cls = correct ? "good" : kind === "wrong" ? "bad" : "idk";
         const revealEl = C.el(`<div class="reveal ${cls}" role="status">${verdict}${diagLine}${why}</div>`);
+        // Dig deeper: thread into the matching "Why" explainer when one exists.
+        if (topic.explainer) {
+          const ex = (ctx.content.explainers || []).find((e) => e.id === topic.explainer);
+          if (ex) {
+            const dig = document.createElement("button");
+            dig.type = "button";
+            dig.className = "dig-deeper";
+            dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
+            dig.addEventListener("click", () => ctx.router.navigate("explore", { open: topic.explainer }));
+            revealEl.appendChild(dig);
+          }
+        }
         view.appendChild(revealEl);
 
         C.announce(
@@ -165,17 +185,45 @@
       C.clear(main);
       const st = ctx.store.get();
       const streakLine = single ? "" :
-        `Streak: 🔥 ${st.streak} day${st.streak === 1 ? "" : "s"}.` + (first ? " (counted for today)" : "");
-      main.appendChild(C.el(`
-        <div class="view center card">
-          <div style="font-size:2.4rem" aria-hidden="true">🎉</div>
-          <h1>Nice work</h1>
-          <p class="muted">You scored <b>${score} / ${session.length}</b>. ${streakLine}</p>
+        `🔥 ${st.streak}-day streak` + (first ? " (counted today)" : "");
+
+      const view = C.el(`<div class="view"></div>`);
+      view.appendChild(C.el(`
+        <div class="card finish-card">
+          <div class="finish-score"><b>${score}</b><span>/ ${session.length}</span></div>
+          <h1 style="margin:6px 0 2px">Nice work</h1>
+          <p class="muted" style="margin:0">${streakLine}</p>
         </div>`));
-      const row = C.el(`<div class="center" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"></div>`);
+
+      // Per-topic breakdown closes the loop: where you were strong / shaky.
+      const rows = Object.values(tally).sort((a, b) => a.grade - b.grade || a.title.localeCompare(b.title));
+      if (rows.length) {
+        const card = C.el(`<div class="card"><h3 style="margin-top:0">By topic</h3></div>`);
+        const list = C.el(`<div class="breakdown"></div>`);
+        rows.forEach((r) => {
+          const all = r.correct === r.total;
+          const mark = all ? "✓" : r.correct === 0 ? "✗" : "•";
+          const cls = all ? "ok" : r.correct === 0 ? "bad" : "part";
+          const item = C.el(`<div class="breakdown-row ${cls}">`
+            + `<span class="breakdown-mark" aria-hidden="true">${mark}</span>`
+            + `<span class="breakdown-title">${r.title}</span>`
+            + `<span class="breakdown-score">${r.correct}/${r.total}</span></div>`);
+          list.appendChild(item);
+        });
+        card.appendChild(list);
+        // Point weak topics at their next practice.
+        const weak = rows.filter((r) => r.correct < r.total);
+        if (weak.length) {
+          card.appendChild(C.el(`<p class="muted" style="font-size:.86rem;margin:12px 0 0">Those came back into the rotation - they'll resurface sooner in your next session.</p>`));
+        }
+        view.appendChild(card);
+      }
+
+      const row = C.el(`<div style="display:flex;gap:10px;flex-wrap:wrap"></div>`);
       row.appendChild(C.button("Practise again", () => render(main, ctx, arg)));
       row.appendChild(C.button("Back home", () => ctx.router.navigate("home"), { className: "ghost" }));
-      main.querySelector(".view").appendChild(row);
+      view.appendChild(row);
+      main.appendChild(view);
       C.announce(`Session complete. You scored ${score} out of ${session.length}.`, true);
     }
 

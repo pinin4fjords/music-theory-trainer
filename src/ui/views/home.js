@@ -17,8 +17,53 @@
     const done = store.doneToday(ctx.now());
     const mode = st.settings.mode || "daily";
 
+    // First-run: make grade selection an intentional moment, not header furniture.
+    if (!st.settings.gradeChosen) { renderOnboarding(); return; }
+
     const warn = store.storageOK ? "" :
-      `<div class="why-box" role="alert" style="background:#fbe6df">⚠ This browser isn't saving progress to disk (common when opening the file directly). Your streak will reset when you close it - use <b>Back up</b> below to save a file you can restore, or open the hosted version.</div>`;
+      `<div class="why-box" role="alert">⚠ This browser isn't saving progress on its own (common when opening the file directly). Link a save file below, or open the hosted version.</div>`;
+
+    // Hide the stats panel until there's something to show (no cold zeroes).
+    const showStats = (st.totalAnswered || 0) > 0;
+    const statsHtml = showStats ? `
+        <div class="stats-row">
+          <div class="stat"><div class="stat-num">🔥 ${st.streak}</div><div class="stat-lbl">day streak</div></div>
+          <div class="stat"><div class="stat-num">${st.bestStreak || 0}</div><div class="stat-lbl">best streak</div></div>
+          <div class="stat"><div class="stat-num">${st.daysPracticed || 0}</div><div class="stat-lbl">days practised</div></div>
+          <div class="stat"><div class="stat-num">${st.totalAnswered || 0}</div><div class="stat-lbl">questions answered</div></div>
+        </div>` : "";
+
+    function renderOnboarding() {
+      const view = C.el(`
+        <div class="view">
+          <div class="hero">
+            <h1 tabindex="-1">Welcome</h1>
+            <p>A few minutes of music theory a day, grounded in <i>why</i> as well as <i>what</i>.</p>
+          </div>
+          <div class="card center onboard-card">
+            <h3 style="margin-top:0">What grade are you working towards?</h3>
+            <p class="muted" style="margin-top:0">It sets your daily session. You can change it any time in the header.</p>
+            <div class="grade-picker" role="group" aria-label="Choose your grade"></div>
+          </div>
+        </div>`);
+      main.appendChild(view);
+      const picker = view.querySelector(".grade-picker");
+      ctx.content.grades.forEach((g) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "grade-pick";
+        b.textContent = String(g.grade);
+        b.setAttribute("aria-label", "Grade " + g.grade);
+        b.addEventListener("click", () => {
+          store.setSetting("grade", g.grade);
+          store.setSetting("gradeChosen", true);
+          ctx.syncHeader();
+          ctx.router.navigate("quiz");
+        });
+        picker.appendChild(b);
+      });
+      C.focus(view.querySelector("h1"));
+    }
 
     const view = C.el(`
       <div class="view">
@@ -26,14 +71,8 @@
           <h1 tabindex="-1">A few minutes of theory a day</h1>
           <p>Graded music theory, grounded in <i>why</i> as well as <i>what</i>. Set your grade and the daily session follows.</p>
         </div>
-        <p class="disclaimer">A personal toy project, shared as-is with <b>absolutely no warranty</b>. Not affiliated with any exam board, not guaranteed correct, and not to be blamed if an exam goes badly. Use at your own risk.</p>
         ${warn}
-        <div class="stats-row">
-          <div class="stat"><div class="stat-num">🔥 ${st.streak}</div><div class="stat-lbl">day streak</div></div>
-          <div class="stat"><div class="stat-num">${st.bestStreak || 0}</div><div class="stat-lbl">best streak</div></div>
-          <div class="stat"><div class="stat-num">${st.daysPracticed || 0}</div><div class="stat-lbl">days practised</div></div>
-          <div class="stat"><div class="stat-num">${st.totalAnswered || 0}</div><div class="stat-lbl">questions answered</div></div>
-        </div>
+        ${statsHtml}
         <div class="card center start-card">
           <div class="mode-toggle" role="group" aria-label="Practice mode">
             <button type="button" data-mode="daily" class="${mode === "daily" ? "on" : ""}" aria-pressed="${mode === "daily"}">Daily mix</button>
@@ -52,7 +91,8 @@
           <div id="file-link-area"></div>
           <p class="muted backup-line">Or keep a manual copy:
             <button class="linkish" id="backup" type="button">Back up to a file</button> ·
-            <button class="linkish" id="restore" type="button">Restore</button></p>
+            <button class="linkish" id="restore" type="button">Restore</button> ·
+            <button class="linkish danger" id="reset" type="button">Reset progress</button></p>
         </div>
         <input type="file" id="restore-file" accept="application/json" hidden>
       </div>`);
@@ -96,7 +136,7 @@
     // Quick links.
     const cards = view.querySelector("#home-cards");
     [["📚", "Learn", "Lessons by grade", "learn"],
-      ["💡", "Why", "Interactive explainers", "explore"],
+      ["💡", "Explainers", "The why behind the theory", "explore"],
       ["🎹", "Playground", "Build & hear it", "play"]].forEach(([icon, title, sub, tab]) => {
       const c = C.cardButton(`<div style="font-size:1.8rem" aria-hidden="true">${icon}</div><h3>${title}</h3><div class="why">${sub}</div>`,
         () => ctx.router.navigate(tab));
@@ -155,11 +195,21 @@
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Backup / restore.
+    // Backup / restore / reset.
     view.querySelector("#backup").addEventListener("click", () => exportProgress());
     const fileInput = view.querySelector("#restore-file");
     view.querySelector("#restore").addEventListener("click", () => fileInput.click());
     fileInput.addEventListener("change", () => importProgress(fileInput.files[0]));
+    view.querySelector("#reset").addEventListener("click", () => {
+      const ok = typeof confirm === "function"
+        ? confirm("Reset all progress? This clears your streak, history and spaced-repetition state. Your grade and preferences are kept. This can't be undone.")
+        : true;
+      if (!ok) return;
+      store.reset();
+      ctx.syncHeader();
+      ctx.router.navigate("home");
+      C.announce("Progress reset.");
+    });
 
     function exportProgress() {
       try {

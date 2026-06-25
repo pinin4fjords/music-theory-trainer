@@ -22,8 +22,9 @@ function scaffold() {
     <main id="main" tabindex="-1"></main>`;
 }
 
-function fakeStore() {
+function fakeStore(seedState) {
   const m = new Map();
+  if (seedState) m.set("mtt.v1", JSON.stringify(seedState));
   return {
     getItem: (k) => (m.has(k) ? m.get(k) : null),
     setItem: (k, v) => m.set(k, String(v)),
@@ -31,12 +32,16 @@ function fakeStore() {
   };
 }
 
+// A returning learner (grade already chosen) so the normal home renders rather
+// than the first-run onboarding picker.
+const RETURNING = { stateVersion: 2, srs: {}, settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" } };
+
 const NOW = 1700000000000;
 
 let instance;
 beforeEach(() => {
   scaffold();
-  instance = app.boot({ document, storage: fakeStore(), now: () => NOW, seed: "dom-seed" });
+  instance = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "dom-seed" });
 });
 
 describe("DOM - boot & navigation", () => {
@@ -89,7 +94,9 @@ describe("DOM - quiz flow & feedback", () => {
       }
       if (/Nice work/.test(document.querySelector("#main").textContent)) break;
     }
-    expect(document.querySelector("#main").textContent).toMatch(/Nice work/);
+    const finishText = document.querySelector("#main").textContent;
+    expect(finishText).toMatch(/Nice work/);
+    expect(finishText).toMatch(/By topic/); // per-topic breakdown closes the loop
     expect(instance.store.get().totalAnswered).toBe(10);
     expect(instance.store.get().streak).toBe(1); // first session today
     expect(document.getElementById("streak").textContent).toBe("🔥 1");
@@ -127,5 +134,41 @@ describe("DOM - settings", () => {
     instance.router.navigate("quiz");
     document.querySelector(".choice").click();
     expect(level.textContent).not.toBe("New"); // reflects that some practice happened
+  });
+});
+
+describe("DOM - first-run onboarding", () => {
+  it("shows a grade picker when no grade has been chosen, and proceeds on pick", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(), now: () => NOW, seed: "ob" });
+    expect(document.querySelector("#main").textContent).toMatch(/What grade are you working towards/);
+    const picks = [...document.querySelectorAll(".grade-pick")];
+    expect(picks.length).toBe(8);
+    picks[2].click(); // Grade 3
+    expect(inst.store.settings().grade).toBe(3);
+    expect(inst.store.settings().gradeChosen).toBe(true);
+    // Picking a grade starts practice.
+    expect(document.querySelector(".quiz-prompt")).toBeTruthy();
+  });
+});
+
+describe("DOM - reset", () => {
+  it("clears progress back to defaults (keeping preferences)", () => {
+    // Do some practice first.
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    expect(instance.store.get().totalAnswered).toBe(1);
+
+    const origConfirm = window.confirm;
+    window.confirm = () => true;
+    try {
+      instance.router.navigate("home");
+      document.getElementById("reset").click();
+    } finally {
+      window.confirm = origConfirm;
+    }
+    expect(instance.store.get().totalAnswered).toBe(0);
+    expect(Object.keys(instance.store.srsMap()).length).toBe(0);
+    expect(instance.store.settings().grade).toBe(4); // preference kept
   });
 });

@@ -14,7 +14,7 @@
     <nav class="tabs" aria-label="Sections">
       <button type="button" data-tab="home" class="active">Home</button>
       <button type="button" data-tab="learn">Learn</button>
-      <button type="button" data-tab="explore">Why</button>
+      <button type="button" data-tab="explore">Explainers</button>
       <button type="button" data-tab="play">Playground</button>
     </nav>
     <label class="grade-select" title="Your music theory grade">
@@ -23,16 +23,26 @@
     </label>
     <span class="level-chip" id="level" title="Your estimated level, from your practice here" aria-label="Estimated level">·</span>
     <span class="streak-chip" id="streak" aria-label="Current day streak">🔥 0</span>
-    <label class="muted sound-label">
-      <input type="checkbox" id="sound-toggle" checked> sound
-    </label>
-    <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme" title="Colour theme">🌗</button>
+    <div class="settings">
+      <button type="button" class="icon-btn" id="settings-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu" aria-label="Settings">⚙</button>
+      <div class="settings-menu" id="settings-menu" role="group" aria-label="Settings" hidden>
+        <label class="menu-row sound-label">
+          <span>Sound</span>
+          <input type="checkbox" id="sound-toggle" checked>
+        </label>
+        <div class="menu-row">
+          <span>Theme</span>
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme">🌗</button>
+        </div>
+      </div>
+    </div>
   </header>
 
   <main id="main" tabindex="-1"></main>
 
   <footer class="note">
-    Music theory practice (Grades 1-8) · progress is saved in this browser only.
+    Music theory practice (Grades 1-8) · progress is saved in this browser only.<br>
+    A personal project, shared as-is with <b>no warranty</b> - not affiliated with any exam board, not guaranteed correct. Use at your own risk.
   </footer>
 
   <!--

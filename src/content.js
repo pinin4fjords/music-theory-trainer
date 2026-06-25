@@ -1058,12 +1058,27 @@
   ];
 
   const explainers = [
+    { id: "monochord", title: "A string over a box", blurb: "Where pitch and the intervals come from." },
+    { id: "harmonic-series", title: "The harmonic series", blurb: "One string, many notes at once." },
     { id: "circle-of-fifths", title: "The circle of fifths", blurb: "Where key signatures come from." },
     { id: "temperament", title: "Why pianos are slightly out of tune", blurb: "Equal temperament vs just intonation." },
-    { id: "harmonic-series", title: "The harmonic series", blurb: "Why some intervals sound sweet." },
     { id: "three-minors", title: "Why minor has three forms", blurb: "Natural, harmonic, melodic - and the awkward gap." },
     { id: "modes", title: "Modes beyond major & minor", blurb: "Dorian, Phrygian and friends." },
   ];
+
+  // Link topics to a relevant "Why" explainer so the answer reveal can offer a
+  // "dig deeper" thread into the science behind the question.
+  const EXPLAINER_FOR = {
+    "g1-keys": "circle-of-fifths", "g2-keys": "circle-of-fifths",
+    "g4-key-signatures": "circle-of-fifths", "g5-key-id": "circle-of-fifths",
+    "g3-melodic": "three-minors",
+    "g2-intervals": "monochord",
+    "g3-quality": "harmonic-series", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
+    "g1-rhythm": "monochord",
+  };
+  grades.forEach((g) => g.topics.forEach((t) => {
+    if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];
+  }));
 
   const api = {
     grades, explainers,

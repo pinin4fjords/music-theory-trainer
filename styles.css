@@ -375,3 +375,75 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
   animation-duration: 0.001ms !important; animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
 }
+
+/* --- Header settings menu ----------------------------------------------- */
+.settings { position: relative; display: inline-flex; }
+.icon-btn {
+  border: 1px solid var(--line); background: var(--paper); cursor: pointer;
+  width: 34px; height: 34px; border-radius: var(--radius-sm); font-size: .95rem; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; color: var(--ink);
+  transition: background .14s, border-color .14s;
+}
+.icon-btn:hover { background: var(--hover); border-color: var(--line-strong); }
+.settings-menu {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 30;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-lg); padding: 8px; min-width: 184px;
+}
+.settings-menu .menu-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 8px 10px; font-size: .9rem; color: var(--ink); border-radius: var(--radius-sm);
+}
+.settings-menu .menu-row:hover { background: var(--hover); }
+.settings-menu input { accent-color: var(--accent); }
+.settings-menu .theme-toggle { width: 30px; height: 30px; }
+
+/* --- First-run onboarding ----------------------------------------------- */
+.onboard-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.grade-picker { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 10px; }
+.grade-pick {
+  width: 52px; height: 52px; border-radius: var(--radius-sm); cursor: pointer;
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  font: inherit; font-weight: 700; font-size: 1.1rem;
+  transition: background .12s, border-color .12s, transform .07s;
+}
+.grade-pick:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.grade-pick:active { transform: translateY(1px); }
+
+/* --- Quiz: dominant prompt, counter, confident I-don't-know ------------- */
+.quiz-prompt { font-size: clamp(1.4rem, 3.2vw, 1.65rem); font-weight: 650; line-height: 1.3; margin: 6px 0 14px; }
+.progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.progress-count { font-size: .8rem; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.topic-label { font-size: .76rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+
+.idk-btn {
+  border: 1px solid var(--line-strong); border-style: solid; background: var(--surface-2);
+  color: var(--ink); font-weight: 600;
+}
+.idk-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--paper); }
+
+.dig-deeper {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 12px;
+  background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; font-weight: 600; font-size: .92rem; color: var(--accent);
+}
+.dig-deeper:hover { text-decoration: underline; }
+
+/* --- Finish screen ------------------------------------------------------ */
+.finish-card { text-align: center; }
+.finish-score { font-variant-numeric: tabular-nums; }
+.finish-score b { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.03em; }
+.finish-score span { font-size: 1.2rem; color: var(--ink-soft); margin-left: 6px; }
+.breakdown { display: flex; flex-direction: column; }
+.breakdown-row {
+  display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 10px;
+  padding: 9px 2px; border-top: 1px solid var(--line); font-size: .92rem;
+}
+.breakdown-row:first-child { border-top: 0; }
+.breakdown-mark { font-weight: 800; text-align: center; }
+.breakdown-row.ok .breakdown-mark { color: var(--good); }
+.breakdown-row.bad .breakdown-mark { color: var(--bad); }
+.breakdown-row.part .breakdown-mark { color: var(--ink-faint); }
+.breakdown-score { font-variant-numeric: tabular-nums; color: var(--ink-soft); font-weight: 600; }
+
+.linkish.danger { color: var(--bad); }

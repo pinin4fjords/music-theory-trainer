@@ -9,7 +9,7 @@
 (function (global) {
   "use strict";
 
-  function render(main, ctx) {
+  function render(main, ctx, arg) {
     const C = ctx.C;
     const M = ctx.music;
     const N = ctx.notation;
@@ -19,7 +19,13 @@
     const controls = () => C.el(`<div class="explainer-controls"></div>`);
     const lessonCard = (html) => C.el(`<div class="card lesson">${html}</div>`);
 
-    const view = C.el(`<div class="view"><h1 tabindex="-1">Why</h1><p class="muted">Short interactive explainers - open one and use the buttons to hear it.</p></div>`);
+    // Deep-link: open a specific explainer directly (e.g. "dig deeper" from a quiz).
+    if (arg && arg.open) {
+      const target = ctx.content.explainers.find((e) => e.id === arg.open);
+      if (target) { openExplainer(target); return; }
+    }
+
+    const view = C.el(`<div class="view"><h1 tabindex="-1">Explainers</h1><p class="muted">Short interactive explainers - the <i>why</i> behind the theory. Open one and use the buttons to hear it.</p></div>`);
     main.appendChild(view);
     const grid = C.el(`<div class="grid" style="margin-top:18px"></div>`);
     ctx.content.explainers.forEach((e) => {
@@ -38,12 +44,50 @@
     }
 
     const builders = {
+      monochord: buildMonochord,
       "circle-of-fifths": buildCircleOfFifths,
       temperament: buildTemperament,
       "harmonic-series": buildHarmonicSeries,
       "three-minors": buildThreeMinors,
       modes: buildModes,
     };
+
+    function buildMonochord(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Where it all starts.</b> Stretch a single string over a box and pluck it: one note. Now stop the string partway and pluck again - a different note. That's the whole of pitch in one object. The ancient Greeks built exactly this - a <b>monochord</b> - and discovered that the notes that sound <i>good</i> together are the ones where the string is divided into <b>simple whole-number fractions</b>.</p>
+        <p><b>The big one: halve the string.</b> Stop a string exactly in the middle and each half vibrates <b>twice as fast</b>. Double the frequency and you get the <b>octave</b> - so similar to the original that we give it the same letter name. A 2:1 ratio is the simplest there is, which is why the octave is the most consonant interval of all.</p>
+        <p><b>The next simplest fractions are the next-sweetest intervals.</b> Take two-thirds of the string (a 3:2 ratio) and you get a <b>perfect 5th</b>; three-quarters (4:3) gives a <b>perfect 4th</b>; four-fifths (5:4) a <b>major 3rd</b>. The simpler the fraction, the more consonant the interval. Every interval you name in theory is, underneath, one of these string-length ratios. Hear the string divide:</p>`));
+
+      const base = M.noteToFreq("C3");
+      const stops = [
+        { label: "Open string (1:1)", ratio: 1, note: "C - the fundamental" },
+        { label: "½ the string (2:1)", ratio: 2, note: "C an octave up" },
+        { label: "⅔ the string (3:2)", ratio: 3 / 2, note: "G - a perfect 5th" },
+        { label: "¾ the string (4:3)", ratio: 4 / 3, note: "F - a perfect 4th" },
+        { label: "⅘ the string (5:4)", ratio: 5 / 4, note: "E - a major 3rd" },
+      ];
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Divide the string</h3>`));
+      const out = C.el(`<p class="muted" id="mono-caption" aria-live="polite" style="font-size:.92rem">Pluck the open string, then hear what each simple fraction gives you.</p>`);
+      const list = C.el(`<div class="explainer-controls"></div>`);
+      stops.forEach((s) => {
+        const b = playBtn(s.label, () => {
+          A.freqChord([base, base * s.ratio], 1.8);
+          out.innerHTML = `<b>${s.label}</b> &rarr; ${s.note}.`;
+        });
+        list.appendChild(b);
+      });
+      card.appendChild(list);
+      card.appendChild(out);
+      const row = controls();
+      row.appendChild(playBtn("Hear them in turn", () => A.freqSequence(stops.map((s) => base * s.ratio), 0.6, 0.55)));
+      card.appendChild(row);
+      host.appendChild(card);
+
+      host.appendChild(lessonCard(`
+        <p><b>Why simple ratios sound smooth.</b> A vibrating string doesn't only move as a whole - it also vibrates in halves, thirds and quarters at the same time (its <b>overtones</b>). When two notes share a simple ratio, many of their overtones line up exactly and reinforce each other; when the ratio is complex, the overtones clash and you hear a roughness or <i>beating</i>. Consonance and dissonance aren't arbitrary taste - they're arithmetic you can hear.</p>
+        <p>That stack of overtones is a whole subject of its own - see <i>The harmonic series</i>.</p>`));
+    }
 
     function buildCircleOfFifths(host) {
       host.appendChild(lessonCard(`

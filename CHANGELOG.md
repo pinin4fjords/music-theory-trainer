@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.2.0 - UX-review fixes, onboarding, reset, science content
+
+Acting on a UX review, plus a "science of music" content pass.
+
+- **Quiz loop**: dominant prompt, de-emphasised topic label, a "3 / 10" counter,
+  a confident (no longer dashed) "I don't know" button, and a finish screen that
+  closes the loop with a per-topic correct/wrong breakdown.
+- **First-run onboarding**: a one-step grade picker when no grade is chosen yet;
+  the empty stats panel is hidden until there's data; the disclaimer moved to the
+  footer so it no longer front-loads doubt.
+- **Reset progress**: a confirmed reset that wipes streak/history/SRS back to
+  defaults (keeping preferences) and clears the IndexedDB / linked-file copies.
+- **Navigation**: the "Why" tab is now "Explainers"; the answer reveal offers a
+  "Dig deeper" link into the relevant explainer.
+- **Lighter header**: sound + theme moved into a settings menu.
+- **Science of music**: a new "A string over a box" (monochord) explainer -
+  origins of pitch, simple-ratio intervals, standing waves and why simple ratios
+  sound consonant - tied into the interval lessons via "dig deeper".
+- **Crisp, modern redesign** (from 2.1.x): cool near-monochrome palette with a
+  single indigo accent, ink buttons, tight corners, flat hairline surfaces, and
+  the engraved five-line stave behind the hero headline; full light/dark theming.
+- Tests: 149 total (added onboarding, reset, finish breakdown coverage).
+
 ## 2.1.0 - Durable persistence, level badge, dark mode
 
 - **Durable, backup-free persistence** (`core/persist.js`): requests

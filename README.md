@@ -158,6 +158,13 @@ or hand-edited state is merged onto defaults so no key is ever missing.
   grade-level questions are hard. "Learning path" mode still leads with the current grade.
 - **Two modes**: *Daily mix* (spaced review across the current grade and below) and a
   *Learning path* that leads with the current grade's new material.
+- **The science of music**, tied into practice: interactive explainers for the
+  monochord (a string over a box - the origin of pitch and the simple-ratio
+  intervals), the harmonic series, the circle of fifths, temperament, the three
+  minors and the modes. A "dig deeper" link in the answer reveal threads from a
+  question straight into the explainer behind it.
+- **First-run onboarding** (a one-step grade picker) and a per-topic **finish-screen
+  breakdown** so a session opens and closes with structure.
 - **Grades 1-6** carry full practice drills; **Grades 7-8** carry the drillable
   identification items (chromatic chords, augmented sixths, secondary dominants) plus
   clearly-flagged "coming next" topics for the open-ended composition/analysis work that
