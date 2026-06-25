@@ -1172,6 +1172,9 @@
   const explainers = [
     { id: "monochord", title: "A string over a box", blurb: "Where pitch and the intervals come from." },
     { id: "harmonic-series", title: "The harmonic series", blurb: "One string, many notes at once." },
+    { id: "consonance", title: "Why some intervals sound sweet", blurb: "Beating, critical bands and the roughness curve." },
+    { id: "cents", title: "Pitch is logarithmic", blurb: "Why we hear ratios, and what a cent is." },
+    { id: "timbre", title: "Timbre & the missing fundamental", blurb: "Tone colour as a recipe of harmonics." },
     { id: "circle-of-fifths", title: "The circle of fifths", blurb: "Where key signatures come from." },
     { id: "temperament", title: "Why pianos are slightly out of tune", blurb: "Equal temperament vs just intonation." },
     { id: "three-minors", title: "Why minor has three forms", blurb: "Natural, harmonic, melodic - and the awkward gap." },
@@ -1188,7 +1191,7 @@
     "g4-key-signatures": "circle-of-fifths", "g5-key-id": "circle-of-fifths",
     "g3-melodic": "three-minors",
     "g2-intervals": "monochord",
-    "g3-quality": "harmonic-series", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
+    "g3-quality": "consonance", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
   };
   grades.forEach((g) => g.topics.forEach((t) => {
     if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];
@@ -1283,6 +1286,46 @@
 
   const termsBy = (cat) => TERMS.filter((t) => t.cat === cat).map((t) => ({ term: t.term, def: t.meaning }));
 
+  // Just (5-limit) ratios vs equal temperament, in cents. Sign of the difference
+  // is how far the equal-tempered interval is sharp (+) or flat (-) of pure.
+  const RATIO_REF = [
+    ["Unison", "1:1", "0", "0", "0"],
+    ["Minor 2nd", "16:15", "112", "100", "−12"],
+    ["Major 2nd", "9:8", "204", "200", "−4"],
+    ["Minor 3rd", "6:5", "316", "300", "−16"],
+    ["Major 3rd", "5:4", "386", "400", "+14"],
+    ["Perfect 4th", "4:3", "498", "500", "+2"],
+    ["Tritone", "45:32", "590", "600", "+10"],
+    ["Perfect 5th", "3:2", "702", "700", "−2"],
+    ["Minor 6th", "8:5", "814", "800", "−14"],
+    ["Major 6th", "5:3", "884", "900", "+16"],
+    ["Minor 7th", "9:5", "1018", "1000", "−18"],
+    ["Major 7th", "15:8", "1088", "1100", "+12"],
+    ["Octave", "2:1", "1200", "1200", "0"],
+  ];
+
+  // Equal-tempered frequencies of the octave above middle C (A4 = 440 Hz).
+  const FREQ_REF = (() => {
+    const names = ["C4", "C♯4", "D4", "D♯4", "E4", "F4", "F♯4", "G4", "G♯4", "A4", "A♯4", "B4", "C5"];
+    return names.map((n, i) => {
+      const semisFromA = i - 9; // A4 is index 9
+      const hz = 440 * Math.pow(2, semisFromA / 12);
+      return [n, hz.toFixed(2) + " Hz", (semisFromA >= 0 ? "+" : "") + semisFromA + " from A4"];
+    });
+  })();
+
+  const ACOUSTICS_CONST = [
+    { term: "Octave", def: "frequency ratio 2:1 - the most consonant interval, and where note names repeat" },
+    { term: "Equal semitone", def: "×2^(1/12) ≈ 1.0595 - a 5.95% rise in frequency; twelve of them make an octave" },
+    { term: "Cent", def: "1/100 of a semitone, 1/1200 of an octave; cents between two notes = 1200 × log₂(f₂/f₁)" },
+    { term: "Just-noticeable difference", def: "the ear detects roughly 5-10 cents of pitch change in this register" },
+    { term: "A4 = 440 Hz", def: "the modern concert-pitch standard (ISO 16); orchestras have tuned anywhere from ~415 to ~444 over history" },
+    { term: "Pythagorean comma", def: "≈ 23.46 cents - the gap by which twelve pure 5ths overshoot seven octaves" },
+    { term: "Syntonic comma", def: "ratio 81:80, ≈ 21.51 cents - the gap between four pure 5ths and a pure major 3rd-plus-two-octaves" },
+    { term: "Critical band", def: "the cochlea's analysis window (~a minor 3rd wide mid-range); tones inside one band beat and sound rough" },
+    { term: "Human hearing range", def: "≈ 20 Hz to 20,000 Hz; a piano spans about 27.5 Hz (A0) to 4186 Hz (C8)" },
+  ];
+
   const reference = [
     // Pitch & keys
     { id: "keys", group: "Pitch & keys", title: "Key signatures", type: "table", columns: ["Key", "Signature", "Accidentals", "Relative minor"], rows: keySignatureRows() },
@@ -1292,6 +1335,10 @@
     { id: "enharmonics", group: "Pitch & keys", title: "Enharmonic equivalents", type: "table", columns: ["Note", "Same pitch as"], rows: ENHARM.map((e) => [e.a, e.b]) },
     { id: "scales", group: "Pitch & keys", title: "Scales & modes", type: "table", columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
     { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table", columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
+    // Acoustics & physics
+    { id: "ratios", group: "Acoustics & physics", title: "Interval ratios: just vs equal", type: "table", columns: ["Interval", "Just ratio", "Just (cents)", "Equal (cents)", "Equal is"], rows: RATIO_REF },
+    { id: "frequencies", group: "Acoustics & physics", title: "Note frequencies (A4 = 440 Hz)", type: "table", columns: ["Note", "Frequency", "Distance"], rows: FREQ_REF },
+    { id: "constants", group: "Acoustics & physics", title: "Acoustic constants", type: "glossary", items: ACOUSTICS_CONST },
     // Chords & harmony
     { id: "chordtypes", group: "Chords & harmony", title: "Chord types", type: "glossary", items: CHORD_TYPE_REF },
     { id: "cadences", group: "Chords & harmony", title: "Cadences", type: "glossary", items: CADENCES.map((c) => ({ term: c.name + " cadence", def: c.why })) },

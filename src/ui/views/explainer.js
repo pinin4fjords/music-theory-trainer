@@ -23,9 +23,12 @@
     // immediately. (The build* functions are hoisted function declarations.)
     const builders = {
       monochord: buildMonochord,
+      "harmonic-series": buildHarmonicSeries,
+      consonance: buildConsonance,
+      cents: buildCents,
+      timbre: buildTimbre,
       "circle-of-fifths": buildCircleOfFifths,
       temperament: buildTemperament,
-      "harmonic-series": buildHarmonicSeries,
       "three-minors": buildThreeMinors,
       modes: buildModes,
       keyboard: buildKeyboard,
@@ -652,6 +655,139 @@
           </tbody>
         </table></div>`));
     }
+
+    function buildConsonance(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Consonance is measurable, not just taste.</b> Whether two notes sound smooth or harsh comes down to one physical effect: <b>beating</b>. Sound two pure tones close in frequency and they drift in and out of phase, so the combined loudness pulses. The pulse rate is exactly the <b>difference in frequency</b>: 440 Hz against 443 Hz beats <b>3 times a second</b>. Slow beats (a few per second) sound like a gentle wobble; speed them up to roughly <b>20–40 per second</b> and the ear can no longer track them - it registers a buzzing <b>roughness</b> instead.</p>
+        <p><b>The critical band.</b> The cochlea analyses sound region by region. Two tones landing inside the same region (a <b>critical band</b>, very roughly a minor 3rd wide in the middle of your range) fight for the same hair cells and produce that roughness. Move them far enough apart and they fall into separate bands and stop interfering - smoothness returns. Maximum roughness sits at about <b>a quarter of a critical band</b> apart, near a semitone.</p>
+        <p><b>Why simple ratios win.</b> Real notes are stacks of harmonics (see <i>The harmonic series</i>). When two notes form a simple ratio like 3:2, many of their harmonics either coincide exactly or sit far apart - few land in the rough zone. A complex ratio like 16:15 (a semitone) scatters harmonics all through each other's critical bands. Consonance is just <b>how few harmonic pairs are beating</b>.</p>`));
+
+      const beatCard = C.el(`<div class="card"></div>`);
+      beatCard.appendChild(C.el(`<h3 style="margin-top:0">Hear beating speed up</h3>`));
+      beatCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Two tones near 440 Hz. As they spread apart the wobble quickens, then dissolves into roughness. The wave below is their sum: the slow bulge is one beat.</p>`));
+      const beatStage = C.el(`<div id="beat-stage">${beatWave(4)}</div>`);
+      beatCard.appendChild(beatStage);
+      const beatOut = C.el(`<p class="muted" id="beat-caption" aria-live="polite" style="font-size:.9rem">Pick a detuning and listen for the pulse.</p>`);
+      const base = 440;
+      const detunes = [
+        { d: 0, label: "Unison (0 Hz)", note: "perfectly locked - no beating" },
+        { d: 1, label: "+1 Hz", note: "1 slow beat per second" },
+        { d: 4, label: "+4 Hz", note: "4 beats per second - an audible wobble" },
+        { d: 15, label: "+15 Hz", note: "15 per second - turning into roughness" },
+        { d: 33, label: "+33 Hz", note: "≈ maximum roughness for this register" },
+      ];
+      const beatRow = C.el(`<div class="explainer-controls"></div>`);
+      detunes.forEach((s) => {
+        beatRow.appendChild(playBtn(s.label, () => {
+          beatStage.innerHTML = beatWave(Math.max(0.6, s.d));
+          beatOut.innerHTML = `<b>${s.label}</b> &rarr; ${s.note}.`;
+          A.freqChord(s.d === 0 ? [base, base] : [base, base + s.d], 2.6);
+        }));
+      });
+      beatCard.appendChild(beatRow);
+      beatCard.appendChild(beatOut);
+      host.appendChild(beatCard);
+
+      const curveCard = C.el(`<div class="card"></div>`);
+      curveCard.appendChild(C.el(`<h3 style="margin-top:0">The roughness curve</h3>`));
+      curveCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Sensory dissonance of two harmonic tones as the upper note climbs from unison to the octave (after Plomp &amp; Levelt, 1965). The <b>dips are the consonant intervals</b> - the ones music is built from. The peaks near the semitone and tritone are where harmonics clash hardest. Play each interval and hear where it sits on the curve.</p>`));
+      curveCard.appendChild(C.el(dissonanceCurve()));
+      const cf = M.noteToFreq("C4");
+      const ivals = [
+        { semi: 1, name: "Minor 2nd", q: "harsh" },
+        { semi: 4, name: "Major 3rd", q: "sweet" },
+        { semi: 5, name: "Perfect 4th", q: "stable" },
+        { semi: 6, name: "Tritone", q: "tense" },
+        { semi: 7, name: "Perfect 5th", q: "very consonant" },
+        { semi: 12, name: "Octave", q: "the most consonant" },
+      ];
+      const ivRow = C.el(`<div class="explainer-controls"></div>`);
+      ivals.forEach((iv) => {
+        ivRow.appendChild(playBtn(iv.name, () => A.freqChord([cf, cf * Math.pow(2, iv.semi / 12)], 2.2)));
+      });
+      curveCard.appendChild(ivRow);
+      curveCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">The curve is for two tones with six harmonics each; instruments richer in upper harmonics push the peaks higher, which is part of why a fuzzy electric guitar power-chord avoids 3rds.</p>`));
+      host.appendChild(curveCard);
+    }
+
+    function buildCents(host) {
+      host.appendChild(lessonCard(`
+        <p><b>The ear hears ratios, not differences.</b> Going from 100 Hz to 200 Hz sounds like the same "distance" as 200 Hz to 400 Hz - both are one octave - even though the first adds 100 Hz and the second adds 200 Hz. Pitch is <b>logarithmic</b>: equal musical steps mean equal <i>multiplications</i> of frequency, not equal additions. An octave is always <b>×2</b>, whatever you start from.</p>
+        <p><b>The semitone is the twelfth root of 2.</b> Twelve equal semitones must multiply up to one octave, so each semitone is <b>×2<sup>1/12</sup> ≈ ×1.0595</b> - a 5.95% rise in frequency every time. Do it twelve times and 1.0595<sup>12</sup> lands exactly back on ×2.</p>
+        <p><b>Cents put a ruler on it.</b> Divide the octave into <b>1200 equal cents</b> (100 per semitone). The cents between two frequencies is <b>1200 × log₂(f₂/f₁)</b>. Cents are how tuning differences are quoted, and the ear notices about <b>5–10 cents</b>.</p>`));
+
+      const f = M.noteToFreq("A2"); // 110 Hz
+      const demoCard = C.el(`<div class="card"></div>`);
+      demoCard.appendChild(C.el(`<h3 style="margin-top:0">Same +110 Hz, shrinking steps</h3>`));
+      demoCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">First climb in <b>equal 110 Hz jumps</b> (110, 220, 330, 440, 550) - the steps <i>sound</i> like they shrink, because each adds a smaller and smaller ratio. Then climb in <b>equal octaves</b> (110, 220, 440, 880) - now every step sounds the same size, because each is ×2.</p>`));
+      const demoRow = controls();
+      demoRow.appendChild(playBtn("Equal Hz steps (+110)", () => A.freqSequence([f, f * 2, f * 3, f * 4, f * 5], 0.62, 0.55)));
+      demoRow.appendChild(playBtn("Equal octaves (×2)", () => A.freqSequence([f, f * 2, f * 4, f * 8], 0.62, 0.55)));
+      demoCard.appendChild(demoRow);
+      host.appendChild(demoCard);
+
+      const rulerCard = C.el(`<div class="card"></div>`);
+      rulerCard.appendChild(C.el(`<h3 style="margin-top:0">Linear frequency vs what you hear</h3>`));
+      rulerCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">The same twelve semitones of an octave (C4 to C5). On a <b>linear frequency</b> axis (top) they bunch up low and spread out high. Spaced by <b>pitch</b> (bottom) they are perfectly even - that even spacing is the logarithm of the top. The fanning lines connect each note to itself.</p>`));
+      rulerCard.appendChild(C.el(logPitchRuler()));
+      host.appendChild(rulerCard);
+
+      const stackCard = C.el(`<div class="card"></div>`);
+      stackCard.appendChild(C.el(`<h3 style="margin-top:0">Twelve semitones make an octave</h3>`));
+      stackCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Each semitone multiplies by 1.0595. Climb all twelve from C4 and you arrive at C5 - exactly double the frequency, 1200 cents up.</p>`));
+      const c4 = M.noteToFreq("C4");
+      const stackRow = controls();
+      stackRow.appendChild(playBtn("Climb 12 semitones", () => A.freqSequence(Array.from({ length: 13 }, (_, i) => c4 * Math.pow(2, i / 12)), 0.26, 0.24)));
+      stackRow.appendChild(playBtn("C4 and C5 together (2:1)", () => A.freqChord([c4, c4 * 2], 2.2)));
+      stackCard.appendChild(stackRow);
+      stackCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">In cents: each step is 100, twelve steps is 1200, and 1200 cents = log₂(2) × 1200 = one octave.</p>`));
+      host.appendChild(stackCard);
+    }
+
+    function buildTimbre(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Why a flute and a violin on the same note sound different.</b> They play the same fundamental frequency, so the <i>pitch</i> matches - but each adds a different <b>recipe of harmonics</b> on top (see <i>The harmonic series</i> for where those come from). That recipe - which overtones are present and how loud - is the sound's <b>timbre</b>, or tone colour. Mathematically it is the note's <b>Fourier spectrum</b>: any steady tone is a sum of pure sine waves at the harmonics, and the amplitudes are its fingerprint.</p>
+        <p>Build a tone from harmonics of <b>A = 110 Hz</b> and hear the colour change while the pitch stays put. The bars show which harmonics are switched on.</p>`));
+
+      const f = M.noteToFreq("A2"); // 110 Hz
+      const recipes = [
+        { label: "Fundamental only", parts: [1], note: "a bare sine - pure, hollow, like a tuning fork" },
+        { label: "+ octave (2nd)", parts: [1, 2], note: "rounder, flute-like" },
+        { label: "Odd harmonics", parts: [1, 3, 5, 7], note: "hollow and woody, like a clarinet" },
+        { label: "All harmonics", parts: [1, 2, 3, 4, 5, 6], note: "bright and buzzy, like a bowed string" },
+      ];
+      const timbreCard = C.el(`<div class="card"></div>`);
+      timbreCard.appendChild(C.el(`<h3 style="margin-top:0">Same pitch, different recipe</h3>`));
+      const specStage = C.el(`<div id="spec-stage">${spectrumBars(recipes[3].parts)}</div>`);
+      timbreCard.appendChild(specStage);
+      const specOut = C.el(`<p class="muted" id="spec-caption" aria-live="polite" style="font-size:.9rem">Pick a recipe - the pitch (110 Hz) never changes, only the colour.</p>`);
+      const specRow = C.el(`<div class="explainer-controls"></div>`);
+      recipes.forEach((r) => {
+        specRow.appendChild(playBtn(r.label, () => {
+          specStage.innerHTML = spectrumBars(r.parts);
+          specOut.innerHTML = `<b>${r.label}</b> &rarr; ${r.note}.`;
+          A.freqChord(r.parts.map((n) => f * n), 2.2);
+        }));
+      });
+      timbreCard.appendChild(specRow);
+      timbreCard.appendChild(specOut);
+      host.appendChild(timbreCard);
+
+      host.appendChild(lessonCard(`
+        <p><b>The missing fundamental.</b> Here is the strange part. The harmonics of 110 Hz sit at 220, 330, 440, 550 Hz... Their frequencies are all multiples of 110, so the whole pattern <b>repeats 110 times a second</b>. Your auditory system locks onto that repetition rate and reports the pitch as 110 Hz - <b>even if the 110 Hz tone itself is missing</b>. The brain reconstructs the fundamental from the spacing of the harmonics.</p>
+        <p>This is not a lab curiosity: a phone earpiece or a small speaker can barely move air at low frequencies, yet a male voice or a bass line still sounds the right pitch, because the harmonics are there and your brain fills in the root.</p>`));
+
+      const mfCard = C.el(`<div class="card"></div>`);
+      mfCard.appendChild(C.el(`<h3 style="margin-top:0">Remove the root, keep the pitch</h3>`));
+      mfCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Compare a real 110 Hz tone, the full harmonic stack, and the stack with its 110 Hz fundamental deleted. The last two sound the same pitch - 110 Hz - even though one has no energy at 110 Hz at all.</p>`));
+      const mfRow = controls();
+      mfRow.appendChild(playBtn("Pure 110 Hz", () => A.freqChord([f], 2)));
+      mfRow.appendChild(playBtn("110 + harmonics", () => A.freqChord([f, f * 2, f * 3, f * 4, f * 5], 2.2)));
+      mfRow.appendChild(playBtn("Harmonics only (no 110)", () => A.freqChord([f * 2, f * 3, f * 4, f * 5], 2.2)));
+      mfCard.appendChild(mfRow);
+      mfCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">The spacing between 220, 330, 440, 550 Hz is a constant 110 Hz - and that spacing, not any single tone, is what fixes the pitch.</p>`));
+      host.appendChild(mfCard);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -709,6 +845,135 @@
   ${rows}
   ${brackets}
 </svg></div>`;
+  }
+
+  function dissonanceCurve() {
+    // Schematic Plomp-Levelt sensory-dissonance curve for two 6-harmonic tones,
+    // upper note rising from unison (0 cents) to the octave (1200). Dips fall on
+    // the consonant intervals. y is roughness: 0 smooth (bottom), 1 rough (top).
+    const pts = [
+      [0, 0.02], [50, 0.55], [100, 0.92], [150, 0.72], [200, 0.5], [250, 0.46],
+      [300, 0.33], [350, 0.34], [386, 0.2], [430, 0.36], [498, 0.12], [550, 0.4],
+      [590, 0.46], [650, 0.42], [700, 0.08], [760, 0.34], [800, 0.3], [850, 0.33],
+      [884, 0.2], [950, 0.4], [1000, 0.38], [1050, 0.36], [1088, 0.27], [1150, 0.46], [1200, 0.03],
+    ];
+    const dips = [
+      [0, "unison"], [386, "M3"], [498, "P4"], [700, "P5"], [884, "M6"], [1200, "8ve"],
+    ];
+    const X0 = 44, X1 = 504, YT = 22, YB = 158, W = X1 - X0, H = YB - YT;
+    const toX = (c) => X0 + (c / 1200) * W;
+    const toY = (r) => YT + (1 - r) * H;
+    const r1 = (n) => Math.round(n * 10) / 10;
+    const poly = pts.map(([c, r]) => `${r1(toX(c))},${r1(toY(r))}`).join(" ");
+
+    let dots = "";
+    dips.forEach(([c, label]) => {
+      const x = r1(toX(c));
+      const y = r1(toY(pts.find((p) => p[0] === c)[1]));
+      dots += `<circle cx="${x}" cy="${y}" r="4" class="dc-dot"/>`;
+      dots += `<text x="${x}" y="${YB + 16}" text-anchor="middle" class="dc-tick">${label}</text>`;
+      dots += `<line x1="${x}" y1="${y + 6}" x2="${x}" y2="${YB}" class="dc-drop"/>`;
+    });
+
+    return `<div class="diss-curve"><svg viewBox="0 0 540 188" class="diss-curve-svg" role="img"
+  aria-label="Sensory dissonance curve from unison to octave. Roughness peaks near the minor 2nd and tritone and dips to consonance at the major 3rd, perfect 4th, perfect 5th, major 6th and octave.">
+  <line x1="${X0}" y1="${YB}" x2="${X1}" y2="${YB}" class="dc-axis"/>
+  <text x="${X0 - 6}" y="${YT + 6}" text-anchor="end" class="dc-axislabel">rough</text>
+  <text x="${X0 - 6}" y="${YB}" text-anchor="end" class="dc-axislabel">smooth</text>
+  ${dots}
+  <polyline points="${poly}" class="dc-line"/>
+</svg></div>`;
+  }
+
+  function logPitchRuler() {
+    // Twelve semitones of an octave placed two ways: top axis by linear frequency
+    // (bunched low, spread high), bottom axis by equal pitch steps. Fanning lines
+    // connect each note to itself, so the bottom is visibly the log of the top.
+    const notes = [
+      { name: "C", hz: 261.63 }, { name: "", hz: 277.18 }, { name: "D", hz: 293.66 },
+      { name: "", hz: 311.13 }, { name: "E", hz: 329.63 }, { name: "F", hz: 349.23 },
+      { name: "", hz: 369.99 }, { name: "G", hz: 392.0 }, { name: "", hz: 415.3 },
+      { name: "A", hz: 440.0 }, { name: "", hz: 466.16 }, { name: "B", hz: 493.88 },
+      { name: "C", hz: 523.25 },
+    ];
+    const X0 = 30, X1 = 510, W = X1 - X0, TOP = 42, BOT = 128;
+    const fLo = notes[0].hz, fHi = notes[notes.length - 1].hz;
+    const linX = (hz) => X0 + ((hz - fLo) / (fHi - fLo)) * W;
+    const evenX = (i) => X0 + (i / (notes.length - 1)) * W;
+    const r1 = (n) => Math.round(n * 10) / 10;
+
+    let connectors = "", topDots = "", botDots = "", labels = "";
+    notes.forEach((n, i) => {
+      const xt = r1(linX(n.hz)), xb = r1(evenX(i));
+      const named = n.name !== "";
+      connectors += `<line x1="${xt}" y1="${TOP}" x2="${xb}" y2="${BOT}" class="lr-connector${named ? " lr-named" : ""}"/>`;
+      topDots += `<circle cx="${xt}" cy="${TOP}" r="${named ? 4 : 2.4}" class="lr-dot${named ? " lr-named" : ""}"/>`;
+      botDots += `<circle cx="${xb}" cy="${BOT}" r="${named ? 4 : 2.4}" class="lr-dot${named ? " lr-named" : ""}"/>`;
+      if (named) {
+        labels += `<text x="${xt}" y="${TOP - 9}" text-anchor="middle" class="lr-label">${n.name}</text>`;
+        labels += `<text x="${xb}" y="${BOT + 17}" text-anchor="middle" class="lr-label">${n.name}</text>`;
+      }
+    });
+
+    return `<div class="logr"><svg viewBox="0 0 540 168" class="logr-svg" role="img"
+  aria-label="An octave of twelve semitones shown on a linear frequency axis, where they bunch up at low pitches, and on an equal-pitch axis, where they are evenly spaced.">
+  <text x="${X0}" y="20" class="lr-axislabel">frequency (Hz) — linear, bunched low</text>
+  <line x1="${X0}" y1="${TOP}" x2="${X1}" y2="${TOP}" class="lr-axis"/>
+  ${connectors}
+  <line x1="${X0}" y1="${BOT}" x2="${X1}" y2="${BOT}" class="lr-axis"/>
+  ${topDots}${botDots}${labels}
+  <text x="${X0}" y="162" class="lr-axislabel">pitch — equal steps (the logarithm)</text>
+</svg></div>`;
+  }
+
+  function spectrumBars(parts) {
+    // Bar graph of harmonics 1..8; bars in `parts` are "on" (accent), rest dimmed.
+    const N = 8, X0 = 38, X1 = 300, YB = 120, YT = 16;
+    const slot = (X1 - X0) / N;
+    const barW = slot * 0.56;
+    // Falloff so the spectrum reads as a plausible amplitude envelope.
+    const amp = (n) => 1 / n;
+    let bars = "";
+    for (let n = 1; n <= N; n++) {
+      const on = parts.includes(n);
+      const x = X0 + (n - 1) * slot + (slot - barW) / 2;
+      const h = on ? (YB - YT) * amp(n) : 3;
+      const y = YB - h;
+      bars += `<rect x="${Math.round(x)}" y="${Math.round(y)}" width="${Math.round(barW)}" height="${Math.round(h)}" class="spec-bar${on ? " on" : ""}" rx="2"/>`;
+      bars += `<text x="${Math.round(x + barW / 2)}" y="${YB + 15}" text-anchor="middle" class="spec-label${on ? " on" : ""}">${n}</text>`;
+    }
+    return `<div class="spectrum"><svg viewBox="0 0 312 146" class="spectrum-svg" role="img"
+  aria-label="Harmonic spectrum: bars for harmonics 1 to 8, with the active harmonics highlighted.">
+  <line x1="${X0 - 4}" y1="${YB}" x2="${X1}" y2="${YB}" class="spec-axis"/>
+  ${bars}
+  <text x="${(X0 + X1) / 2}" y="143" text-anchor="middle" class="spec-axislabel">harmonic number</text>
+</svg></div>`;
+  }
+
+  function beatWave(beats) {
+    // The summed waveform of two near-equal tones: a fast carrier inside a slow
+    // beating envelope. `beats` sets how many envelope bulges span the width.
+    const X0 = 14, X1 = 526, MIDY = 56, AMP = 40, W = X1 - X0, STEPS = 256;
+    const carrier = 22; // visible carrier cycles across the width
+    const r1 = (n) => Math.round(n * 10) / 10;
+    let wave = "", envTop = "", envBot = "";
+    for (let i = 0; i <= STEPS; i++) {
+      const t = i / STEPS;
+      const x = X0 + t * W;
+      const env = Math.cos(Math.PI * beats * t); // beats half-cycles -> beats/2 bulges; doubled visually below
+      const e = Math.abs(env) * AMP;
+      const y = MIDY - env * Math.sin(2 * Math.PI * carrier * t) * AMP;
+      wave += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(y)} `;
+      envTop += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(MIDY - e)} `;
+      envBot += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(MIDY + e)} `;
+    }
+    return `<svg viewBox="0 0 540 112" class="beat-wave-svg" role="img"
+  aria-label="Summed waveform of two close tones, showing a fast wave inside a slow pulsing envelope.">
+  <path d="${envTop}" class="bw-env"/>
+  <path d="${envBot}" class="bw-env"/>
+  <path d="${wave}" class="bw-wave"/>
+  <text x="270" y="106" text-anchor="middle" class="bw-label">beats per second = | f₁ − f₂ |</text>
+</svg>`;
   }
 
   function commaSpiral() {

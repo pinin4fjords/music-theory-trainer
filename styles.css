@@ -541,6 +541,43 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .prs-hz { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
 .prs-interval { fill: var(--ink-soft); font-size: 10px; font-weight: 700; font-family: inherit; }
 
+/* --- Dissonance / roughness curve --------------------------------------- */
+.diss-curve { display: flex; justify-content: center; margin: 10px 0 4px; }
+.diss-curve-svg { width: 100%; max-width: 540px; display: block; }
+.dc-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
+.dc-axis { stroke: var(--line-strong); stroke-width: 1.5; }
+.dc-drop { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.dc-dot { fill: var(--accent); }
+.dc-tick { fill: var(--ink-soft); font-size: 11px; font-weight: 700; font-family: inherit; }
+.dc-axislabel { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
+
+/* --- Linear-vs-log pitch ruler ------------------------------------------ */
+.logr { display: flex; justify-content: center; margin: 10px 0 4px; }
+.logr-svg { width: 100%; max-width: 540px; display: block; }
+.lr-axis { stroke: var(--line-strong); stroke-width: 1.5; }
+.lr-connector { stroke: var(--line); stroke-width: 1; }
+.lr-connector.lr-named { stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1.5; }
+.lr-dot { fill: var(--ink-faint); }
+.lr-dot.lr-named { fill: var(--accent); }
+.lr-label { fill: var(--ink); font-size: 11px; font-weight: 700; font-family: inherit; }
+.lr-axislabel { fill: var(--ink-faint); font-size: 10px; font-family: inherit; }
+
+/* --- Harmonic spectrum bars --------------------------------------------- */
+.spectrum { display: flex; justify-content: center; margin: 8px 0 4px; }
+.spectrum-svg { width: 100%; max-width: 312px; display: block; }
+.spec-axis { stroke: var(--line-strong); stroke-width: 1.5; }
+.spec-bar { fill: var(--line-strong); }
+.spec-bar.on { fill: var(--accent); }
+.spec-label { fill: var(--ink-faint); font-size: 10px; font-weight: 600; font-family: inherit; }
+.spec-label.on { fill: var(--accent); }
+.spec-axislabel { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
+
+/* --- Beating waveform --------------------------------------------------- */
+.beat-wave-svg { width: 100%; max-width: 540px; display: block; margin: 6px auto 2px; }
+.bw-wave { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+.bw-env { fill: none; stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; }
+.bw-label { fill: var(--ink-soft); font-size: 11px; font-weight: 600; font-family: inherit; }
+
 /* --- Scale comparison grids ---------------------------------------------- */
 .scale-grid { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .88rem; }
 .scale-grid th {
