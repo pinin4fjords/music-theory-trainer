@@ -108,7 +108,7 @@ header.appbar {
   backdrop-filter: saturate(180%) blur(12px);
   border-bottom: 1px solid var(--line);
 }
-.brand { font-weight: 700; font-size: 1rem; letter-spacing: -0.03em; }
+.brand { font-weight: 700; font-size: 1rem; letter-spacing: -0.03em; cursor: pointer; user-select: none; }
 .brand .note-glyph { color: var(--accent); }
 nav.tabs { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
 nav.tabs button {

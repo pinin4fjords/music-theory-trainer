@@ -158,6 +158,19 @@
     const allTopics = global.MTT.session.quizableTopics(global.MTT.content);
     store.subscribe(syncHeader);
 
+    // The brand navigates home.
+    const brand = doc.querySelector(".brand");
+    if (brand) {
+      brand.setAttribute("role", "button");
+      brand.setAttribute("tabindex", "0");
+      brand.setAttribute("aria-label", "Cadence - go to home");
+      const goHome = () => router.navigate("home");
+      brand.addEventListener("click", goHome);
+      brand.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); }
+      });
+    }
+
     // The level chip opens the progress view.
     if (levelChip) {
       levelChip.setAttribute("role", "button");
