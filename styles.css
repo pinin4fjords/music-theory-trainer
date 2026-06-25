@@ -204,8 +204,14 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .ok-line { color: var(--good); font-weight: 600; margin: 6px 0; }
 .ok-line b { color: var(--good); }
 .github-auth-box { background: var(--surface-alt, var(--surface)); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 6px 0; }
-.device-code-row { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
-.device-code { font-family: monospace; font-size: 1.5rem; font-weight: 700; letter-spacing: .12em; color: var(--ink); }
+.pat-steps { margin: 0 0 10px; padding-left: 1.4em; }
+.pat-steps li { margin: 4px 0; font-size: .9rem; color: var(--ink-soft); }
+.pat-steps li b, .pat-steps li a { color: var(--ink); }
+.pat-link { color: var(--accent); }
+.pat-input-row { display: flex; gap: 8px; align-items: center; }
+.pat-input { flex: 1; font: inherit; font-size: .9rem; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); color: var(--ink); min-width: 0; }
+.pat-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pat-error { color: var(--bad); font-size: .85rem; margin: 6px 0 0; }
 
 /* --- Hero (the thesis): big headline set on a five-line stave ----------- */
 .hero { text-align: center; padding: clamp(38px, 7vw, 72px) 10px clamp(10px, 2vw, 18px); position: relative; }

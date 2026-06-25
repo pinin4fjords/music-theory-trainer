@@ -204,37 +204,9 @@
       const gist = ctx.gist;
       if (!gist) return; // not available in test environment
 
-      const pending = gist.getPending();
       const connected = gist.isConnected();
 
-      if (pending) {
-        // Device Flow in progress - show the user code.
-        const box = C.el(`
-          <div class="github-auth-box">
-            <p style="margin:6px 0 4px"><b>Connect to GitHub</b></p>
-            <p class="muted" style="margin:0 0 8px;font-size:.9rem">Enter this code at github.com/login/device:</p>
-            <div class="device-code-row">
-              <span class="device-code">${escapeHtml(pending.userCode)}</span>
-              <button type="button" class="linkish" id="copy-code">Copy</button>
-            </div>
-            <p class="muted" style="margin:8px 0;font-size:.85rem">Waiting for you to authorise in GitHub...</p>
-          </div>`);
-        const openBtn = C.button("Open github.com/login/device", () => {
-          global.open(pending.verificationUri, "_blank", "noopener");
-        });
-        const cancelBtn = C.button("Cancel", () => {
-          gist.cancelAuth();
-          renderGithubSync();
-        }, { className: "ghost" });
-        box.appendChild(openBtn);
-        box.appendChild(cancelBtn);
-        box.querySelector("#copy-code").addEventListener("click", (e) => {
-          navigator.clipboard && navigator.clipboard.writeText(pending.userCode).catch(() => {});
-          e.target.textContent = "Copied!";
-          setTimeout(() => { if (e.target.isConnected) e.target.textContent = "Copy"; }, 2000);
-        });
-        area.appendChild(box);
-      } else if (connected) {
+      if (connected) {
         area.appendChild(C.el(`<p class="ok-line" style="margin:6px 0">✓ Progress syncs to a private GitHub Gist on every change.</p>`));
         const syncBtn = C.button("Sync now", async () => {
           syncBtn.disabled = true;
@@ -257,37 +229,77 @@
         area.appendChild(syncBtn);
         area.appendChild(disconnectBtn);
       } else {
-        area.appendChild(C.el(`<p class="muted" style="margin:6px 0;font-size:.9rem">Sync across devices via a private GitHub Gist - works in any browser, any device. Only needs a GitHub login.</p>`));
-        const connectBtn = C.button("Connect with GitHub", async () => {
-          connectBtn.disabled = true;
-          connectBtn.textContent = "Starting...";
-          try {
-            await gist.startDeviceFlow();
-            renderGithubSync();
-            // Begin polling in the background; re-render on completion or error.
-            gist.pollForToken().then(async (token) => {
-              const info = await gist.finishConnect(token);
-              // Pull from gist if it's newer than local progress.
-              try {
-                const remote = await gist.pull();
-                if (remote) store.hydrate(remote);
-              } catch { /* pull failure is non-fatal */ }
-              ctx.syncHeader();
-              renderGithubSync();
-              C.announce("Connected to GitHub" + (info.username ? " as " + info.username : "") + ".");
-            }).catch((err) => {
-              if (err.message === "cancelled") return;
-              gist.cancelAuth();
-              renderGithubSync();
-              C.announce("GitHub sign-in failed: " + err.message, true);
-            });
-          } catch (err) {
-            connectBtn.disabled = false;
-            connectBtn.textContent = "Connect with GitHub";
-            C.announce("Couldn't reach GitHub: " + err.message, true);
-          }
+        // Token setup: a direct link opens GitHub with scope + name pre-filled,
+        // so the user just clicks "Generate token" and pastes it back.
+        const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Motif+music+theory+trainer";
+        const box = C.el(`
+          <div class="github-auth-box">
+            <p style="margin:0 0 10px"><b>Sync across devices via GitHub</b></p>
+            <ol class="pat-steps">
+              <li><a href="${TOKEN_URL}" target="_blank" rel="noopener" class="pat-link">Open GitHub token settings <span aria-hidden="true">↗</span></a> and click <b>Generate token</b> (settings are pre-filled).</li>
+              <li>Copy the token GitHub shows you.</li>
+              <li>Paste it here:</li>
+            </ol>
+            <div class="pat-input-row">
+              <input type="password" id="pat-input" class="pat-input" placeholder="ghp_…" autocomplete="off" spellcheck="false">
+              <button type="button" class="btn" id="pat-connect" disabled>Connect</button>
+            </div>
+            <p class="pat-error" id="pat-error" hidden></p>
+          </div>`);
+
+        const input = box.querySelector("#pat-input");
+        const connectBtn = box.querySelector("#pat-connect");
+        const errorEl = box.querySelector("#pat-error");
+
+        function setError(msg) {
+          errorEl.textContent = msg;
+          errorEl.hidden = !msg;
+        }
+
+        function setConnecting(yes) {
+          connectBtn.disabled = yes;
+          connectBtn.textContent = yes ? "Connecting…" : "Connect";
+          input.disabled = yes;
+        }
+
+        input.addEventListener("input", () => {
+          connectBtn.disabled = input.value.trim().length < 10;
+          setError("");
         });
-        area.appendChild(connectBtn);
+
+        async function doConnect() {
+          const token = input.value.trim();
+          if (!token) return;
+          setConnecting(true);
+          setError("");
+          try {
+            const info = await gist.connect(token);
+            try {
+              const remote = await gist.pull();
+              if (remote) store.hydrate(remote);
+            } catch { /* pull failure is non-fatal */ }
+            ctx.syncHeader();
+            renderGithubSync();
+            C.announce("Connected to GitHub" + (info.username ? " as " + info.username : "") + ".");
+          } catch (e) {
+            setConnecting(false);
+            setError(e.message);
+          }
+        }
+
+        // Connect on button click or Enter in the input.
+        connectBtn.addEventListener("click", doConnect);
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") doConnect(); });
+
+        // Also connect automatically on paste so the user doesn't need to click.
+        input.addEventListener("paste", () => {
+          // Read value after paste event resolves.
+          setTimeout(() => {
+            if (input.value.trim().length >= 10) doConnect();
+          }, 0);
+        });
+
+        area.appendChild(box);
       }
     }
 
