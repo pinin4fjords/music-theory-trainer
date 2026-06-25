@@ -453,3 +453,113 @@ nav.tabs button.active { background: var(--accent); color: #fff; }
 /* Smooth most interactive elements through a theme switch. */
 .choice, .card, .btn, .focus-chip, .audio-btn, .cof-key, .partial-chip, .stat,
 .streak-chip, .level-chip, select, input { transition-property: background-color, color, border-color, box-shadow, transform, filter; }
+
+/* =======================================================================
+   Redesign pass: escape the "bordered-box e-learning" look. Crisper white
+   surfaces, de-boxed layout, a stronger type scale, and one signature - the
+   hero title set on a five-line stave. (Overrides the rules above.)
+   ======================================================================= */
+
+:root, [data-theme="light"] {
+  --bg: #f7f6f2;          /* lifted off the heavy beige toward warm near-white */
+  --bg-2: #eeebe3;
+  --paper: #ffffff;       /* clean white cards pop crisper than cream */
+  --surface-2: #f5f3ee;
+  --ink: #1a1613;         /* higher-contrast ink */
+  --ink-soft: #756d60;
+  --line: #ece7dd;        /* lighter hairlines */
+  --line-strong: #ddd6c9;
+  --shadow-sm: 0 1px 2px rgba(28, 22, 14, .05);
+  --shadow: 0 1px 2px rgba(28, 22, 14, .05), 0 18px 40px -22px rgba(28, 22, 14, .30);
+  --shadow-lg: 0 24px 60px -24px rgba(28, 22, 14, .38);
+  --header-bg: rgba(247, 246, 242, .82);
+}
+[data-theme="dark"] {
+  --bg: #131210;
+  --bg-2: #211e18;
+  --paper: #1e1b16;
+  --surface-2: #252118;
+  --ink: #f1ebe1;
+  --ink-soft: #a79d8c;
+  --line: #2c2820;
+  --line-strong: #3b3528;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow: 0 1px 2px rgba(0, 0, 0, .45), 0 22px 50px -24px rgba(0, 0, 0, .8);
+  --shadow-lg: 0 28px 64px -26px rgba(0, 0, 0, .85);
+  --header-bg: rgba(20, 18, 14, .82);
+}
+
+body { background: var(--bg); font-feature-settings: "kern" 1; }
+
+/* Typography: a confident, tighter scale; tabular figures for data. */
+h1, h2, h3 { letter-spacing: -0.025em; }
+main { padding-top: clamp(16px, 3vw, 28px); }
+.hero { padding: clamp(40px, 7vw, 76px) 12px clamp(10px, 2vw, 18px); }
+.hero h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); font-weight: 800; line-height: 1.03; margin: 0 0 12px; }
+.hero p { font-size: 1.05rem; max-width: 520px; }
+.view > h2 { font-size: 1.5rem; margin-top: 38px; }
+.quiz-prompt { font-size: 1.3rem; line-height: 1.35; font-weight: 600; }
+
+/* The signature: the hero headline is set on a faint five-line stave, as if the
+   title were engraved on a score. Centred on the H1 and masked to fade at both
+   ends so it reads as a stave, not an underline. */
+.hero { position: relative; }
+.hero h1 { position: relative; display: inline-block; }
+.hero h1::before {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% + 64px); height: 84px;
+  background: repeating-linear-gradient(to bottom, transparent 0 20px, var(--line-strong) 20px 21px);
+  -webkit-mask: radial-gradient(120% 100% at 50% 50%, #000 55%, transparent 78%);
+          mask: radial-gradient(120% 100% at 50% 50%, #000 55%, transparent 78%);
+  opacity: .55; pointer-events: none; z-index: -1;
+}
+
+/* De-box: borderless cards carried by soft, layered elevation. */
+.card {
+  border: none; background: var(--paper);
+  border-radius: 18px; box-shadow: var(--shadow);
+  padding: clamp(20px, 3vw, 30px);
+}
+.topic, .as-button { box-shadow: var(--shadow-sm); }
+.topic:hover, .as-button:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); }
+
+/* Stats: one clean panel split by hairlines, not four bordered tiles. */
+.stats-row {
+  background: var(--paper); border-radius: 18px; box-shadow: var(--shadow);
+  gap: 0; overflow: hidden; margin-bottom: 22px;
+}
+.stat { background: transparent; border: none; box-shadow: none; border-right: 1px solid var(--line); padding: 20px 10px; }
+.stat:last-child { border-right: none; }
+.stat-num { font-size: 1.7rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+@media (max-width: 560px) {
+  .stat:nth-child(2n) { border-right: none; }
+  .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+}
+
+/* Disclaimer: quiet centred caption, no box. */
+.disclaimer { background: none; border: none; padding: 2px 0; color: var(--ink-soft); }
+
+/* Buttons: a touch larger, softer-cornered, confident. */
+.btn { border-radius: 12px; padding: 13px 22px; font-weight: 700; letter-spacing: -0.01em; }
+
+/* Quiz choices: borderless rows with a hairline ring; clear lift on hover. */
+.choice {
+  border: none; background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line); border-radius: 12px; padding: 15px 16px;
+}
+.choice:hover:not(:disabled) { background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--accent); transform: translateY(-1px); }
+.choice.correct { background: var(--good-soft); box-shadow: inset 0 0 0 1.5px var(--good); }
+.choice.wrong { background: var(--bad-soft); box-shadow: inset 0 0 0 1.5px var(--bad); }
+
+/* Header: lighter chrome, hairline base, roomier brand. */
+header.appbar { padding-top: 12px; padding-bottom: 12px; }
+.brand { font-size: 1.05rem; letter-spacing: -0.03em; }
+nav.tabs button { font-weight: 600; }
+
+/* Mode toggle + segmented controls: pill, snug. */
+.mode-toggle, .seg { box-shadow: inset 0 0 0 1px var(--line); border: none; }
+
+/* Focus-area + data cards keep the airy treatment. */
+.focus-chip { box-shadow: inset 0 0 0 1.5px var(--line); border: none; background: var(--surface-2); }
+.focus-chip:hover { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--paper); }
