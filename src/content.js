@@ -66,7 +66,7 @@
   function intervalContrast(iv) {
     const noun = M.ordinal(iv.number);
     if ([1, 4, 5, 8].indexOf(M.simpleNumber(iv.number)) !== -1) {
-      if (iv.quality === "perfect") return `A semitone wider and it would be an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>.`;
+      if (iv.quality === "perfect") return `A semitone wider and it would be an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>. These intervals are called 'perfect' because medieval theorists considered them the purest consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the only intervals stable enough to end a phrase on.`;
       if (iv.quality === "augmented") return `Narrow it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
       return `Widen it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
     }
@@ -170,8 +170,11 @@
   function minorFormQuestion(rng) {
     const root = pick(rng, ["A", "D", "E", "G", "C", "B"]);
     const [type, label] = pick(rng, MINOR_FORMS);
-    const note = type === "harmonicMinor" ? " The raised 7th creates the augmented 2nd you can hear."
-      : type === "melodicMinorAsc" ? " Both the 6th and 7th are raised on the way up." : " No degrees are raised.";
+    const note = type === "harmonicMinor"
+      ? " The 7th is raised a semitone to create a leading note - a semitone below the tonic - so the V chord becomes major and the V→I cadence has the same strong pull as in major. The side-effect is an augmented 2nd between the 6th and raised 7th."
+      : type === "melodicMinorAsc"
+      ? " Both the 6th and 7th are raised going up: this smooths out the awkward augmented 2nd of the harmonic form while keeping the raised leading note needed for the V→I pull. Descending, that pull is irrelevant, so both revert to the key signature."
+      : " No degrees are raised - the pure key-signature minor, which matches the Aeolian mode.";
     const spec = { clef: "treble", notes: M.scale(root, type) };
     return {
       prompt: `<b>${root} minor</b> - which form is this?` + staffBlock(spec),
@@ -191,13 +194,13 @@
     const noteName = M.spelledName(sc[degree - 1]);
     const correct = M.degreeName(degree);
     const blurbs = {
-      tonic: "the home note the key is named after",
+      tonic: "the home note the key is named after (from Latin <i>tonus</i>, tone)",
       supertonic: "one step above the tonic (Latin <i>super</i> = above)",
-      mediant: "midway between tonic and dominant",
-      subdominant: "a 5th <i>below</i> the tonic, mirroring the dominant above",
-      dominant: "a 5th above the tonic - the strongest pull back home",
-      submediant: "midway between tonic and subdominant going down",
-      "leading note": "a semitone below the tonic, leaning up into it",
+      mediant: "midpoint between tonic (1) and dominant (5) - degree 3 sits exactly in the middle (Latin <i>medius</i> = middle)",
+      subdominant: "a 5th <i>below</i> the tonic - the dominant's mirror image (Latin <i>sub</i> = below/beneath). The naming scheme pairs each upper degree with a lower one: dominant ↔ subdominant, mediant ↔ submediant.",
+      dominant: "a 5th above the tonic - the most powerful pull back home",
+      submediant: "midpoint between tonic (1) and subdominant going down - degree 6 sits midway in the lower tetrachord, just as the mediant sits midway in the upper (Latin <i>sub</i> = below)",
+      "leading note": "a semitone below the tonic, leaning up into it - the 'leader' toward home",
     };
     const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: [sc[degree - 1]] };
     return {
@@ -289,7 +292,7 @@
       prompt: `Which note is the same pitch (the <b>enharmonic equivalent</b>) as <b>${e.a}</b>?`,
       choices: choices(rng, e.b, ENHARM_POOL),
       answer: e.b,
-      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}.`,
+      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}. The spelling you choose depends on the key: every scale must use one of each letter name, which sometimes forces double accidentals (e.g. the leading note of G# minor is F𝄪, not G).`,
       audio: () => audio().note(M.noteToMidi(e.play)),
     };
   }
@@ -380,7 +383,7 @@
       a11yText: a11y("Which inversion is this triad in?", spec),
       choices: choices(rng, INV_NAMES[inv], INV_NAMES),
       answer: INV_NAMES[inv],
-      explanation: `The lowest note is <b>${bass}</b> - ${reason}. The bass note decides: ${M.spelledName(root[0])} = root position, ${M.spelledName(root[1])} = first inversion, ${M.spelledName(root[2])} = second inversion.`,
+      explanation: `The lowest note is <b>${bass}</b> - ${reason}. The bass note decides: ${M.spelledName(root[0])} = root position, ${M.spelledName(root[1])} = first inversion, ${M.spelledName(root[2])} = second inversion. Inversions exist for voice-leading: keeping a chord tone other than the root in the bass lets the bass line move smoothly by step rather than leaping. First inversion feels lighter and less conclusive than root position; second inversion is unstable and usually resolves with the bass staying put while the upper notes move.`,
       audio: () => audio().chord(notes),
       meta: { type: "inversion" },
     };
@@ -400,12 +403,13 @@
   function ornamentQuestion(rng) {
     const o = pick(rng, ORNAMENTS);
     const playIt = () => audio().sequence(o.play, 0.13, 0.16);
+    const ornHist = `Ornaments grew out of Baroque harpsichord technique: the harpsichord's plucked strings decay immediately, so players alternated notes rapidly to keep long notes alive. On the piano, which sustains naturally, ornaments are now purely expressive.`;
     if (rng.bool()) {
       return {
         prompt: `Which ornament is this: "${o.desc}"?`,
         choices: choices(rng, o.name, ORNAMENTS.map((x) => x.name)),
         answer: o.name,
-        explanation: `That is the <b>${o.name}</b>: ${o.desc}.`,
+        explanation: `That is the <b>${o.name}</b>: ${o.desc}. ${ornHist}`,
         audio: playIt,
       };
     }
@@ -413,7 +417,7 @@
       prompt: `What does a <b>${o.name}</b> do?`,
       choices: choices(rng, o.desc, ORNAMENTS.map((x) => x.desc)),
       answer: o.desc,
-      explanation: `A <b>${o.name}</b> is ${o.desc}.`,
+      explanation: `A <b>${o.name}</b> is ${o.desc}. ${ornHist}`,
       audio: playIt,
     };
   }
@@ -512,7 +516,7 @@
       prompt: `What is the <b>inversion</b> of a <b>${original}</b>?`,
       choices: choices(rng, inv.name, INTERVAL_NAME_POOL),
       answer: inv.name,
-      explanation: `Invert a ${original} and you get a <b>${inv.name}</b>: the numbers add up to 9 (${num} + ${inv.number}), and the quality flips (${qual} becomes ${inv.quality}).`,
+      explanation: `Invert a ${original} and you get a <b>${inv.name}</b>: the numbers add up to 9 (${num} + ${inv.number}), and the quality flips (${qual} becomes ${inv.quality}). The sum-to-9 rule follows from the octave: both intervals together span 8 letter-names (C to C), but the shared boundary note is counted in both, so ${num} + ${inv.number} = 8 + 1 = 9. Quality flips because inverting turns a major interval's extra semitone into a deficit, and vice versa.`,
       meta: { type: "interval", number: inv.number, quality: inv.quality },
     };
   }
@@ -542,10 +546,10 @@
 
   // Cadence identification from the two chords given.
   const CADENCES = [
-    { name: "perfect", prog: [5, 1], why: "V to I - the strongest, most final close" },
-    { name: "plagal", prog: [4, 1], why: "IV to I - the gentle 'Amen' close" },
-    { name: "imperfect", prog: [1, 5], why: "ends ON chord V - it sounds unfinished, expecting more" },
-    { name: "interrupted", prog: [5, 6], why: "V leads not to I but to vi - the expected resolution is 'interrupted'" },
+    { name: "perfect", prog: [5, 1], why: "V to I - the strongest, most final close", nameNote: "Called 'perfect' because it ends on root-position I after root-position V - landing on the most stable, conclusive point possible." },
+    { name: "plagal", prog: [4, 1], why: "IV to I - the gentle 'Amen' close", nameNote: "Called 'plagal' from Greek <i>plagios</i> (oblique) - it was the standard 'Amen' cadence in church music, approaching the tonic from the subdominant below rather than the dominant above, so it feels quieter and less forceful." },
+    { name: "imperfect", prog: [1, 5], why: "ends ON chord V - it sounds unfinished, expecting more", nameNote: "Called 'imperfect' because ending on V is the opposite of landing on the tonic - it leaves the music hanging, waiting for a reply." },
+    { name: "interrupted", prog: [5, 6], why: "V leads not to I but to vi - the expected resolution is 'interrupted'", nameNote: "Called 'interrupted' because the ear expects V to resolve to I, but instead it goes to vi - the expected cadence is cut short." },
   ];
   const CADENCE_KEYS = ["C", "G", "D", "F", "Bb"];
   function cadenceQuestion(rng) {
@@ -564,7 +568,7 @@
       a11yText: a11y(`In ${key} major, identify this cadence: chord ${r1} to chord ${r2}.`, spec),
       choices: choices(rng, c.name, CADENCES.map((x) => x.name)),
       answer: c.name,
-      explanation: `${r1} - ${r2} is a <b>${c.name} cadence</b>: ${c.why}.`,
+      explanation: `${r1} - ${r2} is a <b>${c.name} cadence</b>: ${c.why}. ${c.nameNote}`,
       audio: () => { audio().chord(chord1); },
     };
   }
@@ -612,7 +616,7 @@
       prompt: `A <b>${inst.name}</b> ${inst.blurb}. To sound concert <b>${M.spelledName(concert)}</b>, what note must be <i>written</i> for the player?`,
       choices: choices(rng, M.spelledName(written), pool),
       answer: M.spelledName(written),
-      explanation: `Since the instrument sounds lower than written, you write <i>higher</i> by the same interval: a ${inst.quality} ${M.ordinal(inst.number)} above ${M.spelledName(concert)} is <b>${M.spelledName(written)}</b>.`,
+      explanation: `Since the instrument sounds lower than written, you write <i>higher</i> by the same interval: a ${inst.quality} ${M.ordinal(inst.number)} above ${M.spelledName(concert)} is <b>${M.spelledName(written)}</b>. Transposing instruments exist because 18th-century natural instruments (horns, clarinets) were built for a single key; players swapped crooks or barrels to change key. When valves and keywork arrived, the notation convention stayed.`,
     };
   }
 
@@ -725,11 +729,15 @@
   ];
   function termQuestion(rng) {
     const t = pick(rng, TERMS);
+    const langNote = t.lang === "It." ? ` Italian dominated music notation from c.1600-1750 because opera, the sonata, and the concerto all originated in Italy; the convention stuck even as German and French composers later took the lead.`
+      : t.lang === "Ger." ? ` German terms appear from the early 19th century onward: Beethoven and Schumann deliberately used their own language as a point of national pride rather than defaulting to Italian.`
+      : t.lang === "Fr." ? ` French terms became prominent with French Romantic and Impressionist composers (Debussy, Fauré) who preferred their own language for expression markings.`
+      : ``;
     return {
       prompt: `What does <b>${t.term}</b> (${t.lang}) mean?`,
       choices: choices(rng, t.meaning, TERMS.map((x) => x.meaning)),
       answer: t.meaning,
-      explanation: `<b>${t.term}</b> (${t.lang}) means <b>${t.meaning}</b>.`,
+      explanation: `<b>${t.term}</b> (${t.lang}) means <b>${t.meaning}</b>.${langNote}`,
     };
   }
 
@@ -789,19 +797,20 @@
   ];
   function figuredBassQuestion(rng) {
     const f = pick(rng, FIGURED);
+    const contHist = ` Figured bass developed in early 17th-century Italy for Baroque continuo: the keyboard player (harpsichordist or organist) improvised the middle harmonies from a bass line and these chord-number shorthand symbols, without a fully written-out part.`;
     if (rng.bool()) {
       return {
         prompt: `In figured bass, what does the figure <b>${f.fig}</b> indicate?`,
         choices: choices(rng, f.inv, FIGURED.map((x) => x.inv)),
         answer: f.inv,
-        explanation: `<b>${f.fig}</b> indicates a <b>${f.inv}</b>. The figures count the intervals above the bass note.`,
+        explanation: `<b>${f.fig}</b> indicates a <b>${f.inv}</b>. The figures count the intervals above the bass note.${contHist}`,
       };
     }
     return {
       prompt: `Which figured-bass symbol indicates a <b>${f.inv}</b>?`,
       choices: choices(rng, f.fig, FIGURED.map((x) => x.fig)),
       answer: f.fig,
-      explanation: `A ${f.inv} is figured <b>${f.fig}</b>.`,
+      explanation: `A ${f.inv} is figured <b>${f.fig}</b>.${contHist}`,
     };
   }
 
@@ -910,7 +919,7 @@
         {
           id: "g1-rhythm", title: "Note values, tones & semitones",
           why: "Everything in rhythm is built by halving: each value splits into two of the next. And every scale is just a pattern of tones and semitones.",
-          what: "<p>A semibreve = 2 minims = 4 crotchets = 8 quavers = 16 semiquavers. A <b>semitone</b> is the smallest step (one key on the piano); a <b>tone</b> is two semitones.</p>",
+          what: "<p>A semibreve = 2 minims = 4 crotchets = 8 quavers = 16 semiquavers. A <b>semitone</b> is the smallest step (one key on the piano); a <b>tone</b> is two semitones.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Where the names come from:</b> these are medieval fossils. The breve was the original unit; semibreve means half a breve. Minim comes from Latin <i>minima</i> (smallest - it was the shortest note early notation could write). Crotchet is from French <i>crochu</i> (hooked - the filled notehead with a stem). Quaver means to shake or tremble (it moves so fast). American names - whole, half, quarter, eighth - just make the halving hierarchy explicit.</p>",
           questions: (rng) => (rng.bool() ? noteValueQuestion(rng) : toneSemitoneQuestion(rng)),
         },
         {
@@ -961,7 +970,7 @@
         },
         {
           id: "g3-quality", title: "Interval quality",
-          why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling.",
+          why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the only intervals you could end a phrase on. Everything else was 'imperfect' - pleasant but unsettled.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
           questions: (rng) => intervalQuestion(rng),
         },
@@ -984,13 +993,13 @@
         },
         {
           id: "g4-key-signatures", title: "Keys up to 5 sharps and flats",
-          why: "Key signatures aren't arbitrary - they fall straight out of the circle of fifths. Each step clockwise adds one sharp, each step anticlockwise adds one flat, always in a fixed order (FCGDAEB / BEADGCF).",
+          why: "Key signatures aren't arbitrary - they fall straight out of the circle of fifths. Each step clockwise adds one sharp, each step anticlockwise adds one flat, always in a fixed order (FCGDAEB / BEADGCF). That order isn't arbitrary either: each new accidental is a 5th above the previous one (F♯→C♯→G♯→...). The same interval that generates the keys generates their accidentals.",
           what: "<p>This level covers all major and minor keys up to five sharps and five flats, in both clefs, plus harmonic and melodic minor forms.</p>",
           questions: (rng) => keySignatureQuestion(rng),
         },
         {
           id: "g4-alto-clef", title: "The alto (C) clef",
-          why: "The viola lives mostly between the treble and bass staves; the alto clef centres middle C on the middle line so it needs almost no ledger lines.",
+          why: "The viola lives mostly between the treble and bass staves; the alto clef centres middle C on the middle line so it needs almost no ledger lines. The clef symbol itself is a stylised letter C - in medieval manuscripts, pitch was shown by marking a letter on the relevant line. The treble clef is a stylised G (it loops around the G line), the bass clef a stylised F (with two dots flanking the F line). The C clef simply moved to different lines for different instruments, giving us the alto and tenor variants.",
           what: "<p>The alto clef is a <b>C clef</b>: its centre marks <b>middle C (C4)</b>, which sits on the <b>middle line</b>. From there, read up and down in line/space steps just like any clef. The lines from bottom to top are <b>F A C E G</b>; the spaces are <b>G B D F</b>.</p>",
           questions: (rng) => altoClefQuestion(rng),
         },
@@ -1014,7 +1023,7 @@
         },
         {
           id: "g4-ornaments", title: "Ornaments",
-          why: "Ornaments are shorthand for decorations performers once improvised; the signs save writing every tiny note out - and each has its own flavour you can hear.",
+          why: "Ornaments are shorthand for decorations performers once improvised. The harpsichord was the culprit: its strings are plucked, not struck, so notes decay immediately with no sustain. Players ornamented notes to prolong and emphasise them - rapid alternation (trill, mordent) kept the sound alive on long notes. The piano sustains naturally, so ornaments became purely expressive. Baroque performers improvised far more of this than is written down.",
           what: "<p>The common ornaments: the <b>trill</b> (rapid alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), the <b>turn</b> (above-note-below-note), and the grace notes - the crushed <b>acciaccatura</b> and the leaning <b>appoggiatura</b>.</p>",
           questions: (rng) => ornamentQuestion(rng),
         },
@@ -1041,7 +1050,7 @@
         {
           id: "g5-chords", title: "Chords & cadences",
           why: "Naming chords by Roman numeral and inversion, and hearing the cadences at phrase-ends, is the gateway to all the harmony in Grades 6-8.",
-          what: "<p>Identify the triads on <b>I, ii, IV and V</b> in root position and first/second inversion. Recognise the four cadences: <b>perfect</b> (V-I), <b>plagal</b> (IV-I), <b>imperfect</b> (ending on V) and <b>interrupted</b> (V-vi).</p>",
+          what: "<p>Identify the triads on <b>I, ii, IV and V</b> in root position and first/second inversion. Recognise the four cadences: <b>perfect</b> (V-I), <b>plagal</b> (IV-I), <b>imperfect</b> (ending on V) and <b>interrupted</b> (V-vi).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why these names?</b> 'Perfect' (V-I) is the most conclusive landing - both chords root-position, ending on the 'perfect' stability of the tonic. 'Plagal' (IV-I) comes from Greek <i>plagios</i> (oblique); it was the 'Amen' cadence of church music, approaching home from the subdominant below rather than the dominant above - quieter and less forceful. 'Interrupted' (V-vi) tricks the ear: the dominant sets up an expected resolution to I, then goes somewhere else instead.</p>",
           questions: (rng) => (rng.bool(0.6) ? chordIdQuestion(rng) : cadenceQuestion(rng)),
         },
         {
@@ -1052,20 +1061,20 @@
         },
         {
           id: "g5-transposition", title: "Transposition",
-          why: "Transposing instruments sound at a different pitch from what's written, so players and arrangers constantly convert between written and concert pitch.",
+          why: "Transposing instruments sound at a different pitch from what's written - and the reason is historical. 18th-century natural horns and clarinets were built for a single key; to change key a player would swap a crook (a tube of different length that changed the instrument's pitch). When valves and keywork were invented, the notation convention stayed because players had trained with it. A B♭ clarinet player uses the same fingering for every 'written C' regardless of the actual key - what pitch comes out is the arranger's problem.",
           what: "<p>Transpose a melody by a named interval, up or down. Know the common transposing instruments: instruments <b>in B♭</b> sound a major 2nd lower than written, <b>in A</b> a minor 3rd lower, <b>in F</b> a perfect 5th lower. To sound a given concert pitch you write that interval <i>higher</i>.</p>",
           questions: (rng) => (rng.bool() ? transposeInstrumentQuestion(rng) : transposeIntervalQuestion(rng)),
         },
         {
           id: "g5-terms", title: "Foreign terms & signs",
-          why: "Italian (with some French and German) terms are the shared vocabulary of expression marks - knowing them turns a printed page into instructions.",
+          why: "Italian terms dominate because Italy dominated European music from roughly 1600-1750: opera, the sonata, and the concerto all originated there, and Italian publishers first circulated standardised notation internationally. By the time German and French composers became pre-eminent, Italian was already the convention. Some Romantic composers (Schumann, Beethoven in his later works) deliberately switched to German as a point of national pride - hence the French and German sections.",
           what: "<p>A working vocabulary of tempo, dynamic and expression terms - mostly <b>Italian</b>, with common <b>French</b> and <b>German</b> equivalents.</p>",
           questions: (rng) => termQuestion(rng),
         },
         {
           id: "g5-instruments", title: "Instruments & voices",
           why: "Knowing the instrument families and the four voice types (SATB) is the groundwork for reading scores and understanding how music is laid out.",
-          what: "<p>The four families - <b>strings, woodwind, brass, percussion</b> - and the four standard voices from highest to lowest: <b>soprano, alto, tenor, bass</b>.</p>",
+          what: "<p>The four families - <b>strings, woodwind, brass, percussion</b> - and the four standard voices from highest to lowest: <b>soprano, alto, tenor, bass</b>.</p><p class=\"muted\" style=\"font-size:.9em\"><b>What defines the families?</b> Strings are bowed or plucked (the vibrating string is the source). Woodwind produce sound by a reed (oboe, clarinet, bassoon, saxophone) or an edge-tone across a hole (flute, piccolo) - the material doesn't matter, which is why the saxophone is woodwind despite being metal. Brass use the player's vibrating lips against a cup mouthpiece (trumpet, horn, trombone, tuba). Percussion are struck or shaken.</p>",
           questions: (rng) => instrumentQuestion(rng),
         },
       ],
@@ -1075,14 +1084,14 @@
       topics: [
         {
           id: "g6-figured-bass", title: "Figured bass & inversions",
-          why: "Figured bass is harmony's shorthand: a few numbers under a bass note tell you the whole chord and its inversion. Reading it fluently is the foundation of Grade 6 harmony.",
+          why: "Figured bass is harmony's shorthand: a few numbers under a bass note tell you the whole chord and its inversion. It developed from Baroque continuo practice (c.1600-1750), where keyboard players - harpsichordists, organists, lutenists - improvised the middle harmony from just a bass line and chord-number clues. The composer wrote the melody and bass; the continuo player filled in the chords on the fly. Full written-out accompaniments only became standard gradually.",
           what: "<p>The figures count intervals above the bass. A triad: <b>5/3</b> (root), <b>6</b> (first inversion), <b>6/4</b> (second inversion). A 7th chord: <b>7</b>, <b>6/5</b>, <b>4/3</b>, <b>4/2</b> for its four positions.</p>",
           questions: (rng) => (rng.bool() ? figuredBassQuestion(rng) : dominant7thQuestion(rng)),
         },
         {
           id: "g6-chords", title: "Dominant & supertonic 7ths",
-          why: "The dominant 7th (V7) is the engine of tonal harmony - its built-in dissonance pulls hard to the tonic. Knowing its inversions and the supertonic 7th expands your harmonic palette.",
-          what: "<p><b>V7</b> adds a minor 7th above the dominant triad, giving a four-note chord with four inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V.</p>",
+          why: "The dominant 7th (V7) is the engine of tonal harmony. In C major it is G-B-D-F: the tritone B-F wants to resolve inward by contrary motion (B rises a semitone to C, F falls a semitone to E), landing squarely on the tonic chord. No other interval has that built-in directional pull.",
+          what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V.</p>",
           questions: (rng) => dominant7thQuestion(rng),
         },
         {
@@ -1106,7 +1115,7 @@
         {
           id: "g7-chromatic", title: "Chromatic chords",
           why: "Grade 7 adds colour beyond the diatonic chords: the tense diminished 7th and the dark Neapolitan 6th are the first of the chromatic chords that make late-Romantic harmony so rich.",
-          what: "<p>The <b>diminished 7th</b> stacks minor 3rds and is highly unstable. The <b>Neapolitan 6th</b> is a major triad on the <i>flattened</i> supertonic (♭II), almost always in first inversion, used to approach the dominant. Plus secondary (non-dominant) 7th chords.</p>",
+          what: "<p>The <b>diminished 7th</b> stacks minor 3rds and is highly unstable. The <b>Neapolitan 6th</b> is a major triad on the <i>flattened</i> supertonic (♭II), almost always in first inversion, used to approach the dominant. Plus secondary (non-dominant) 7th chords.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why 'Neapolitan'?</b> The name comes from the Neapolitan opera school of the early 18th century - composers like Alessandro Scarlatti and Pergolesi worked in Naples, which was then the dominant opera centre of Europe. They particularly favoured this striking ♭II chord. German theorists who imported and systematised Italian style named the chord after the city.</p>",
           questions: (rng) => chromaticChordQuestion(rng),
         },
         {
@@ -1130,7 +1139,7 @@
         {
           id: "g8-aug-sixth", title: "Augmented 6th chords",
           why: "The Italian, French and German augmented 6ths are the signature chromatic chords of Grade 8 - three flavours of the same striking interval, each resolving outward to the dominant.",
-          what: "<p>All three share an <b>augmented 6th</b> above the bass. The <b>Italian</b> adds a major 3rd; the <b>French</b> adds a major 3rd and an augmented 4th; the <b>German</b> adds a major 3rd and a perfect 5th (and sounds like a dominant 7th).</p>",
+          what: "<p>All three share an <b>augmented 6th</b> above the bass. The <b>Italian</b> adds a major 3rd; the <b>French</b> adds a major 3rd and an augmented 4th; the <b>German</b> adds a major 3rd and a perfect 5th (and sounds like a dominant 7th).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why Italian, French, German?</b> These are 19th-century German theorists' labels and don't reflect actual national usage - they found different versions of the chord in various repertoires and gave them nicknames. The structural differences matter more than the names: Italian has three notes (the leanest), French adds a note that creates a whole-tone sonority, German adds a perfect 5th making it enharmonically identical to a dominant 7th - which is why it needs careful voice-leading to avoid parallel 5ths when resolving.</p>",
           questions: (rng) => augmentedSixthQuestion(rng),
         },
         {
