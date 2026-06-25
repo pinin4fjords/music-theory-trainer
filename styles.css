@@ -110,6 +110,7 @@ header.appbar {
 }
 .brand { font-weight: 700; font-size: 1rem; letter-spacing: -0.03em; cursor: pointer; user-select: none; }
 .brand .note-glyph { color: var(--accent); }
+.brand-sub { font-weight: 400; font-size: .72rem; color: var(--muted); letter-spacing: 0; }
 nav.tabs { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
 nav.tabs button {
   border: 0; background: transparent; color: var(--ink-soft);
@@ -526,6 +527,7 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
     background: var(--bg);
   }
   .level-chip { display: none; }          /* visible in Progress view instead */
+  .brand-sub { display: none; }           /* too cramped in mobile header */
   .grade-select { font-size: .78rem; }    /* compact but keep the "Grade" label */
   .streak-chip { margin-left: auto; padding: 4px 8px; font-size: .78rem; gap: 4px; }
 
