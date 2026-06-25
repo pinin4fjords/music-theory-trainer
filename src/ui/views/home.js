@@ -58,7 +58,7 @@
           store.setSetting("grade", g.grade);
           store.setSetting("gradeChosen", true);
           ctx.syncHeader();
-          ctx.router.navigate("quiz");
+          ctx.router.navigate("home");
         });
         picker.appendChild(b);
       });
