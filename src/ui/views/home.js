@@ -83,6 +83,7 @@
             : "Daily mix: spaced review across your current grade and everything below it."}</p>
           <p class="muted" style="margin-top:0">${done ? "Today's practice is done - come back tomorrow to keep the streak going." : "Ready for today's set?"}</p>
         </div>
+        <p class="disclaimer"><b>Personal project, no warranty.</b> Not affiliated with any exam board and not guaranteed correct. Do not use this as a substitute for official syllabuses or published study materials. Use at your own risk.</p>
         <div id="focus-area"></div>
         <div class="grid" id="home-cards"></div>
         <div class="card data-card">
