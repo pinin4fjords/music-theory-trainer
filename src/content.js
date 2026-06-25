@@ -1157,6 +1157,9 @@
     { id: "temperament", title: "Why pianos are slightly out of tune", blurb: "Equal temperament vs just intonation." },
     { id: "three-minors", title: "Why minor has three forms", blurb: "Natural, harmonic, melodic - and the awkward gap." },
     { id: "modes", title: "Modes beyond major & minor", blurb: "Dorian, Phrygian and friends." },
+    { id: "keyboard", title: "Semitones on a keyboard", blurb: "Count the keys, name the interval." },
+    { id: "four-clefs", title: "The four clefs", blurb: "Same note, four different positions - middle C as your anchor." },
+    { id: "note-values", title: "Note values and duration", blurb: "The subdivision hierarchy from semibreve to semiquaver." },
   ];
 
   // Link topics to a relevant "Why" explainer so the answer reveal can offer a

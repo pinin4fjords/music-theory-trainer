@@ -516,6 +516,117 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 }
 @keyframes mono-vib { from { transform: scaleY(.5); } to { transform: scaleY(1); } }
 
+/* --- Comma spiral (the temperament explainer) ---------------------------- */
+.comma-spiral-svg { width: 100%; max-width: 320px; margin: 6px auto 4px; display: block; }
+.csp-ref { fill: none; stroke: var(--line-strong); stroke-dasharray: 5 3; stroke-width: 1.5; }
+.csp-node { fill: var(--paper); stroke: var(--line-strong); stroke-width: 1.5; }
+.csp-label { fill: var(--ink); font-size: 11.5px; font-weight: 700; font-family: inherit; }
+.csp-arrival { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+.csp-arrival-label { fill: var(--accent); font-size: 10px; font-weight: 700; font-family: inherit; }
+.csp-gap { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.csp-gap-text { fill: var(--accent); font-size: 10px; font-weight: 700; font-family: inherit; }
+.csp-footnote { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
+.csp-center { fill: var(--bg-2); stroke: var(--line); stroke-width: 1; }
+.csp-center-label { fill: var(--ink-soft); font-size: 9px; font-weight: 600; font-family: inherit; }
+.csp-c { stroke: var(--ink-soft); stroke-width: 2; }
+
+/* --- Harmonic series pitch ruler ----------------------------------------- */
+.partial-ruler { display: flex; justify-content: center; margin: 14px 0 4px; }
+.partial-ruler-svg { width: 100%; max-width: 320px; display: block; }
+.prs-axis { stroke: var(--line-strong); stroke-width: 1.5; }
+.prs-tick { stroke: var(--line-strong); stroke-width: 1.5; }
+.prs-dot { fill: var(--accent); }
+.prs-bracket { fill: none; stroke: var(--line-strong); stroke-width: 1.5; }
+.prs-label { fill: var(--ink); font-size: 10.5px; font-weight: 600; font-family: inherit; }
+.prs-hz { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
+.prs-interval { fill: var(--ink-soft); font-size: 10px; font-weight: 700; font-family: inherit; }
+
+/* --- Scale comparison grids ---------------------------------------------- */
+.scale-grid { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .88rem; }
+.scale-grid th {
+  text-align: center; font-size: .7rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--ink-faint); padding: 0 6px 8px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.scale-grid th:first-child { text-align: left; }
+.scale-grid td { padding: 7px 6px; border-bottom: 1px solid var(--line); text-align: center; }
+.scale-grid td:first-child { text-align: left; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.scale-grid tr:last-child td { border-bottom: 0; }
+.sg-alt { background: var(--accent-soft); color: var(--accent); font-weight: 700; border-radius: 4px; }
+.sg-char { background: var(--accent); color: #fff; font-weight: 700; border-radius: 4px; }
+.sg-aug2 { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); font-weight: 700; border-radius: 4px; }
+@media (max-width: 560px) {
+  .scale-grid { font-size: .8rem; }
+  .scale-grid td, .scale-grid th { padding: 6px 4px; }
+}
+
+/* --- Interval keyboard (keyboard explainer) ------------------------------ */
+.iv-kb-wrap { overflow-x: auto; padding: 4px 0 8px; }
+.iv-kb { display: flex; gap: 2px; padding-top: 22px; }
+.iv-key {
+  flex: 0 0 auto; width: 36px; height: 128px; background: var(--paper); color: var(--ink);
+  border: 1px solid var(--line-strong); border-radius: 0 0 6px 6px;
+  cursor: pointer; transition: background .1s, border-color .1s;
+}
+.iv-key.black { width: 24px; height: 82px; background: var(--ink); border-color: var(--ink); }
+.iv-key.iv-from { background: var(--accent) !important; border-color: var(--accent) !important; }
+.iv-key.iv-to { background: var(--good) !important; border-color: var(--good) !important; }
+.iv-key.iv-span { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 40%, var(--line-strong)); }
+.iv-key.black.iv-span { background: color-mix(in srgb, var(--accent) 50%, var(--ink)); }
+.iv-display {
+  margin: 14px 0 4px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius-sm);
+  border: 1px solid var(--line); font-size: .95rem; min-height: 48px;
+  display: flex; align-items: center;
+}
+.iv-display b { color: var(--ink); }
+
+/* --- Four clefs comparison ----------------------------------------------- */
+.four-clefs { display: flex; flex-direction: column; gap: 8px; }
+.clef-row { display: grid; grid-template-columns: 80px 1fr; align-items: center; gap: 10px; }
+.clef-row-label { font-weight: 600; font-size: .9rem; color: var(--ink-soft); text-align: right; padding-right: 4px; }
+.clef-note-picker { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 4px; }
+.clef-note-btn {
+  border: 1px solid var(--line-strong); background: var(--paper); color: var(--ink);
+  border-radius: var(--radius-sm); padding: 6px 11px; font: inherit; font-size: .88rem;
+  font-weight: 600; cursor: pointer; transition: border-color .12s, background .12s;
+}
+.clef-note-btn:hover { border-color: var(--accent); color: var(--accent); }
+.clef-note-btn.sel { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+@media (max-width: 500px) {
+  .clef-row { grid-template-columns: 60px 1fr; }
+  .clef-row-label { font-size: .8rem; }
+}
+
+/* --- Note value tree ----------------------------------------------------- */
+.note-tree { display: flex; flex-direction: column; gap: 5px; margin: 14px 0; }
+.nt-row { display: flex; gap: 3px; align-items: stretch; }
+.nt-bar {
+  flex: 1 1 0; min-width: 0; padding: 0; border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm); background: var(--paper); cursor: pointer;
+  font: inherit; font-size: .78rem; font-weight: 600; color: var(--ink-soft);
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  transition: background .12s, border-color .12s, color .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.nt-bar:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.nt-bar.nt-semi { height: 52px; font-size: .92rem; color: var(--ink); }
+.nt-bar.nt-minim { height: 44px; font-size: .84rem; }
+.nt-bar.nt-crot { height: 38px; }
+.nt-bar.nt-quav { height: 30px; font-size: .7rem; }
+.nt-bar.nt-semi-quav { height: 22px; font-size: 0; }
+.nt-row-label { font-size: .8rem; font-weight: 600; color: var(--ink-soft); margin: 2px 0 -2px; }
+.nt-dotted-row { display: flex; gap: 3px; align-items: stretch; margin-top: 2px; }
+.nt-dotted-bar {
+  border: 1px dashed var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--surface-2); color: var(--ink-soft);
+  font: inherit; font-size: .78rem; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; height: 38px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer;
+  flex: 3 3 0; min-width: 0; transition: background .12s, border-color .12s;
+}
+.nt-dotted-bar:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.nt-dotted-bar.nt-half { flex: 1 1 0; }
+
 /* --- Mobile (≤ 600 px) -------------------------------------------------- */
 @media (max-width: 600px) {
   /* Header: strip back to brand + grade select + streak + settings.

@@ -28,6 +28,9 @@
       "harmonic-series": buildHarmonicSeries,
       "three-minors": buildThreeMinors,
       modes: buildModes,
+      keyboard: buildKeyboard,
+      "four-clefs": buildFourClefs,
+      "note-values": buildNoteValues,
     };
 
     // Deep-link: open a specific explainer directly (from the hash, or a
@@ -176,6 +179,14 @@
         <p><b>The problem.</b> Those pure ratios don't agree with each other. Stack enough pure 5ths and you overshoot the octave you should land on (the comma below). So you can't tune a fixed-pitch instrument like a piano to be pure in every key at once - tune it sweet in C and remote keys turn sour.</p>
         <p><b>The fix.</b> <b>Equal temperament</b> divides the octave into twelve <i>equal</i> semitones (each a ratio of the 12th root of 2). Every interval except the octave is now slightly impure - but equally so in every key, so you can play in all of them. The major 3rd is the biggest casualty. Hear it:</p>`));
       const f = M.noteToFreq("C4");
+
+      // --- Comma spiral ---
+      const spiralCard = C.el(`<div class="card"></div>`);
+      spiralCard.appendChild(C.el(`<h3 style="margin-top:0">The Pythagorean comma: why the circle won't close</h3>`));
+      spiralCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Walk twelve steps of a <b>pure perfect 5th</b> (3:2 ratio) clockwise around the circle. You should land back on C - but you overshoot by about a quarter of a semitone. That gap is the <b>Pythagorean comma</b>.</p>`));
+      spiralCard.appendChild(C.el(commaSpiral()));
+      spiralCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem;margin-top:6px">The gap is shown here at 20° for visibility. The real comma is ≈ 0.84° (23.46 cents).</p>`));
+      host.appendChild(spiralCard);
       const card = C.el(`<div class="card"></div>`);
       card.appendChild(C.el(`<h3 style="margin-top:0">Hear a major 3rd, two ways</h3>`));
       card.appendChild(C.el(`<p class="muted">C and E together. The pure version sits still; the equal-tempered version beats slightly (listen for the wobble).</p>`));
@@ -234,6 +245,13 @@
       card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 (A, C♯, E - 440:550:660 Hz) are a major triad, ready-made, which is why it sounds so settled.</p>`));
       host.appendChild(card);
 
+      // --- Pitch ruler: show shrinking gaps visually on a log-scale axis ---
+      const rulerCard = C.el(`<div class="card"></div>`);
+      rulerCard.appendChild(C.el(`<h3 style="margin-top:0">The gaps shrink: pitch ruler (log scale)</h3>`));
+      rulerCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Each partial adds the same 110 Hz - but on a logarithmic pitch axis the <b>visual gaps shrink</b> because the ear hears ratios, not differences. Each marked gap is a smaller interval than the one below it.</p>`));
+      rulerCard.appendChild(C.el(partialRuler()));
+      host.appendChild(rulerCard);
+
       host.appendChild(lessonCard(`
         <p><b>Multiples vs ratios - the thing that trips people up.</b> "×3" and "a perfect 5th" are not the same idea. <b>×3</b> measures a partial against the <i>fundamental</i> (330 Hz is a 12th - an octave <i>plus</i> a 5th - above 110 Hz). A <b>perfect 5th</b> is the <i>ratio between two notes</i>, 3:2 - for example 440 Hz up to 660 Hz. That 3:2 turns up here as the gap between the 2nd and 3rd partials (220→330). It's the same 3:2 that makes <b>two-thirds of a string</b> sound a 5th - see <i>A string over a box</i> for the length side of the story.</p>`));
     }
@@ -242,6 +260,34 @@
       host.appendChild(lessonCard(`
         <p><b>The problem minor has to solve.</b> In a major key the 7th note is a semitone below the tonic - a <b>leading note</b> that pulls strongly home. The natural minor's 7th sits a whole tone below, so it lacks that pull. The three forms of minor are three answers to that one problem.</p>
         <p><b>Natural</b> keeps the key signature untouched (no leading note). <b>Harmonic</b> raises the 7th to get the leading note - but that opens a yawning <b>augmented 2nd</b> between the (unraised) 6th and the raised 7th. <b>Melodic</b> raises the 6th as well on the way up to close that gap, then drops both back to natural minor on the way down. Hear all three in A minor:</p>`));
+
+      // --- Comparison grid ---
+      const gridCard = C.el(`<div class="card"></div>`);
+      gridCard.appendChild(C.el(`<h3 style="margin-top:0">All three forms at a glance (A minor)</h3>`));
+      // Rows: [label, deg1..deg7, note about alteration]
+      const gridRows = [
+        { label: "Natural",   notes: ["A", "B", "C", "D", "E", "F", "G"],  raised: [] },
+        { label: "Harmonic",  notes: ["A", "B", "C", "D", "E", "F", "G♯"], raised: [6], aug2: [5, 6] },
+        { label: "Melodic ↑", notes: ["A", "B", "C", "D", "E", "F♯", "G♯"], raised: [5, 6] },
+      ];
+      const DEGREE_HEADS = ["1", "2", "♭3", "4", "5", "6", "7"];
+      let tableHTML = `<div class="ref-table-wrap"><table class="scale-grid">
+        <thead><tr><th></th>${DEGREE_HEADS.map((d) => `<th>${d}</th>`).join("")}</tr></thead>
+        <tbody>`;
+      gridRows.forEach(({ label, notes, raised = [], aug2 = [] }) => {
+        tableHTML += `<tr><td>${label}</td>`;
+        notes.forEach((note, i) => {
+          const isRaised = raised.includes(i);
+          const isAug2 = aug2.includes(i);
+          const cls = isAug2 ? "sg-aug2" : isRaised ? "sg-alt" : "";
+          tableHTML += `<td><span class="${cls}">${note}</span></td>`;
+        });
+        tableHTML += `</tr>`;
+      });
+      tableHTML += `</tbody></table></div>`;
+      tableHTML += `<p class="muted" style="font-size:.82rem;margin:8px 0 0"><span class="sg-alt" style="padding:1px 6px;border-radius:3px">raised</span> &nbsp;<span class="sg-aug2" style="padding:1px 6px;border-radius:3px">aug 2nd gap</span></p>`;
+      gridCard.appendChild(C.el(tableHTML));
+      host.appendChild(gridCard);
       const forms = [
         { type: "naturalMinor", title: "Natural minor", note: "The 7th (G) is a whole tone below A, so it doesn't lead home." },
         { type: "harmonicMinor", title: "Harmonic minor", note: "The raised 7th (G♯) leads to A - but F to G♯ is an augmented 2nd, the exotic-sounding gap." },
@@ -294,7 +340,433 @@
       card.appendChild(out);
       card.appendChild(caption);
       host.appendChild(card);
+
+      // --- Modes comparison grid (all from C for easy comparison) ---
+      const gridCard = C.el(`<div class="card"></div>`);
+      gridCard.appendChild(C.el(`<h3 style="margin-top:0">All seven modes from C</h3>`));
+      gridCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Ionian (C major) is the reference. <span class="sg-char" style="padding:1px 6px;border-radius:3px">characteristic</span> marks the one note that defines each mode's sound. <span class="sg-alt" style="padding:1px 6px;border-radius:3px">altered</span> shows other differences from C major.</p>`));
+      // Each mode's notes from C, and which degree is the characteristic note
+      const modeGrid = [
+        { name: "Ionian",     notes: ["C","D","E","F","G","A","B"],     altered: [],      char: null },
+        { name: "Dorian",     notes: ["C","D","E♭","F","G","A","B♭"],   altered: [2, 6],  char: 5 },
+        { name: "Phrygian",   notes: ["C","D♭","E♭","F","G","A♭","B♭"], altered: [1,2,5,6], char: 1 },
+        { name: "Lydian",     notes: ["C","D","E","F♯","G","A","B"],    altered: [3],     char: 3 },
+        { name: "Mixolydian", notes: ["C","D","E","F","G","A","B♭"],    altered: [6],     char: 6 },
+        { name: "Aeolian",    notes: ["C","D","E♭","F","G","A♭","B♭"],  altered: [2,5,6], char: 2 },
+        { name: "Locrian",    notes: ["C","D♭","E♭","F","G♭","A♭","B♭"], altered: [1,2,4,5,6], char: 4 },
+      ];
+      const HEADS = ["1","2","3","4","5","6","7"];
+      let tHTML = `<div class="ref-table-wrap"><table class="scale-grid">
+        <thead><tr><th>Mode</th>${HEADS.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+        <tbody>`;
+      modeGrid.forEach(({ name, notes, altered, char }) => {
+        tHTML += `<tr><td>${name}</td>`;
+        notes.forEach((note, i) => {
+          const isChar = i === char;
+          const isAltered = altered.includes(i) && !isChar;
+          const cls = isChar ? "sg-char" : isAltered ? "sg-alt" : "";
+          tHTML += `<td><span class="${cls}">${note}</span></td>`;
+        });
+        tHTML += `</tr>`;
+      });
+      tHTML += `</tbody></table></div>`;
+      gridCard.appendChild(C.el(tHTML));
+      host.appendChild(gridCard);
     }
+
+    function buildNoteValues(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Duration as proportion.</b> Note values are a hierarchy: each level is exactly half the one above. A <b>semibreve</b> lasts as long as <b>two minims</b>, four crotchets, eight quavers, or sixteen semiquavers. The diagram below shows this as proportional bars - each row is the same total length. Click any bar to hear a rhythm at that subdivision.</p>`));
+
+      const BASE_FREQ = M.noteToFreq("A4"); // 440 Hz for all rhythmic examples
+
+      const rows = [
+        { cls: "nt-semi",      count: 1,  label: "Semibreve",    step: 2.4, dur: 2.2 },
+        { cls: "nt-minim",     count: 2,  label: "Minim",        step: 1.2, dur: 1.1 },
+        { cls: "nt-crot",      count: 4,  label: "Crotchet",     step: 0.6, dur: 0.55 },
+        { cls: "nt-quav",      count: 8,  label: "Quaver",       step: 0.3, dur: 0.26 },
+        { cls: "nt-semi-quav", count: 16, label: "Semiquaver",   step: 0.15, dur: 0.12 },
+      ];
+      const SHORT_LABELS = ["Semibreve", "Minim ×2", "Crotchet ×4", "Quaver ×8", "Semiquaver ×16"];
+
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Note value tree — click a row to hear it</h3>`));
+      const tree = C.el(`<div class="note-tree" role="group" aria-label="Note value tree"></div>`);
+
+      rows.forEach(({ cls, count, label, step, dur }, ri) => {
+        const row = C.el(`<div class="nt-row"></div>`);
+        const freqs = Array(count).fill(BASE_FREQ);
+        for (let i = 0; i < count; i++) {
+          const bar = document.createElement("button");
+          bar.type = "button";
+          bar.className = `nt-bar ${cls}`;
+          bar.setAttribute("aria-label", `${label} (${count} per semibreve) - click to hear`);
+          if (i === 0) bar.textContent = SHORT_LABELS[ri];
+          bar.addEventListener("click", () => A.freqSequence(freqs, step, dur));
+          row.appendChild(bar);
+        }
+        tree.appendChild(row);
+      });
+
+      card.appendChild(tree);
+      card.appendChild(C.el(`<p class="muted" style="font-size:.82rem;margin-top:10px">Each row is the same total duration as the others. Click any row to hear one semibreve worth of that subdivision.</p>`));
+      host.appendChild(card);
+
+      // Dotted notes supplement
+      const dotCard = C.el(`<div class="card"></div>`);
+      dotCard.appendChild(C.el(`<h3 style="margin-top:0">Dotted notes: adding half again</h3>`));
+      dotCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">A dot after a note adds <b>half its value</b>. A dotted crotchet (1½ beats) pairs naturally with a quaver (½ beat) to fill 2 beats. In <b>compound time</b> (6/8, 9/8, 12/8) the beat is a dotted crotchet throughout.</p>`));
+
+      const dotTree = C.el(`<div class="note-tree"></div>`);
+      // Row showing: dotted crotchet (3 quaver-lengths) + quaver (1 quaver-length) = 4 quaver-lengths
+      const dotRow = C.el(`<div class="nt-dotted-row" style="margin-top:6px"></div>`);
+
+      const dotBar = document.createElement("button");
+      dotBar.type = "button";
+      dotBar.className = "nt-dotted-bar";
+      dotBar.textContent = "Dotted crotchet (1½ beats)";
+      dotBar.style.flex = "3 3 0";
+      dotBar.addEventListener("click", () => A.freqSequence([BASE_FREQ], 0, 0.84));
+      dotRow.appendChild(dotBar);
+
+      const qBar = document.createElement("button");
+      qBar.type = "button";
+      qBar.className = "nt-dotted-bar nt-half";
+      qBar.textContent = "Quaver (½)";
+      qBar.style.flex = "1 1 0";
+      qBar.addEventListener("click", () => A.freqSequence([BASE_FREQ], 0, 0.28));
+      dotRow.appendChild(qBar);
+
+      dotTree.appendChild(dotRow);
+
+      // Compare: 2 plain crotchets = same total
+      const crotRow = C.el(`<div class="nt-dotted-row"></div>`);
+      for (let i = 0; i < 2; i++) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "nt-dotted-bar";
+        b.textContent = `Crotchet (1 beat)`;
+        b.style.flex = "2 2 0";
+        b.addEventListener("click", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.6, 0.55));
+        crotRow.appendChild(b);
+      }
+      dotTree.appendChild(crotRow);
+
+      dotCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">Top row: dotted crotchet + quaver = 2 beats. Bottom row: 2 plain crotchets = 2 beats. Same total length, different feel.</p>`));
+      dotCard.appendChild(dotTree);
+      const dotRow2 = controls();
+      dotRow2.appendChild(playBtn("Hear dotted crotchet + quaver", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.9, 0.84)));
+      dotRow2.appendChild(playBtn("Hear 2 crotchets", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.6, 0.55)));
+      dotCard.appendChild(dotRow2);
+      host.appendChild(dotCard);
+    }
+
+    function buildFourClefs(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Why four clefs?</b> A clef fixes one line of the staff to a known pitch. Move the clef and middle C moves with it. The treble and bass clefs are fixed (G clef and F clef); the alto and tenor are both C clefs that anchor middle C on different lines.</p>
+        <p><b>Middle C is the anchor.</b> It appears on a ledger line below the treble staff, a ledger line above the bass staff, the middle (3rd) line of the alto staff, and the 4th line of the tenor staff. Pick any note below and see where it sits in all four clefs at once.</p>`));
+
+      // Pitches available for comparison (C3 to D5)
+      const pickerNotes = [
+        { label: "C3", note: M.spelled("C", 0, 3) },
+        { label: "G3", note: M.spelled("G", 0, 3) },
+        { label: "B3", note: M.spelled("B", 0, 3) },
+        { label: "C4 (mid C)", note: M.spelled("C", 0, 4) },
+        { label: "E4", note: M.spelled("E", 0, 4) },
+        { label: "G4", note: M.spelled("G", 0, 4) },
+        { label: "B4", note: M.spelled("B", 0, 4) },
+        { label: "C5", note: M.spelled("C", 0, 5) },
+        { label: "D5", note: M.spelled("D", 0, 5) },
+      ];
+      const CLEFS = ["treble", "bass", "alto", "tenor"];
+      const CLEF_LABELS = ["Treble", "Bass", "Alto", "Tenor"];
+
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Same note, four clefs</h3>`));
+
+      const picker = C.el(`<div class="clef-note-picker" role="group" aria-label="Choose a note"></div>`);
+      card.appendChild(picker);
+
+      const stavesDiv = C.el(`<div class="four-clefs"></div>`);
+      card.appendChild(stavesDiv);
+
+      const playRow = C.el(`<div class="explainer-controls"></div>`);
+      card.appendChild(playRow);
+
+      let currentNote = pickerNotes[3].note; // default: middle C
+
+      function buildStaves(note) {
+        C.clear(stavesDiv);
+        CLEFS.forEach((clef, i) => {
+          const row = C.el(`<div class="clef-row"></div>`);
+          row.appendChild(C.el(`<div class="clef-row-label">${CLEF_LABELS[i]}</div>`));
+          row.appendChild(C.el(`<div class="staff-wrap">${N.staffHTML({ clef, notes: [note] })}</div>`));
+          stavesDiv.appendChild(row);
+        });
+        C.clear(playRow);
+        playRow.appendChild(playBtn("Hear it", () => A.sequence([note])));
+      }
+
+      pickerNotes.forEach(({ label, note }) => {
+        const btn = document.createElement("button");
+        btn.className = "clef-note-btn";
+        btn.type = "button";
+        btn.textContent = label;
+        const isDefault = label === "C4 (mid C)";
+        if (isDefault) btn.classList.add("sel");
+        btn.addEventListener("click", () => {
+          [...picker.querySelectorAll(".clef-note-btn")].forEach((b) => b.classList.remove("sel"));
+          btn.classList.add("sel");
+          currentNote = note;
+          buildStaves(note);
+        });
+        picker.appendChild(btn);
+      });
+
+      buildStaves(currentNote);
+      host.appendChild(card);
+
+      host.appendChild(lessonCard(`
+        <p><b>Which instruments use which clef?</b> Treble: violin, flute, right-hand piano, high voices (soprano, alto). Bass: cello, tuba, left-hand piano, low voices (tenor, bass). Alto (C clef on 3rd line): viola. Tenor (C clef on 4th line): upper range of cello, bassoon, trombone, tenor trombone.</p>
+        <p><b>The trick.</b> For each clef, find middle C first. Once you know where C4 is, every other note is just counting up or down by letter - the same as treble or bass, just starting from a different anchor.</p>`));
+    }
+
+    function buildKeyboard(host) {
+      host.appendChild(lessonCard(`
+        <p><b>Semitones are the building blocks.</b> A semitone is the distance between any two adjacent keys on the piano - white or black, no skipping. Count the semitones between two notes and you know the interval. <b>Two semitones</b> = a tone (major 2nd). <b>Seven</b> = a perfect 5th. <b>Twelve</b> = an octave.</p>
+        <p><b>How to use this.</b> Click one key to set the lower note, then another to set the upper. The interval name and semitone count appear below the keyboard. Click any highlighted key to hear it, or use the play buttons.</p>`));
+
+      const INTERVAL_NAMES = [
+        "unison", "minor 2nd", "major 2nd", "minor 3rd", "major 3rd",
+        "perfect 4th", "tritone", "perfect 5th", "minor 6th", "major 6th",
+        "minor 7th", "major 7th", "octave", "minor 9th", "major 9th",
+        "minor 10th", "major 10th", "perfect 11th", "aug 11th / dim 12th",
+        "perfect 12th", "minor 13th", "major 13th", "minor 14th", "major 14th",
+        "double octave",
+      ];
+      const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+      const BLACK_PCS = new Set([1, 3, 6, 8, 10]);
+
+      function midiLabel(midi) {
+        const pc = midi % 12, oct = Math.floor(midi / 12) - 1;
+        return NOTE_NAMES[pc] + oct;
+      }
+
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Pick two notes</h3>`));
+
+      const kbWrap = C.el(`<div class="iv-kb-wrap"><div class="iv-kb" role="group" aria-label="Two-octave keyboard for exploring intervals"></div></div>`);
+      const kb = kbWrap.querySelector(".iv-kb");
+      const keyEls = [];
+
+      for (let midi = 60; midi <= 84; midi++) {
+        const isBlack = BLACK_PCS.has(midi % 12);
+        const key = document.createElement("button");
+        key.type = "button";
+        key.className = "iv-key" + (isBlack ? " black" : "");
+        key.dataset.midi = String(midi);
+        key.setAttribute("aria-label", midiLabel(midi));
+        key.addEventListener("click", () => pickMidi(midi));
+        kb.appendChild(key);
+        keyEls.push(key);
+      }
+      card.appendChild(kbWrap);
+
+      const display = C.el(`<div class="iv-display muted" aria-live="polite">Click a key to choose a starting note.</div>`);
+      card.appendChild(display);
+
+      const btns = C.el(`<div class="explainer-controls"></div>`);
+      card.appendChild(btns);
+
+      let fromMidi = null, toMidi = null;
+
+      function pickMidi(midi) {
+        if (fromMidi === null || toMidi !== null) {
+          fromMidi = midi; toMidi = null;
+        } else if (midi !== fromMidi) {
+          toMidi = midi;
+        }
+        refresh();
+      }
+
+      function refresh() {
+        keyEls.forEach((k) => {
+          const m = parseInt(k.dataset.midi, 10);
+          k.classList.remove("iv-from", "iv-to", "iv-span");
+          if (m === fromMidi) { k.classList.add("iv-from"); }
+          else if (m === toMidi) { k.classList.add("iv-to"); }
+          else if (fromMidi !== null && toMidi !== null) {
+            const lo = Math.min(fromMidi, toMidi), hi = Math.max(fromMidi, toMidi);
+            if (m > lo && m < hi) k.classList.add("iv-span");
+          }
+        });
+
+        C.clear(btns);
+        if (fromMidi === null) {
+          display.innerHTML = `<span>Click a key to choose a starting note.</span>`;
+          return;
+        }
+        const fromLabel = midiLabel(fromMidi);
+        if (toMidi === null) {
+          display.innerHTML = `<b>${fromLabel}</b> selected &mdash; now click a second note.`;
+          btns.appendChild(playBtn(fromLabel, () => A.note(fromMidi, 1.0)));
+          const clearBtn = C.button("Clear", () => { fromMidi = null; toMidi = null; refresh(); }, { className: "btn ghost" });
+          btns.appendChild(clearBtn);
+          return;
+        }
+        const toLabel = midiLabel(toMidi);
+        const semis = Math.abs(toMidi - fromMidi);
+        const loMidi = Math.min(fromMidi, toMidi), hiMidi = Math.max(fromMidi, toMidi);
+        const loLabel = midiLabel(loMidi), hiLabel = midiLabel(hiMidi);
+        const name = INTERVAL_NAMES[semis] || (semis + " semitones");
+        display.innerHTML = `<b>${name}</b> &mdash; ${loLabel} to ${hiLabel} &middot; ${semis} semitone${semis !== 1 ? "s" : ""}`;
+        btns.appendChild(playBtn(loLabel, () => A.note(loMidi, 0.9)));
+        btns.appendChild(playBtn(hiLabel, () => A.note(hiMidi, 0.9)));
+        btns.appendChild(playBtn("Together", () => A.freqChord([M.midiToFreq(loMidi), M.midiToFreq(hiMidi)], 1.8)));
+        btns.appendChild(playBtn("In turn", () => A.freqSequence([M.midiToFreq(loMidi), M.midiToFreq(hiMidi)], 0.7, 0.7)));
+        const clearBtn = C.button("Clear", () => { fromMidi = null; toMidi = null; refresh(); }, { className: "btn ghost" });
+        btns.appendChild(clearBtn);
+      }
+
+      host.appendChild(card);
+
+      // Quick reference table of all simple intervals
+      host.appendChild(lessonCard(`
+        <p><b>Simple interval quick reference (within one octave)</b></p>
+        <div class="ref-table-wrap"><table class="ref-table">
+          <thead><tr><th>Semitones</th><th>Name</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td class="ref-key">0</td><td>Unison</td><td>C – C</td></tr>
+            <tr><td class="ref-key">1</td><td>Minor 2nd (semitone)</td><td>C – D♭</td></tr>
+            <tr><td class="ref-key">2</td><td>Major 2nd (tone)</td><td>C – D</td></tr>
+            <tr><td class="ref-key">3</td><td>Minor 3rd</td><td>C – E♭</td></tr>
+            <tr><td class="ref-key">4</td><td>Major 3rd</td><td>C – E</td></tr>
+            <tr><td class="ref-key">5</td><td>Perfect 4th</td><td>C – F</td></tr>
+            <tr><td class="ref-key">6</td><td>Tritone (aug 4th / dim 5th)</td><td>C – F♯/G♭</td></tr>
+            <tr><td class="ref-key">7</td><td>Perfect 5th</td><td>C – G</td></tr>
+            <tr><td class="ref-key">8</td><td>Minor 6th</td><td>C – A♭</td></tr>
+            <tr><td class="ref-key">9</td><td>Major 6th</td><td>C – A</td></tr>
+            <tr><td class="ref-key">10</td><td>Minor 7th</td><td>C – B♭</td></tr>
+            <tr><td class="ref-key">11</td><td>Major 7th</td><td>C – B</td></tr>
+            <tr><td class="ref-key">12</td><td>Octave</td><td>C – C</td></tr>
+          </tbody>
+        </table></div>`));
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Shared diagram helpers
+  // ---------------------------------------------------------------------------
+
+  function partialRuler() {
+    // Vertical log-scale ruler showing 8 partials of A2 (110 Hz).
+    // Log scale: pitch height is proportional to log2(freq).
+    const partials = [
+      { n: 1, note: "A", hz: 110 },
+      { n: 2, note: "A", hz: 220 },
+      { n: 3, note: "E", hz: 330 },
+      { n: 4, note: "A", hz: 440 },
+      { n: 5, note: "C♯", hz: 550 },
+      { n: 6, note: "E", hz: 660 },
+      { n: 7, note: "G", hz: 770 },
+      { n: 8, note: "A", hz: 880 },
+    ];
+    const GAP_LABELS = ["octave", "P5", "P4", "M3", "m3", "~m3", "M2"];
+
+    // Map log2(hz) to y pixel. High pitch = small y (top of SVG).
+    const logMin = Math.log2(110), logMax = Math.log2(880); // 3 octaves
+    const TOP = 14, BOT = 286, HEIGHT = BOT - TOP;
+    const toY = (hz) => TOP + (1 - (Math.log2(hz) - logMin) / (logMax - logMin)) * HEIGHT;
+    const r2 = (n) => Math.round(n * 10) / 10;
+
+    const X_AXIS = 52, X_TICK_END = 60, X_DOT = 60, X_NOTE = 44, X_BRACKET = 72, X_GAP_LABEL = 108, X_HZ = 170;
+
+    let rows = "";
+    partials.forEach(({ note, hz }, i) => {
+      const y = r2(toY(hz));
+      rows += `<line x1="${X_AXIS}" y1="${y}" x2="${X_TICK_END + 4}" y2="${y}" class="prs-tick"/>`;
+      rows += `<circle cx="${X_DOT}" cy="${y}" r="5" class="prs-dot"/>`;
+      rows += `<text x="${X_NOTE}" y="${y + 4}" text-anchor="end" class="prs-label">${note}</text>`;
+      rows += `<text x="${X_HZ}" y="${y + 4}" class="prs-hz">×${i + 1}  ${hz} Hz</text>`;
+    });
+
+    // Bracket annotations between consecutive partials
+    let brackets = "";
+    for (let i = 0; i < 7; i++) {
+      const y1 = r2(toY(partials[i].hz));
+      const y2 = r2(toY(partials[i + 1].hz));
+      const midY = r2((y1 + y2) / 2);
+      brackets += `<line x1="${X_BRACKET}" y1="${y1}" x2="${X_BRACKET}" y2="${y2}" class="prs-bracket"/>`;
+      brackets += `<line x1="${X_BRACKET}" y1="${y1}" x2="${X_BRACKET - 4}" y2="${y1}" class="prs-bracket"/>`;
+      brackets += `<line x1="${X_BRACKET}" y1="${y2}" x2="${X_BRACKET - 4}" y2="${y2}" class="prs-bracket"/>`;
+      brackets += `<text x="${X_BRACKET + 4}" y="${midY + 4}" class="prs-interval">${GAP_LABELS[i]}</text>`;
+    }
+
+    return `<div class="partial-ruler">
+<svg viewBox="0 0 220 300" class="partial-ruler-svg" role="img"
+  aria-label="Pitch ruler showing 8 partials on a logarithmic scale. Gaps decrease from octave at bottom to major 2nd at top.">
+  <line x1="${X_AXIS}" y1="${TOP}" x2="${X_AXIS}" y2="${BOT}" class="prs-axis"/>
+  ${rows}
+  ${brackets}
+</svg></div>`;
+  }
+
+  function commaSpiral() {
+    // Static SVG: 12 pitch classes as nodes around a near-circle.
+    // The 12th P5 step overshoots C by the Pythagorean comma (exaggerated to 20° for visibility).
+    const CX = 150, CY = 148, R = 112;
+    // Note names in cycle-of-5ths order
+    const KEYS = ["C", "G", "D", "A", "E", "B", "F♯", "D♭", "A♭", "E♭", "B♭", "F"];
+    // Nodes at exactly 30° intervals (equal-temperament positions - readable)
+    const toRad = (d) => d * Math.PI / 180;
+    const nodes = KEYS.map((key, k) => {
+      const a = toRad(k * 30 - 90);
+      return { key, x: CX + R * Math.cos(a), y: CY + R * Math.sin(a) };
+    });
+
+    // Arrival point: 20° clockwise past C (exaggerated comma)
+    const GAP_DEG = 20;
+    const arrivalA = toRad(-90 + 360 + GAP_DEG);
+    const ax = CX + R * Math.cos(arrivalA), ay = CY + R * Math.sin(arrivalA);
+
+    // C position (node 0)
+    const { x: cx0, y: cy0 } = nodes[0];
+
+    // Round to 2 dp
+    const r2 = (n) => Math.round(n * 100) / 100;
+
+    // Build node circles + labels
+    let nodesSVG = "";
+    nodes.forEach(({ key, x, y }, k) => {
+      const isC = k === 0;
+      nodesSVG += `<circle cx="${r2(x)}" cy="${r2(y)}" r="19" class="${isC ? "csp-node csp-c" : "csp-node"}"/>`;
+      nodesSVG += `<text x="${r2(x)}" y="${r2(y + 4.5)}" text-anchor="middle" class="csp-label">${key}</text>`;
+    });
+
+    // Arrival node (B♯ = C, but sharper)
+    nodesSVG += `<circle cx="${r2(ax)}" cy="${r2(ay)}" r="16" class="csp-arrival"/>`;
+    nodesSVG += `<text x="${r2(ax)}" y="${r2(ay + 3.8)}" text-anchor="middle" class="csp-arrival-label">B♯</text>`;
+
+    // Gap arc: from arrival (at -90+360+20°) back to C (at -90°), the short 20° counterclockwise arc
+    // In SVG sweep-flag=0 = counterclockwise
+    const gapArc = `M ${r2(ax)} ${r2(ay)} A ${R} ${R} 0 0 0 ${r2(cx0)} ${r2(cy0)}`;
+
+    // Midpoint of the gap arc (for label placement)
+    const midGapA = toRad(-90 + 360 + GAP_DEG / 2);
+    const gx = r2(CX + (R + 18) * Math.cos(midGapA));
+    const gy = r2(CY + (R + 18) * Math.sin(midGapA));
+
+    return `<div style="display:flex;justify-content:center">
+<svg viewBox="0 0 300 310" class="comma-spiral-svg" role="img"
+  aria-label="Diagram showing 12 perfect fifth steps that overshoot one full octave circle, creating the Pythagorean comma gap.">
+  <circle cx="${CX}" cy="${CY}" r="${R}" class="csp-ref"/>
+  <circle cx="${CX}" cy="${CY}" r="28" class="csp-center"/>
+  <text x="${CX}" y="${CY + 4}" text-anchor="middle" class="csp-center-label">cycle</text>
+  ${nodesSVG}
+  <path d="${gapArc}" class="csp-gap"/>
+  <text x="${gx}" y="${gy}" text-anchor="middle" class="csp-gap-text">comma</text>
+  <text x="${CX}" y="300" text-anchor="middle" class="csp-footnote">← walk 12 pure 5ths clockwise; B♯ overshoots C by the comma →</text>
+</svg></div>`;
   }
 
   const api = { render };
