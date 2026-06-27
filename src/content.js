@@ -133,12 +133,18 @@
   ];
   function toneSemitoneQuestion(rng) {
     const [a, b, ans] = pick(rng, TS_PAIRS);
+    const LETTERS = ["C", "D", "E", "F", "G", "A", "B"];
+    const aBase = a[0], bBase = b[0];
+    const noteA = M.parseSpelled(a, 4);
+    // If b's letter wraps around below a (e.g. B→C), it lives in the next octave.
+    const noteB = M.parseSpelled(b, LETTERS.indexOf(bBase) <= LETTERS.indexOf(aBase) ? 5 : 4);
+    const spec = { clef: "treble", notes: [noteA, noteB], accidentals: "all" };
     return {
       prompt: `Is the distance from <b>${a}</b> up to <b>${b}</b> a tone or a semitone?`,
       choices: choices(rng, ans, ["tone", "semitone"]),
       answer: ans,
-      explanation: `${a} up to ${b} is a <b>${ans}</b> - ${ans === "semitone" ? "the smallest step, one key on the piano" : "two semitones"}.`,
-      audio: () => audio().sequence([M.parseSpelled(a), M.parseSpelled(b)]),
+      explanation: `${a} up to ${b} is a <b>${ans}</b> - ${ans === "semitone" ? "the smallest step, one key on the piano" : "two semitones"}.` + staffBlock(spec),
+      audio: () => audio().sequence([noteA, noteB]),
     };
   }
 
@@ -153,7 +159,7 @@
       prompt: `How many sharps or flats are in the key signature of <b>${key} ${m}</b>?`,
       choices: choices(rng, correct, ["none", "1 sharp", "2 sharps", "3 sharps", "4 sharps", "1 flat", "2 flats", "3 flats", "4 flats"]),
       answer: correct,
-      explanation: n === 0 ? `${key} ${m} has no sharps or flats.` : `${key} ${m} has <b>${correct}</b>: ${order}.`,
+      explanation: (n === 0 ? `${key} ${m} has no sharps or flats.` : `${key} ${m} has <b>${correct}</b>: ${order}.`) + staffBlock({ clef: "treble", keySignature: sig }),
       meta: { type: "keysig" },
     };
   }
@@ -251,9 +257,9 @@
       prompt: `How many sharps or flats are in the key signature of <b>${key} major</b>?`,
       choices: choices(rng, correct, ["none", "1 sharp", "2 sharps", "3 sharps", "4 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 sharps", "5 flats"]),
       answer: correct,
-      explanation: n === 0
+      explanation: (n === 0
         ? `${key} major has no sharps or flats - the one major key with an empty signature.`
-        : `${key} major has <b>${correct}</b>: ${order}, added in the fixed circle-of-fifths order.`,
+        : `${key} major has <b>${correct}</b>: ${order}, added in the fixed circle-of-fifths order.`) + staffBlock({ clef: "treble", keySignature: sig }),
       meta: { type: "keysig" },
     };
   }
@@ -285,8 +291,8 @@
     { a: "B𝄫", b: "A", play: "A", why: "a double flat (𝄫) lowers a note two semitones" },
     { a: "D𝄫", b: "C", play: "C", why: "D𝄫 is two semitones below D" },
     { a: "E♯", b: "F", play: "F", why: "E to F is already only a semitone, so E♯ is F" },
-    { a: "B♯", b: "C", play: "C", why: "B to C is only a semitone, so B♯ is C" },
-    { a: "C♭", b: "B", play: "B", why: "C down to B is a semitone, so C♭ is B" },
+    { a: "B♯", b: "C", play: "C", _oct: [4, 5], why: "B to C is only a semitone, so B♯ is C" },
+    { a: "C♭", b: "B", play: "B", _oct: [5, 4], why: "C down to B is a semitone, so C♭ is B" },
     { a: "F♭", b: "E", play: "E", why: "F down to E is a semitone, so F♭ is E" },
     { a: "G♯", b: "A♭", play: "Ab", why: "the black key between G and A, spelled either way" },
     { a: "A♯", b: "B♭", play: "Bb", why: "the same black key, spelled up from A or down from B" },
@@ -297,11 +303,15 @@
   const ENHARM_POOL = ["A", "B", "C", "D", "E", "F", "G", "A♭", "B♭", "D♭", "E♭", "G♭", "C♯", "F♯"];
   function enharmonicQuestion(rng) {
     const e = pick(rng, ENHARM);
+    const [octA, octB] = e._oct || [4, 4];
+    const noteA = M.parseSpelled(e.a, octA);
+    const noteB = M.parseSpelled(e.b, octB);
+    const spec = { clef: "treble", notes: [noteA, noteB], accidentals: "all" };
     return {
       prompt: `Which note is the same pitch (the <b>enharmonic equivalent</b>) as <b>${e.a}</b>?`,
       choices: choices(rng, e.b, ENHARM_POOL),
       answer: e.b,
-      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}. The spelling you choose depends on the key: every scale must use one of each letter name, which sometimes forces double accidentals (e.g. the leading note of G# minor is F𝄪, not G).`,
+      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}. The spelling you choose depends on the key: every scale must use one of each letter name, which sometimes forces double accidentals (e.g. the leading note of G# minor is F𝄪, not G).` + staffBlock(spec),
       audio: () => audio().note(M.noteToMidi(e.play)),
     };
   }
@@ -469,11 +479,12 @@
     const t = M.triad(key, mode, 1, 0);
     const correct = t.map((n) => M.spelledName(n)).join("-");
     const distractors = [2, 4, 5].map((d) => M.triad(key, mode, d, 0).map((n) => M.spelledName(n)).join("-"));
+    const spec = { clef: "treble", notes: [t] };
     return {
       prompt: `Which three notes form the <b>tonic triad</b> of <b>${key} ${mode}</b>?`,
       choices: choices(rng, correct, distractors),
       answer: correct,
-      explanation: `Build it on the key note: degree 1 (${M.spelledName(t[0])}), then a 3rd (${M.spelledName(t[1])}) and a 5th (${M.spelledName(t[2])}) stacked above - <b>${correct}</b>. 'Triad' is from Greek <i>trias</i>, a group of three; two stacked 3rds is the recipe behind every chord in Western harmony, and the tonic triad is the most stable, the one a piece comes to rest on.`,
+      explanation: `Build it on the key note: degree 1 (${M.spelledName(t[0])}), then a 3rd (${M.spelledName(t[1])}) and a 5th (${M.spelledName(t[2])}) stacked above - <b>${correct}</b>. 'Triad' is from Greek <i>trias</i>, a group of three; two stacked 3rds is the recipe behind every chord in Western harmony, and the tonic triad is the most stable, the one a piece comes to rest on.` + staffBlock(spec),
       audio: () => audio().chord(t),
       meta: { type: "triad" },
     };
@@ -577,6 +588,7 @@
     const sig = M.keySignature(key, mode);
     const n = Math.abs(sig.count);
     const sigText = n === 0 ? "no sharps or flats" : `${n} ${sig.type}${n > 1 ? "s" : ""}`;
+    const sigSpec = { clef: "treble", keySignature: sig };
     if (rng.bool()) {
       // key -> signature
       const correct = n === 0 ? "none" : `${n} ${sig.type}${n > 1 ? "s" : ""}`;
@@ -585,18 +597,19 @@
         prompt: `What is the key signature of <b>${key} ${mode}</b>?`,
         choices: choices(rng, correct, distract),
         answer: correct,
-        explanation: `${key} ${mode} has <b>${sigText}</b>.` + (mode === "minor" ? ` It shares the signature of its relative major, ${M.relativeMajorOf(key)} major.` : ""),
+        explanation: (`${key} ${mode} has <b>${sigText}</b>.` + (mode === "minor" ? ` It shares the signature of its relative major, ${M.relativeMajorOf(key)} major.` : "")) + staffBlock(sigSpec),
         meta: { type: "keysig" },
       };
     }
-    // signature -> key
+    // signature -> key: show the staff in the prompt so the student reads the notation.
     const others = (mode === "major" ? ALL_MAJOR_KEYS : ALL_MINOR_KEYS).map((k) => `${k} ${mode}`);
     const correct = `${key} ${mode}`;
     return {
-      prompt: `Which <b>${mode}</b> key has <b>${sigText}</b>?`,
+      prompt: `Which <b>${mode}</b> key has this signature?` + staffBlock(sigSpec),
+      a11yText: `Which ${mode} key has ${sigText}?`,
       choices: choices(rng, correct, others),
       answer: correct,
-      explanation: `${sigText.charAt(0).toUpperCase() + sigText.slice(1)} is <b>${key} ${mode}</b>.`,
+      explanation: `${sigText.charAt(0).toUpperCase() + sigText.slice(1)} is <b>${key} ${mode}</b>.` + staffBlock(sigSpec),
     };
   }
 
@@ -651,11 +664,21 @@
     const [num, qual] = pick(rng, G5_INTERVALS.filter(([n]) => n >= 2 && n <= 7));
     const original = qual + " " + M.ordinal(num);
     const inv = M.invertInterval(num, qual);
+    // Concrete example rooted on C for the explanation staff.
+    const exLow = M.parseSpelled("C", 4);
+    const exHigh = M.transpose(exLow, num, qual);
+    const exInvHigh = M.transpose(exHigh, inv.number, inv.quality);
+    const spec1 = { clef: "treble", notes: [exLow, exHigh], label: `${original}: C up to ${M.spelledName(exHigh)}` };
+    const spec2 = { clef: "treble", notes: [exHigh, exInvHigh], label: `${inv.name}: ${M.spelledName(exHigh)} up to ${M.spelledName(exInvHigh)}` };
     return {
       prompt: `What is the <b>inversion</b> of a <b>${original}</b>?`,
       choices: choices(rng, inv.name, INTERVAL_NAME_POOL),
       answer: inv.name,
-      explanation: `Invert a ${original} and you get a <b>${inv.name}</b>: the numbers add up to 9 (${num} + ${inv.number}), and the quality flips (${qual} becomes ${inv.quality}). The sum-to-9 rule follows from the octave: both intervals together span 8 letter-names (C to C), but the shared boundary note is counted in both, so ${num} + ${inv.number} = 8 + 1 = 9. Quality flips because inverting turns a major interval's extra semitone into a deficit, and vice versa.`,
+      explanation: `Invert a ${original} and you get a <b>${inv.name}</b>: the numbers add up to 9 (${num} + ${inv.number}), and the quality flips (${qual} becomes ${inv.quality}). The sum-to-9 rule follows from the octave: both intervals together span 8 letter-names (C to C), but the shared boundary note is counted in both, so ${num} + ${inv.number} = 8 + 1 = 9. Quality flips because inverting turns a major interval's extra semitone into a deficit, and vice versa.`
+        + `<div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-top:10px">`
+        + `<div><div class="muted" style="font-size:.82rem;margin-bottom:2px">${original}</div>${staffBlock(spec1)}</div>`
+        + `<div><div class="muted" style="font-size:.82rem;margin-bottom:2px">inverted → ${inv.name}</div>${staffBlock(spec2)}</div>`
+        + `</div>`,
       meta: { type: "interval", number: inv.number, quality: inv.quality },
     };
   }
@@ -767,11 +790,14 @@
     const result = M.transpose(root, num, qual, dir);
     const word = dir === 1 ? "up" : "down";
     const pool = ["C", "D", "E", "F", "G", "A", "B", "Bb", "Eb", "Ab", "Db", "F#", "C#", "G#"];
+    // Show the two notes in ascending order so the staff reads naturally.
+    const [lo, hi] = dir === 1 ? [root, result] : [result, root];
+    const spec = { clef: "treble", notes: [lo, hi] };
     return {
       prompt: `Transpose <b>${M.spelledName(root)}</b> <b>${word}</b> by a <b>${qual} ${M.ordinal(num)}</b>. What is the new note?`,
       choices: choices(rng, M.spelledName(result), pool),
       answer: M.spelledName(result),
-      explanation: `A ${qual} ${M.ordinal(num)} ${word} from ${M.spelledName(root)} is <b>${M.spelledName(result)}</b> - count ${num} letter names ${word}, then adjust the accidental for the exact quality.`,
+      explanation: `A ${qual} ${M.ordinal(num)} ${word} from ${M.spelledName(root)} is <b>${M.spelledName(result)}</b> - count ${num} letter names ${word}, then adjust the accidental for the exact quality.` + staffBlock(spec),
     };
   }
 
