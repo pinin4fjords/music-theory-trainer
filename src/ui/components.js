@@ -81,7 +81,46 @@
     return b;
   }
 
-  const api = { el, clear, announce, ensureLiveRegion, focus, cardButton, button, playButton };
+  // Open an explainer in a floating panel without leaving the current view.
+  // Returns { body, close } where `body` is the container to render into and
+  // `close()` tears down the overlay and returns focus to the trigger element.
+  function openExplainerModal(trigger) {
+    const overlay = document.createElement("div");
+    overlay.className = "explainer-modal-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Explainer");
+
+    const panel = document.createElement("div");
+    panel.className = "explainer-modal-panel";
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "explainer-modal-close btn ghost";
+    closeBtn.setAttribute("aria-label", "Close explainer");
+    closeBtn.textContent = "✕";
+
+    const body = document.createElement("div");
+    body.className = "explainer-modal-body";
+
+    panel.appendChild(closeBtn);
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    function close() {
+      overlay.remove();
+      if (trigger) { try { trigger.focus(); } catch { /* ignore */ } }
+    }
+
+    closeBtn.addEventListener("click", close);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+
+    return { body, close };
+  }
+
+  const api = { el, clear, announce, ensureLiveRegion, focus, cardButton, button, playButton, openExplainerModal };
 
   global.MTT = global.MTT || {};
   global.MTT.ui = global.MTT.ui || {};

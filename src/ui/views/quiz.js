@@ -161,7 +161,18 @@
             dig.type = "button";
             dig.className = "dig-deeper";
             dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
-            dig.addEventListener("click", () => ctx.router.navigate("explore", topic.explainer));
+            dig.addEventListener("click", () => {
+              const m = ctx.C.openExplainerModal(dig);
+              const modalCtx = Object.assign({}, ctx, {
+                router: Object.assign({}, ctx.router, {
+                  navigate: function (view, arg) {
+                    m.close();
+                    if (view !== "explore" || arg) ctx.router.navigate(view, arg);
+                  },
+                }),
+              });
+              global.MTT.ui.views.explainer.render(m.body, modalCtx, topic.explainer);
+            });
             revealEl.appendChild(dig);
           }
         }

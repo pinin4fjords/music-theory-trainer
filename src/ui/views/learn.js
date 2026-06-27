@@ -62,7 +62,18 @@
           dig.className = "dig-deeper";
           dig.style.marginLeft = "12px";
           dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
-          dig.addEventListener("click", () => ctx.router.navigate("explore", t.explainer));
+          dig.addEventListener("click", () => {
+            const m = ctx.C.openExplainerModal(dig);
+            const modalCtx = Object.assign({}, ctx, {
+              router: Object.assign({}, ctx.router, {
+                navigate: function (view, arg) {
+                  m.close();
+                  if (view !== "explore" || arg) ctx.router.navigate(view, arg);
+                },
+              }),
+            });
+            global.MTT.ui.views.explainer.render(m.body, modalCtx, t.explainer);
+          });
           v.appendChild(dig);
         }
       }
