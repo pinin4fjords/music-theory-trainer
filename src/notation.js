@@ -238,6 +238,45 @@
       + staffLines + clefMarkup(clef, clefX) + parts.join("") + `</svg>`;
   }
 
+  // Read-only one-octave piano keyboard (C4–C5) with specified MIDI keys lit.
+  // Uses the same CSS colour variables as the rest of the UI so it adapts to
+  // light/dark themes automatically.
+  function keyboardHTML(midiSet) {
+    const lit = new Set(midiSet);
+    const W = 22, WH = 66, BW = 14, BH = 40, PAD = 3;
+    // Eight white keys: C4 D4 E4 F4 G4 A4 B4 C5
+    const WHITE = [60, 62, 64, 65, 67, 69, 71, 72];
+    // Five black keys with their x-centre as a multiple of W from the left edge.
+    const BLACK = [
+      { midi: 61, xi: 0.65 },
+      { midi: 63, xi: 1.65 },
+      { midi: 66, xi: 3.65 },
+      { midi: 68, xi: 4.65 },
+      { midi: 70, xi: 5.65 },
+    ];
+    const W_TOTAL = 8 * W + 2 * PAD;
+    const H_TOTAL = WH + 2 * PAD;
+    const parts = [];
+
+    WHITE.forEach((midi, i) => {
+      const x = PAD + i * W;
+      const fill = lit.has(midi) ? "var(--accent)" : "var(--paper)";
+      parts.push(`<rect x="${x}" y="${PAD}" width="${W - 1}" height="${WH}" rx="2" `
+        + `fill="${fill}" stroke="var(--line-strong)" stroke-width="1"/>`);
+    });
+
+    BLACK.forEach(({ midi, xi }) => {
+      const x = r(PAD + xi * W - BW / 2);
+      const fill = lit.has(midi) ? "var(--accent)" : "var(--ink)";
+      parts.push(`<rect x="${x}" y="${PAD}" width="${BW}" height="${BH}" rx="2" fill="${fill}"/>`);
+    });
+
+    return `<svg class="piano-kb" viewBox="0 0 ${W_TOTAL} ${H_TOTAL}" `
+      + `width="${W_TOTAL}" height="${H_TOTAL}" style="max-width:100%;display:block" `
+      + `role="img" aria-hidden="true">`
+      + parts.join("") + `</svg>`;
+  }
+
   function staff(spec) {
     const wrap = document.createElement("div");
     wrap.innerHTML = staffHTML(spec).trim();
@@ -245,7 +284,7 @@
   }
 
   const api = {
-    staff, staffHTML, describe,
+    staff, staffHTML, describe, keyboardHTML,
     yForNote, yForP, diatonic, CLEFS, svgEl,
   };
 

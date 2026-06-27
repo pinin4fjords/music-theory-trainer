@@ -313,6 +313,9 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
 .staff-wrap .staff { color: var(--ink); height: 132px; max-width: 100%; }
 
+/* Inline piano keyboard. */
+.kb-wrap { margin: 10px 0 4px; overflow-x: auto; }
+
 /* Answer reveal. */
 .reveal {
   margin-top: 16px; padding: 14px 16px; border-radius: var(--radius-sm);

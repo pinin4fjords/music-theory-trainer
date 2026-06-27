@@ -41,6 +41,10 @@
     return `<div class="staff-wrap">${N.staffHTML(spec)}</div>`;
   }
 
+  function kbBlock(midiSet) {
+    return `<div class="kb-wrap">${N.keyboardHTML(midiSet)}</div>`;
+  }
+
   // Plain-text alternative for a staff-bearing prompt.
   function a11y(text, spec) {
     return text + " " + N.describe(spec);
@@ -143,7 +147,7 @@
       prompt: `Is the distance from <b>${a}</b> up to <b>${b}</b> a tone or a semitone?`,
       choices: choices(rng, ans, ["tone", "semitone"]),
       answer: ans,
-      explanation: `${a} up to ${b} is a <b>${ans}</b> - ${ans === "semitone" ? "the smallest step, one key on the piano" : "two semitones"}.` + staffBlock(spec),
+      explanation: `${a} up to ${b} is a <b>${ans}</b> - ${ans === "semitone" ? "the smallest step, one key on the piano" : "two semitones"}.` + staffBlock(spec) + kbBlock([M.spelledToMidi(noteA), M.spelledToMidi(noteB)]),
       audio: () => audio().sequence([noteA, noteB]),
     };
   }
@@ -311,7 +315,7 @@
       prompt: `Which note is the same pitch (the <b>enharmonic equivalent</b>) as <b>${e.a}</b>?`,
       choices: choices(rng, e.b, ENHARM_POOL),
       answer: e.b,
-      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}. The spelling you choose depends on the key: every scale must use one of each letter name, which sometimes forces double accidentals (e.g. the leading note of G# minor is F𝄪, not G).` + staffBlock(spec),
+      explanation: `<b>${e.a}</b> and <b>${e.b}</b> are enharmonic - the same key on the piano spelled differently: ${e.why}. The spelling you choose depends on the key: every scale must use one of each letter name, which sometimes forces double accidentals (e.g. the leading note of G# minor is F𝄪, not G).` + staffBlock(spec) + kbBlock([M.spelledToMidi(noteA), M.spelledToMidi(noteB)]),
       audio: () => audio().note(M.noteToMidi(e.play)),
     };
   }
