@@ -70,14 +70,22 @@
   function intervalContrast(iv) {
     const noun = M.ordinal(iv.number);
     if ([1, 4, 5, 8].indexOf(M.simpleNumber(iv.number)) !== -1) {
-      if (iv.quality === "perfect") return `A semitone wider and it would be an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>. These intervals are called 'perfect' because medieval theorists considered them the purest consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were stable enough to end an early phrase on.`;
-      if (iv.quality === "augmented") return `Narrow it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
-      return `Widen it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
+      if (iv.quality === "perfect") return `These intervals are called <b>'perfect'</b> because medieval theorists considered them the purest consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were stable enough to close a phrase. A semitone wider gives an <b>augmented ${noun}</b>; a semitone narrower, a <b>diminished ${noun}</b>.`;
+      if (iv.quality === "augmented") return `<b>Augmented</b> means enlarged: this ${noun} has been stretched a semitone beyond its perfect form. Narrow it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
+      return `<b>Diminished</b> means made smaller: this ${noun} has been shrunk a semitone below its perfect form. Widen it by a semitone and it becomes a <b>perfect ${noun}</b>.`;
     }
-    if (iv.quality === "major") return `A semitone narrower and it would be a <b>minor ${noun}</b>; wider, an <b>augmented ${noun}</b>.`;
-    if (iv.quality === "minor") return `A semitone wider and it would be a <b>major ${noun}</b>; narrower, a <b>diminished ${noun}</b>.`;
-    if (iv.quality === "augmented") return `Narrow it by a semitone and it becomes a <b>major ${noun}</b>.`;
-    return `Widen it by a semitone and it becomes a <b>minor ${noun}</b>.`;
+    if (iv.quality === "major") {
+      if (iv.number === 2) return `A major 2nd is a whole step (2 semitones) - the standard step size. It appears between the tonic and 2nd degree of every major <i>and</i> natural minor scale (e.g. C to D in C major or C minor). A semitone narrower gives a <b>minor 2nd</b>; wider, an <b>augmented 2nd</b>.`;
+      const exNote = { 3: "E", 6: "A", 7: "B" }[iv.number];
+      return `In a major scale, the 3rd, 6th, and 7th above the tonic are all major - that is where these quality names come from. A <b>major ${noun}</b> is the ${noun} as it appears above the tonic in a major scale${exNote ? ` (e.g. C to ${exNote} in C major)` : ""}. A semitone narrower gives a <b>minor ${noun}</b>; wider, an <b>augmented ${noun}</b>.`;
+    }
+    if (iv.quality === "minor") {
+      if (iv.number === 2) return `A minor 2nd is a half step (1 semitone) - the smallest interval in Western music. Unlike the 3rd, 6th, and 7th, the minor 2nd does not appear between the tonic and 2nd degree of any standard scale; 'minor' simply marks it as the smaller of the two step sizes. A semitone wider gives a <b>major 2nd</b>; narrower, a <b>diminished 2nd</b>.`;
+      const exNote = { 3: "E♭", 6: "A♭", 7: "B♭" }[iv.number];
+      return `In a natural minor scale, the 3rd, 6th, and 7th above the tonic are all minor - that is where these quality names come from. A <b>minor ${noun}</b> is the ${noun} as it appears above the tonic in a minor scale${exNote ? ` (e.g. C to ${exNote} in C minor)` : ""}. A semitone wider gives a <b>major ${noun}</b>; narrower, a <b>diminished ${noun}</b>.`;
+    }
+    if (iv.quality === "augmented") return `<b>Augmented</b> means enlarged: this ${noun} has been stretched a semitone beyond its major form. Narrow it by a semitone and it becomes a <b>major ${noun}</b>.`;
+    return `<b>Diminished</b> means made smaller: this ${noun} has been shrunk a semitone below its minor form. Widen it by a semitone and it becomes a <b>minor ${noun}</b>.`;
   }
 
   const INTERVAL_NAME_POOL = [
