@@ -24,10 +24,31 @@
   "use strict";
 
   const M = global.MTT.music;
-  // Prefer sampled piano when loaded; fall back to the oscillator synth.
   function audio() {
     const piano = global.MTT.audioPiano;
     return (piano && piano.isReady()) ? piano : global.MTT.audio;
+  }
+
+  // Notation helpers — render a treble-clef staff snippet inline in a prompt.
+  const PC_NOTE = [
+    { letter: "C", alter: 0 }, { letter: "C", alter: 1 }, { letter: "D", alter: 0 },
+    { letter: "E", alter: -1 }, { letter: "E", alter: 0 }, { letter: "F", alter: 0 },
+    { letter: "F", alter: 1 }, { letter: "G", alter: 0 }, { letter: "A", alter: -1 },
+    { letter: "A", alter: 0 }, { letter: "B", alter: -1 }, { letter: "B", alter: 0 },
+  ];
+  function midiToSpelled(midi) {
+    const pc = ((midi % 12) + 12) % 12;
+    return Object.assign({}, PC_NOTE[pc], { octave: Math.floor(midi / 12) - 1 });
+  }
+  function noteStaff(midi) {
+    const N = global.MTT.notation;
+    if (!N) return "";
+    return `<div class="staff-wrap">${N.staffHTML({ clef: "treble", notes: [midiToSpelled(midi)] })}</div>`;
+  }
+  function sequenceStaff(midiNotes) {
+    const N = global.MTT.notation;
+    if (!N) return "";
+    return `<div class="staff-wrap">${N.staffHTML({ clef: "treble", notes: midiNotes.map(midiToSpelled) })}</div>`;
   }
 
   function pick(rng, arr) { return rng.pick(arr); }
@@ -202,7 +223,7 @@
     const midi = pick(rng, targets);
     const name = midiName(midi);
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold the note for about a second.`,
+      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold the note for about a second.${noteStaff(midi)}`,
       audio: function () { audio().note(midi, 1.0); },
       micTask: {
         type: "pitch",
@@ -232,18 +253,19 @@
   // Test 2A: Identify 2 or 3 time (6/8 = "2 time" because 2 main beats).
   function g2TimeSigQuestion(rng) {
     const options = [
-      { beats: 2, label: "2", sig: "2/4", note: "2/4 has two crotchet beats" },
+      { beats: 2, label: "2", sig: "2/4", note: "2/4 has two crotchet beats (march feel)" },
       { beats: 3, label: "3", sig: "3/4", note: "3/4 has three crotchet beats (waltz feel)" },
-      { beats: 2, label: "2", sig: "6/8", note: "6/8 has two dotted-crotchet beats (two main pulses, with a lilting triplet feel)" },
+      { beats: 4, label: "4", sig: "4/4", note: "4/4 (common time) has four crotchet beats — beats 1 and 3 are strong, beat 1 strongest" },
+      { beats: 2, label: "2", sig: "6/8", note: "6/8 has two dotted-crotchet beats (two main pulses, each divided into three — a lilting, swinging feel)" },
     ];
     const opt = pick(rng, options);
     const notes = meterNotes(opt.beats);
     return {
-      prompt: `Listen to this rhythmic pattern. How many <strong>main beats</strong> are in each bar? (Note: 6/8 time has 2 main beats.)`,
+      prompt: `Listen to this rhythmic pattern. How many <strong>main beats</strong> are in each bar? (6/8 has 2 main beats.)`,
       audio: function () { audio().sequence(notes, 0.5, 0.12); },
-      choices: choices(rng, opt.label, ["2", "3", "4"], 2),
+      choices: choices(rng, opt.label, ["2", "3", "4"], 3),
       answer: opt.label,
-      explanation: `That was in <b>${opt.sig}</b> time — ${opt.note}. ${opt.sig === "6/8" ? "In 6/8 you feel two strong beats, each divided into three." : "Count the strong (accented) beats to feel the pulse."}`,
+      explanation: `That was in <b>${opt.sig}</b> time — ${opt.note}.`,
     };
   }
 
@@ -349,7 +371,7 @@
     const midi = pick(rng, targets);
     const name = midiName(midi);
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.`,
+      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.${noteStaff(midi)}`,
       audio: function () { audio().note(midi, 1.0); },
       micTask: {
         type: "pitch",
@@ -383,16 +405,23 @@
       { beats: 2, sig: "2/4" },
       { beats: 3, sig: "3/4" },
       { beats: 4, sig: "4/4" },
+      { beats: 2, sig: "6/8" },
     ];
     const opt = pick(rng, options);
     const notes = meterNotes(opt.beats);
     const label = String(opt.beats);
+    const expl = {
+      "2/4": "2/4 has two crotchet beats — a march feel.",
+      "3/4": "3/4 has three crotchet beats — a waltz feel.",
+      "4/4": "4/4 (common time) has four crotchet beats. Beats 1 and 3 are stronger, beat 1 strongest. Compare: march feels in 4, waltz in 3.",
+      "6/8": "6/8 has two main beats, each divided into three quavers — a lilting, swinging feel. Count two slow beats, not six fast ones.",
+    };
     return {
-      prompt: `Listen to this rhythmic pattern. How many beats are in each bar?`,
+      prompt: `Listen to this rhythmic pattern. How many <strong>main beats</strong> are in each bar? (6/8 has 2 main beats.)`,
       audio: function () { audio().sequence(notes, 0.5, 0.12); },
       choices: choices(rng, label, ["2", "3", "4"], 3),
       answer: label,
-      explanation: `That was in <b>${opt.sig}</b> time — ${opt.beats} beats per bar. In 4/4 (common time), beats 1 and 3 are stronger; beat 1 is the strongest. Compare: a march feels in 4, a waltz in 3, a jig often in 2.`,
+      explanation: `That was in <b>${opt.sig}</b> time. ${expl[opt.sig]}`,
     };
   }
 
@@ -429,16 +458,17 @@
   // Test 4B: Sight-sing helper — sing a note from a printed score position.
   // Ranges: within a 3rd above or below the tonic (C, F, or G major).
   function g4SightSingQuestion(rng) {
+    // Range: 3rd above or below tonic (C/F/G major only at Grade 4).
     const keys = [
-      { root: MIDI.C4, name: "C major", targets: [MIDI.C4, MIDI.D4, MIDI.E4] },
-      { root: MIDI.F4, name: "F major", targets: [65, 67, 69] }, // F4, G4, A4
-      { root: MIDI.G4, name: "G major", targets: [MIDI.G4, MIDI.A4, MIDI.B4] },
+      { root: MIDI.C4, name: "C major", targets: [57, 59, MIDI.C4, MIDI.D4, MIDI.E4] }, // A3–E4
+      { root: 65, name: "F major", targets: [62, 64, 65, 67, 69] },                      // D4–A4
+      { root: MIDI.G4, name: "G major", targets: [64, 66, MIDI.G4, MIDI.A4, MIDI.B4] }, // E4–B4 (inc. F#)
     ];
     const key = pick(rng, keys);
     const midi = pick(rng, key.targets);
     const name = midiName(midi);
     return {
-      prompt: `You'll sing a note from the <b>${key.name}</b> scale. Listen to the tonic (key note), then <strong>sing the note shown</strong>: <b>${name}</b>.`,
+      prompt: `Listen to the tonic of <b>${key.name}</b>, then <strong>sing the note shown</strong>:${noteStaff(midi)}`,
       audio: function () { audio().note(key.root, 0.9); },
       micTask: {
         type: "pitch",
@@ -449,7 +479,7 @@
       },
       choices: ["I sang it on pitch", "I missed the pitch"],
       answer: "I sang it on pitch",
-      explanation: `The target note was <b>${name}</b> in ${key.name}. In the Grade 4 sight-singing test you see 5 notes on the score and sing each in free time, starting and ending on the tonic.`,
+      explanation: `The target note was <b>${name}</b> in ${key.name}. Grade 4 sight-singing covers a 3rd above and below the tonic in C, F, or G major. Intervals are never larger than a 3rd.`,
     };
   }
 
@@ -543,7 +573,7 @@
     const midi = pick(rng, targets);
     const name = midiName(midi);
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.`,
+      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.${noteStaff(midi)}`,
       audio: function () { audio().note(midi, 1.0); },
       micTask: {
         type: "pitch",
@@ -554,7 +584,7 @@
       },
       choices: ["I sang it on pitch", "I missed the pitch"],
       answer: "I sang it on pitch",
-      explanation: `The note was <b>${name}</b>. At Grade 5, the echo melodies can start from any note in the tonic triad and move within one octave, potentially across major or minor keys with up to 3 sharps or flats.`,
+      explanation: `The note was <b>${name}</b>. At Grade 5, echo melodies start from any note in the tonic triad and move within an octave, in major or minor keys with up to 3 sharps or flats.`,
     };
   }
 
@@ -614,7 +644,7 @@
         {
           id: "g2-aural-time",
           title: "Aural: pulse & time signature (inc. 6/8)",
-          why: "Grade 2 Test A introduces 6/8 time alongside 2/4 and 3/4. In 6/8 there are six quavers per bar, but you feel two main beats — so you still say '2 time'.",
+          why: "Grade 2 introduces 4/4 and 6/8 alongside 2/4 and 3/4. In 6/8 there are six quavers per bar, but you feel two main beats. In 4/4 (common time) there are four crotchet beats with beats 1 and 3 stronger.",
           what: "<p>In 6/8 each of the two beats is a <b>dotted crotchet</b> (= three quavers), giving a lilting, triplet feel. Listen for the swing or bounce of two groups-of-three rather than the march of two-crotchet or waltz of three-crotchet.</p>",
           questions: g2TimeSigQuestion,
           tags: ["aural"],
@@ -651,8 +681,8 @@
         {
           id: "g3-aural-time",
           title: "Aural: 2, 3, or 4 beats per bar",
-          why: "Grade 3 Test A adds 4/4 (common time) to the options. 4/4 has four crotchet beats; beats 1 and 3 are strong, but beat 1 is stronger — giving a characteristic march or striding feel.",
-          what: "<p>In 4/4, there are two 'groups' of two within each bar: a strong-weak-strong-weak pattern. Compare: 2/4 = march (ONE two), 3/4 = waltz (ONE two three), 4/4 = strong march (ONE two THREE four).</p>",
+          why: "Grade 3 reinforces all four time signatures introduced in Grade 2 — 2/4, 3/4, 4/4, and 6/8. The challenge is quickly distinguishing all four: the march of 2, the waltz of 3, the broad stride of 4, and the lilting swing of 6/8.",
+          what: "<p>In 4/4, there are two 'groups' of two within each bar: a strong-weak-strong-weak pattern. 6/8 also has 2 main beats but each divides into three quavers, giving a lilt rather than a march. Compare: 2/4 = march (ONE two), 3/4 = waltz (ONE two three), 4/4 = strong stride (ONE two THREE four), 6/8 = lilting (ONE-and-a TWO-and-a).</p>",
           questions: g3TimeSigQuestion,
           tags: ["aural"],
         },

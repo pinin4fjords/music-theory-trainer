@@ -99,6 +99,14 @@
     notes.forEach(function (n, i) { queueNote(ctx, toMidi(n), t0 + i * step, dur, vol); });
   }
 
+  function chord(notes, dur) {
+    dur = dur === undefined ? 1.1 : dur;
+    const ctx = ensure();
+    if (!ctx) return;
+    const t0 = ctx.currentTime + 0.04;
+    notes.forEach(function (n) { queueNote(ctx, toMidi(n), t0, dur, 0.7); });
+  }
+
   function cancel() {
     if (_ctx && _player) {
       try { _player.cancelQueue(_ctx); } catch { /* ignore */ }
@@ -118,6 +126,7 @@
     sequence: sequence,
     sequencePair: sequencePair,
     sequenceAt: sequenceAt,
+    chord: chord,
     cancel: cancel,
     unlock: unlock,
     isReady: isReady,

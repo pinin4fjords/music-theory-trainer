@@ -56,6 +56,9 @@
       const p = c.resume();
       if (p && typeof p.catch === "function") p.catch(() => {});
     }
+    // Also unlock the piano context if it's been initialised.
+    const piano = global.MTT && global.MTT.audioPiano;
+    if (piano && piano.unlock) piano.unlock();
   }
 
   function tone(freq, when, dur = 0.6, gain = 0.25, type = "triangle") {
@@ -76,6 +79,14 @@
     } catch {
       /* one bad tone must never break a session */
     }
+  }
+
+  // Returns the piano engine when loaded and ready; null otherwise.
+  // Checked at call time so audio.js can load before audio-piano.js.
+  function getPiano() {
+    if (!enabled) return null;
+    const p = global.MTT && global.MTT.audioPiano;
+    return (p && p.isReady()) ? p : null;
   }
 
   const music = () => global.MTT.music;
@@ -103,10 +114,14 @@
   }
 
   function note(n, dur = 0.6) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.note(n, dur); lastPlay(); return; }
     play((c) => tone(freqList([n])[0], c.currentTime, dur));
   }
 
   function sequence(notes, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequence(notes, step, dur); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
       freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
@@ -114,12 +129,16 @@
   }
 
   function chord(notes, dur = 1.1) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.chord(notes, dur); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
       freqList(notes).forEach((f) => tone(f, t0, dur, 0.18));
     });
   }
 
+  // freqSequence and freqChord use raw frequencies for physics demos (harmonic
+  // series, monochord) where exact Hz matters more than timbre — keep synthesis.
   function freqSequence(freqs, step = 0.5, dur = 0.5) {
     play((c) => {
       const t0 = c.currentTime + 0.04;
@@ -135,8 +154,9 @@
   }
 
   // Play two note sequences back-to-back with a one-beat gap between them.
-  // Used by aural change-detection questions (phrase played twice, once changed).
   function sequencePair(notes1, notes2, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequencePair(notes1, notes2, step, dur); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
       const gap = notes1.length * step + step;
@@ -145,9 +165,10 @@
     });
   }
 
-  // Temporarily override master gain for a single play call (aural dynamics tasks).
-  // The gain resets automatically after the sequence ends.
+  // Play at a specific volume level (aural dynamics tasks).
   function sequenceAt(notes, gain, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequenceAt(notes, gain, step, dur); lastPlay(); return; }
     play((c) => {
       if (master) master.gain.value = Math.max(0, Math.min(1, gain));
       const t0 = c.currentTime + 0.04;
@@ -158,9 +179,15 @@
     });
   }
 
-  // Repeat the most recent sound (the "replay" / "hear it again" control).
+  // Repeat the most recent sound. lastPlay is either a zero-arg piano thunk or
+  // a (c)=> synth function — handle both.
   function replay() {
-    if (lastPlay) play(lastPlay);
+    if (!lastPlay) return;
+    if (lastPlay.length === 0) {
+      if (enabled) { try { lastPlay(); } catch { /* ignore */ } }
+    } else {
+      play(lastPlay);
+    }
   }
 
   function setEnabled(on) { enabled = !!on; }
