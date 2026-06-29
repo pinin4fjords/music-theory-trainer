@@ -356,6 +356,21 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 }
 .mic-self-report .btn { font-size: .9rem; }
 
+/* Sequence mic panel. */
+.mic-sequence-panel .mic-sequence-progress {
+  font-size: .88rem; color: var(--ink-soft);
+  display: flex; align-items: center; gap: 6px; margin: 0 0 10px;
+}
+.seq-dot {
+  font-size: .8rem; opacity: .35; transition: opacity .15s, color .15s;
+}
+.seq-dot.done { opacity: 1; color: var(--good); }
+.seq-dot.now  { opacity: 1; color: var(--accent); font-size: 1rem; }
+.mic-current-note-staff {
+  margin-bottom: 10px;
+}
+.mic-current-note-staff .staff-wrap { margin: 0; }
+
 /* Embedded staff notation. */
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
 .staff-wrap .staff { color: var(--ink); height: 132px; max-width: 100%; }

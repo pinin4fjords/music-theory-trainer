@@ -66,6 +66,15 @@
     return function () { audio().sequence(midiNotes, step, dur); };
   }
 
+  // Build a targets array for a sequence micTask.
+  // Each entry: { midi, name, staffHtml } — quiz.js uses staffHtml to show the
+  // current note to sing and midi/name for pitch comparison and meter label.
+  function makeSequenceTargets(midiNotes) {
+    return midiNotes.map(function (midi) {
+      return { midi: midi, name: midiName(midi), staffHtml: noteStaff(midi) };
+    });
+  }
+
   // --- Musical constants ---------------------------------------------------
 
   const MIDI = {
@@ -118,6 +127,72 @@
     [MIDI.C4, MIDI.E4, MIDI.G4, MIDI.E4],
     [MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4],
     [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4],
+  ];
+
+  // Grade 1 echo phrases: 3 notes, steps only, C major, range C4-E4.
+  const G1_ECHO_PHRASES = [
+    [MIDI.C4, MIDI.D4, MIDI.C4],
+    [MIDI.E4, MIDI.D4, MIDI.C4],
+    [MIDI.C4, MIDI.D4, MIDI.E4],
+    [MIDI.C4, MIDI.E4, MIDI.D4],
+    [MIDI.D4, MIDI.E4, MIDI.D4],
+    [MIDI.E4, MIDI.D4, MIDI.E4],
+  ];
+
+  // Grade 2 echo phrases: 4 notes, steps + minor 3rd, major or minor.
+  const G2_ECHO_PHRASES_MAJOR = [
+    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.C4],
+    [MIDI.C4, MIDI.E4, MIDI.D4, MIDI.C4],
+    [MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4],
+    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.D4],
+    [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4],
+  ];
+  const G2_ECHO_PHRASES_MINOR = [
+    [MIDI.C4, MIDI.D4, 63, MIDI.C4],   // C D Eb C
+    [63, MIDI.D4, MIDI.C4, MIDI.D4],   // Eb D C D
+    [MIDI.C4, 63, MIDI.D4, MIDI.C4],   // C Eb D C
+    [MIDI.C4, MIDI.D4, 63, MIDI.D4],   // C D Eb D
+  ];
+
+  // Grade 4 sight-sing phrases: 5 notes, starts on tonic, 3rd below/above, C/F/G major.
+  const G4_SIGHT_PHRASES = [
+    { root: MIDI.C4, name: "C major", phrases: [
+      [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.D4, MIDI.C4],
+      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.B3, MIDI.C4],
+      [MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4],
+      [MIDI.C4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4],
+    ]},
+    { root: 65, name: "F major", phrases: [
+      [65, 67, MIDI.A4, 67, 65],           // F G A G F
+      [65, MIDI.E4, MIDI.D4, MIDI.E4, 65], // F E D E F
+      [MIDI.A4, 67, 65, MIDI.E4, 65],      // A G F E F
+      [65, 67, 65, MIDI.E4, 65],           // F G F E F
+    ]},
+    { root: MIDI.G4, name: "G major", phrases: [
+      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.A4, MIDI.G4],
+      [MIDI.G4, 66, MIDI.E4, 66, MIDI.G4],          // G F# E F# G
+      [MIDI.B4, MIDI.A4, MIDI.G4, 66, MIDI.G4],     // B A G F# G
+      [MIDI.G4, MIDI.A4, MIDI.G4, 66, MIDI.G4],     // G A G F# G
+    ]},
+  ];
+
+  // Grade 5 sight-sing phrases: 6 notes, wider range (5th above, 4th below), one 4th leap allowed.
+  const G5_SIGHT_PHRASES = [
+    { root: MIDI.C4, name: "C major", phrases: [
+      [MIDI.C4, MIDI.D4, 65, MIDI.E4, MIDI.D4, MIDI.C4],     // C D F E D C (4th leap C→F)
+      [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4], // G E D C B C (from 5th above)
+      [MIDI.C4, MIDI.E4, 65, MIDI.G4, MIDI.E4, MIDI.C4],      // C E F G E C (to 5th above)
+      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.G3, MIDI.A3, MIDI.C4], // C B A G A C (4th below)
+    ]},
+    { root: 65, name: "F major", phrases: [
+      [65, 67, MIDI.A4, 72, MIDI.A4, 65],                         // F G A C' A F (octave leap)
+      [65, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4, 65],               // F E D C D F
+      [72, MIDI.A4, 67, 65, 67, MIDI.A4],                         // C' A G F G A (from above)
+    ]},
+    { root: MIDI.G4, name: "G major", phrases: [
+      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],  // G A B D' B G (4th B→D)
+      [MIDI.G4, 66, MIDI.E4, MIDI.D4, MIDI.E4, MIDI.G4],        // G F# E D E G
+    ]},
   ];
 
   // Create a modified copy with one note changed (up a tone = +2 semitones).
@@ -217,24 +292,29 @@
     };
   }
 
-  // Test 1B: Sing back a single note (Grade 1 - major key, within range C4-A4).
-  function g1SingNoteQuestion(rng) {
-    const targets = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.G4, MIDI.A4];
-    const midi = pick(rng, targets);
-    const name = midiName(midi);
+  // Test 1B: Echo a short melody (Grade 1 - 3 notes, C major, C4-E4).
+  // The examiner plays the phrase three times; the candidate sings it back each time.
+  function g1EchoMelodyQuestion(rng) {
+    const phrase = pick(rng, G1_ECHO_PHRASES);
+    const step = 0.55;
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold the note for about a second.${noteStaff(midi)}`,
-      audio: function () { audio().note(midi, 1.0); },
-      micTask: {
-        type: "pitch",
-        targetMidi: midi,
-        targetName: name,
-        toleranceSemitones: 1.0,
-        minHoldMs: 700,
+      prompt: `Listen to this short phrase — it plays <strong>three times</strong>. Then <strong>sing it back</strong> note by note.${sequenceStaff(phrase)}`,
+      audio: function () {
+        const a = audio();
+        const gap = phrase.length * step * 1000 + 700;
+        a.sequence(phrase, step, 0.5);
+        setTimeout(function () { a.sequence(phrase, step, 0.5); }, gap);
+        setTimeout(function () { a.sequence(phrase, step, 0.5); }, gap * 2);
       },
-      choices: ["I sang it on pitch", "I missed the pitch"],
-      answer: "I sang it on pitch",
-      explanation: `That was <b>${name}</b>. Sing "lah" on the note you heard. You can sing in any octave that suits your voice.`,
+      micTask: {
+        type: "sequence",
+        targets: makeSequenceTargets(phrase),
+        toleranceSemitones: 1.0,
+        minHoldMs: 450,
+      },
+      choices: ["I sang the phrase", "I couldn't match it"],
+      answer: "I sang the phrase",
+      explanation: `Grade 1 echo singing: the examiner plays a short 2-bar phrase three times and you sing it back. Focus on the shape — whether the melody goes up, down, or stays the same — rather than trying to name the notes.`,
     };
   }
 
@@ -245,6 +325,7 @@
     if (type === 2) return g1DynamicsQuestion(rng);
     return g1ArticulationQuestion(rng);
   }
+
 
   // =========================================================================
   // Grade 2 generators
@@ -362,27 +443,31 @@
     };
   }
 
-  // Grade 2 singing: major or minor key, range up to dominant.
-  function g2SingNoteQuestion(rng) {
-    const majorTargets = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.G4];
-    const minorTargets = [MIDI.C4, MIDI.D4, MIDI.Eb4 || 63, MIDI.G4];
+  // Grade 2 echo melody: 4 notes, major or minor key, range up to dominant.
+  function g2EchoMelodyQuestion(rng) {
     const isMajor = rng.bool();
-    const targets = isMajor ? majorTargets : [MIDI.C4, MIDI.D4, 63, MIDI.G4];
-    const midi = pick(rng, targets);
-    const name = midiName(midi);
+    const phrases = isMajor ? G2_ECHO_PHRASES_MAJOR : G2_ECHO_PHRASES_MINOR;
+    const phrase = pick(rng, phrases);
+    const keyLabel = isMajor ? "major" : "minor";
+    const step = 0.52;
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.${noteStaff(midi)}`,
-      audio: function () { audio().note(midi, 1.0); },
-      micTask: {
-        type: "pitch",
-        targetMidi: midi,
-        targetName: name,
-        toleranceSemitones: 1.0,
-        minHoldMs: 700,
+      prompt: `Listen to this ${keyLabel}-key phrase — it plays <strong>three times</strong>. Then <strong>sing it back</strong> note by note.${sequenceStaff(phrase)}`,
+      audio: function () {
+        const a = audio();
+        const gap = phrase.length * step * 1000 + 700;
+        a.sequence(phrase, step, 0.48);
+        setTimeout(function () { a.sequence(phrase, step, 0.48); }, gap);
+        setTimeout(function () { a.sequence(phrase, step, 0.48); }, gap * 2);
       },
-      choices: ["I sang it on pitch", "I missed the pitch"],
-      answer: "I sang it on pitch",
-      explanation: `That was <b>${name}</b>. At Grade 2, the echoes can be in major or minor keys. You can sing on any syllable ("lah", "dah") in any comfortable octave.`,
+      micTask: {
+        type: "sequence",
+        targets: makeSequenceTargets(phrase),
+        toleranceSemitones: 1.0,
+        minHoldMs: 450,
+      },
+      choices: ["I sang the phrase", "I couldn't match it"],
+      answer: "I sang the phrase",
+      explanation: `Grade 2 echo singing: phrases can be in major or minor keys and extend up to the 5th (dominant). Listen to whether the 3rd note feels higher or lower than you expected — that's often the clue to major vs minor.`,
     };
   }
 
@@ -455,31 +540,23 @@
   // Grade 4 generators
   // =========================================================================
 
-  // Test 4B: Sight-sing helper — sing a note from a printed score position.
-  // Ranges: within a 3rd above or below the tonic (C, F, or G major).
+  // Test 4B: Sight-sing a 5-note phrase from a printed score.
+  // Only tonic is played (for pitch reference). Student reads and sings in sequence.
   function g4SightSingQuestion(rng) {
-    // Range: 3rd above or below tonic (C/F/G major only at Grade 4).
-    const keys = [
-      { root: MIDI.C4, name: "C major", targets: [57, 59, MIDI.C4, MIDI.D4, MIDI.E4] }, // A3–E4
-      { root: 65, name: "F major", targets: [62, 64, 65, 67, 69] },                      // D4–A4
-      { root: MIDI.G4, name: "G major", targets: [64, 66, MIDI.G4, MIDI.A4, MIDI.B4] }, // E4–B4 (inc. F#)
-    ];
-    const key = pick(rng, keys);
-    const midi = pick(rng, key.targets);
-    const name = midiName(midi);
+    const keyDef = pick(rng, G4_SIGHT_PHRASES);
+    const phrase = pick(rng, keyDef.phrases);
     return {
-      prompt: `Listen to the tonic of <b>${key.name}</b>, then <strong>sing the note shown</strong>:${noteStaff(midi)}`,
-      audio: function () { audio().note(key.root, 0.9); },
+      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing each note</strong> shown in order. Start when you\'re ready.${sequenceStaff(phrase)}`,
+      audio: function () { audio().note(keyDef.root, 1.2); },
       micTask: {
-        type: "pitch",
-        targetMidi: midi,
-        targetName: name,
+        type: "sequence",
+        targets: makeSequenceTargets(phrase),
         toleranceSemitones: 1.0,
-        minHoldMs: 800,
+        minHoldMs: 500,
       },
-      choices: ["I sang it on pitch", "I missed the pitch"],
-      answer: "I sang it on pitch",
-      explanation: `The target note was <b>${name}</b> in ${key.name}. Grade 4 sight-singing covers a 3rd above and below the tonic in C, F, or G major. Intervals are never larger than a 3rd.`,
+      choices: ["I sang the phrase", "I couldn't manage it"],
+      answer: "I sang the phrase",
+      explanation: `Grade 4 sight-singing: 5 notes in C, F, or G major, within a 3rd of the tonic. Steps and small skips only. Only the tonic is given — work out each note\'s position relative to the tonic you heard.`,
     };
   }
 
@@ -567,30 +644,28 @@
     };
   }
 
-  // Grade 5 echo-singing: chromatic notes, range up to 5th above.
-  function g5SingNoteQuestion(rng) {
-    const targets = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4, 63, 70]; // includes Eb4 and Bb4
-    const midi = pick(rng, targets);
-    const name = midiName(midi);
+  // Grade 5 sight-singing: 6-note phrase, wider range (5th above, 4th below), one 4th leap.
+  function g5SightSingQuestion(rng) {
+    const keyDef = pick(rng, G5_SIGHT_PHRASES);
+    const phrase = pick(rng, keyDef.phrases);
     return {
-      prompt: `Listen to this note, then <strong>sing it back</strong>. Hold it steady for about a second.${noteStaff(midi)}`,
-      audio: function () { audio().note(midi, 1.0); },
+      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing each note</strong> shown in order. Take a moment to look before starting.${sequenceStaff(phrase)}`,
+      audio: function () { audio().note(keyDef.root, 1.2); },
       micTask: {
-        type: "pitch",
-        targetMidi: midi,
-        targetName: name,
+        type: "sequence",
+        targets: makeSequenceTargets(phrase),
         toleranceSemitones: 1.0,
-        minHoldMs: 700,
+        minHoldMs: 500,
       },
-      choices: ["I sang it on pitch", "I missed the pitch"],
-      answer: "I sang it on pitch",
-      explanation: `The note was <b>${name}</b>. At Grade 5, echo melodies start from any note in the tonic triad and move within an octave, in major or minor keys with up to 3 sharps or flats.`,
+      choices: ["I sang the phrase", "I couldn't manage it"],
+      answer: "I sang the phrase",
+      explanation: `Grade 5 sight-singing: 6 notes, range up to a 5th above and 4th below tonic, one leap of a 4th allowed. Plan the biggest interval (the 4th leap) before you start singing — the rest will usually be steps.`,
     };
   }
 
   function g5AuralQuestion(rng) {
     const type = rng.int(0, 3);
-    if (type === 0) return g5SingNoteQuestion(rng);
+    if (type === 0) return g5SightSingQuestion(rng);
     if (type === 1) return g5StyleQuestion(rng);
     if (type === 2) return g3TimeSigQuestion(rng);
     return g3TonalityQuestion(rng);
@@ -630,10 +705,10 @@
         },
         {
           id: "g1-aural-sing",
-          title: "Aural: sing back a note",
-          why: "In the Grade 1 aural test the examiner plays a two-bar melody three times and you sing it back each time. Being able to match pitch accurately is the core skill.",
-          what: "<p>Listen to the note, then sing it back on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice — pitch accuracy matters more than range.</p><p class=\"muted\" style=\"font-size:.9em\">The mic on this device will detect your pitch and show whether you are on target (green) or slightly off (red). Hold the note steady for at least a second.</p>",
-          questions: g1SingNoteQuestion,
+          title: "Aural: echo singing",
+          why: "In the Grade 1 aural test the examiner plays a short two-bar melody three times and you sing it back each time. The melody is simple — 3 to 4 notes using steps in C major.",
+          what: "<p>Listen to the whole phrase first — notice its <b>shape</b> (going up? going down? a step or a skip?). Then sing it back note by note on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice.</p><p class=\"muted\" style=\"font-size:.9em\">The mic detects each note as you hold it and advances to the next automatically.</p>",
+          questions: g1EchoMelodyQuestion,
           tags: ["aural"],
         },
       ],
@@ -667,10 +742,10 @@
         },
         {
           id: "g2-aural-sing",
-          title: "Aural: sing back (major & minor)",
-          why: "Grade 2 echo-singing (Test B) introduces minor-key phrases. The tonal range extends up to the dominant (5th of the scale).",
-          what: "<p>Minor-key phrases can feel less settled than major ones. Singing any syllable ('lah', 'dah', 'mm') in any octave is fine — the examiner marks pitch accuracy, not vocal quality.</p>",
-          questions: g2SingNoteQuestion,
+          title: "Aural: echo singing (major & minor)",
+          why: "Grade 2 echo-singing (Test B) introduces minor-key phrases. The 4-note melodies extend up to the dominant (5th of the scale) and can be in major or minor.",
+          what: "<p>Listen for the <b>3rd note</b> — in minor phrases it will feel lower or darker than you might expect. Sing back on any syllable ('lah', 'dah') in any comfortable octave. Hold each note briefly before moving to the next.</p>",
+          questions: g2EchoMelodyQuestion,
           tags: ["aural"],
         },
       ],
@@ -704,10 +779,10 @@
         },
         {
           id: "g3-aural-sing",
-          title: "Aural: sing back (within octave)",
+          title: "Aural: echo singing (within octave)",
           why: "Grade 3 echo-singing (Test B) phrases stay within one octave. The phrases may be in major or minor and use mostly stepwise motion with occasional leaps no larger than a third.",
           what: "<p>Before singing, hum the first note internally. Stepwise phrases are easiest to echo — start on the first note and think through each step. If you miss a note, keep going rather than stopping.</p>",
-          questions: (rng) => g2SingNoteQuestion(rng),
+          questions: g2EchoMelodyQuestion,
           tags: ["aural"],
         },
       ],
@@ -733,9 +808,9 @@
         },
         {
           id: "g4-aural-sight-sing",
-          title: "Aural: sight-sing a note",
-          why: "Grade 4 Test B is the first sight-singing task: you sing 5 notes from a printed score in C, F, or G major, all within a 3rd of the tonic, in free time.",
-          what: "<p>Look at the position of each note on the staff and relate it to the tonic. The starting and ending notes are always the tonic. Intervals are no larger than a 3rd, so each note is a step or skip away from the last.</p>",
+          title: "Aural: sight-sing a phrase",
+          why: "Grade 4 Test B is the first sight-singing task: you sing a 5-note phrase from a printed score in C, F, or G major. The range is within a 3rd of the tonic; intervals are steps and small skips only.",
+          what: "<p>Only the tonic is played for you. Look at each note's position on the staff relative to the tonic line, plan the direction (up or down) and size (step or skip) of each move, then sing all 5 notes in sequence.</p>",
           questions: g4SightSingQuestion,
           tags: ["aural"],
         },
@@ -768,9 +843,9 @@
         {
           id: "g5-aural-sight-sing",
           title: "Aural: sight-sing (wider range)",
-          why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic, and one allowed leap of a perfect 4th (from dominant to tonic).",
-          what: "<p>The key difference from Grade 4 is the wider range and the allowed 4th leap. Practice the sound of a perfect 4th (same as the start of 'Here Comes the Bride') so you can leap it confidently.</p>",
-          questions: g5SingNoteQuestion,
+          why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic, and one allowed leap of a perfect 4th.",
+          what: "<p>Spot the 4th leap before you start — it's the hardest interval to hit accurately. Everything else will be steps. Practice the sound of a perfect 4th (same as the start of 'Here Comes the Bride') so you can leap it confidently.</p>",
+          questions: g5SightSingQuestion,
           tags: ["aural"],
         },
       ],

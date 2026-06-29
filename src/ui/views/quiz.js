@@ -23,9 +23,8 @@
 
   // --- Mic task panel -------------------------------------------------------
 
-  // Renders the pitch-detection interaction for a singing task. Returns a cleanup
-  // function to call when the question is answered or skipped.
-  function renderMicTask(view, q, C, ctx, onResult) {
+  // Single-pitch variant: detect one held note.
+  function renderMicPitch(view, q, C, ctx, onResult) {
     const task = q.micTask;
     const ai = global.MTT && global.MTT.audioInput;
     let stopDetector = null;
@@ -48,7 +47,6 @@
     }
 
     if (!ai || !ai.isAvailable()) {
-      // No microphone API (HTTP, old browser). Show self-report only.
       panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available — listen and self-report below.</p>`));
       view.appendChild(panel);
       return stop;
@@ -85,7 +83,7 @@
                 stop();
                 startBtn.textContent = "🎤 Done";
                 statusEl.textContent = "Great — pitch detected correctly.";
-                onResult(q.answer); // auto-accept
+                onResult(q.answer);
               }, minHold);
             }
           } else {
@@ -110,6 +108,153 @@
     panel.appendChild(statusEl);
     view.appendChild(panel);
     return stop;
+  }
+
+  // Sequence variant: walk through an array of targets one by one, confirming
+  // each note before advancing. task.targets = [{midi, name, staffHtml}, ...]
+  function renderMicSequence(view, q, C, ctx, onResult) {
+    const task = q.micTask;
+    const targets = task.targets;
+    const ai = global.MTT && global.MTT.audioInput;
+    let currentIdx = 0;
+    let holdTimer = null;
+    let holdStarted = false;
+    let lockout = false; // brief cooldown after each confirmed note
+    let stopDetector = null;
+    let listening = false;
+
+    const panel = C.el(`<div class="mic-panel mic-sequence-panel"></div>`);
+    const progressEl = C.el(`<p class="mic-sequence-progress">Note 1 of ${targets.length}</p>`);
+    const currentNoteEl = C.el(`<div class="mic-current-note-staff"></div>`);
+    const meter = C.pitchMeter(targets[0].name);
+    const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
+
+    function updateDisplay() {
+      const t = targets[currentIdx];
+      progressEl.textContent = `Note ${currentIdx + 1} of ${targets.length}`;
+      progressEl.innerHTML = progressEl.textContent
+        + targets.map(function (_, i) {
+          return `<span class="seq-dot ${i < currentIdx ? "done" : i === currentIdx ? "now" : ""}">♩</span>`;
+        }).join("");
+      meter.setTarget(t.name);
+      currentNoteEl.innerHTML = t.staffHtml || `<span style="font-size:1.3em">${t.name}</span>`;
+    }
+
+    function stop() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (stopDetector) { try { stopDetector(); } catch { /* ok */ } stopDetector = null; }
+      holdStarted = false;
+      lockout = false;
+      listening = false;
+    }
+
+    if (!ai || !ai.isAvailable()) {
+      panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available — listen and self-report below.</p>`));
+      view.appendChild(panel);
+      return stop;
+    }
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn mic-start-btn";
+    startBtn.type = "button";
+    startBtn.textContent = "🎤 Start singing";
+
+    const restartBtn = document.createElement("button");
+    restartBtn.className = "ghost";
+    restartBtn.type = "button";
+    restartBtn.textContent = "↺ Restart";
+    restartBtn.style.display = "none";
+    restartBtn.addEventListener("click", function () {
+      currentIdx = 0;
+      updateDisplay();
+      statusEl.textContent = "Restarted — sing note 1.";
+    });
+
+    startBtn.addEventListener("click", async function () {
+      if (listening) return;
+      startBtn.disabled = true;
+      startBtn.textContent = "🎤 Listening…";
+      statusEl.textContent = "Requesting microphone access…";
+
+      try {
+        stopDetector = await ai.startPitchDetection(function ({ midi, cents, clarity }) {
+          meter.update({ midi, cents, clarity });
+          if (lockout || currentIdx >= targets.length) return;
+
+          if (midi == null) {
+            if (holdStarted) {
+              clearTimeout(holdTimer); holdTimer = null;
+              holdStarted = false;
+              statusEl.textContent = "Keep going — hold the note steady.";
+            }
+            return;
+          }
+
+          const target = targets[currentIdx];
+          const diff = Math.abs(midi - target.midi);
+          const tol = task.toleranceSemitones != null ? task.toleranceSemitones : 1.0;
+
+          if (diff <= tol) {
+            statusEl.textContent = "On pitch!";
+            if (!holdStarted) {
+              holdStarted = true;
+              const minHold = task.minHoldMs != null ? task.minHoldMs : 450;
+              holdTimer = setTimeout(function () {
+                holdStarted = false;
+                holdTimer = null;
+                lockout = true;
+                currentIdx++;
+                if (currentIdx >= targets.length) {
+                  stop();
+                  progressEl.innerHTML = `All ${targets.length} notes sung ✓`;
+                  currentNoteEl.innerHTML = "";
+                  startBtn.textContent = "🎤 Done";
+                  statusEl.textContent = "Phrase complete — well done!";
+                  onResult(q.answer);
+                } else {
+                  updateDisplay();
+                  statusEl.textContent = "Good! Now sing the next note.";
+                  setTimeout(function () { lockout = false; }, 350);
+                }
+              }, minHold);
+            }
+          } else {
+            if (holdStarted) {
+              clearTimeout(holdTimer); holdTimer = null;
+              holdStarted = false;
+            }
+            const semis = midi - target.midi;
+            statusEl.textContent = semis > 0 ? "Too high — come down." : "Too low — come up.";
+          }
+        });
+
+        listening = true;
+        restartBtn.style.display = "";
+        updateDisplay();
+        statusEl.textContent = "Sing note 1 — hold it steady.";
+      } catch (err) {
+        startBtn.disabled = false;
+        startBtn.textContent = "🎤 Start singing";
+        statusEl.textContent = "Could not access microphone — use self-report below.";
+      }
+    });
+
+    panel.appendChild(progressEl);
+    panel.appendChild(currentNoteEl);
+    panel.appendChild(meter);
+    const btnRow = C.el(`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"></div>`);
+    btnRow.appendChild(startBtn);
+    btnRow.appendChild(restartBtn);
+    panel.appendChild(btnRow);
+    panel.appendChild(statusEl);
+    view.appendChild(panel);
+    return stop;
+  }
+
+  // Dispatches to the appropriate mic handler based on task type.
+  function renderMicTask(view, q, C, ctx, onResult) {
+    if (q.micTask.type === "sequence") return renderMicSequence(view, q, C, ctx, onResult);
+    return renderMicPitch(view, q, C, ctx, onResult);
   }
 
   // --- Main render ----------------------------------------------------------
