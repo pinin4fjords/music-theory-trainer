@@ -134,6 +134,30 @@
     });
   }
 
+  // Play two note sequences back-to-back with a one-beat gap between them.
+  // Used by aural change-detection questions (phrase played twice, once changed).
+  function sequencePair(notes1, notes2, step = 0.42, dur = 0.46) {
+    play((c) => {
+      const t0 = c.currentTime + 0.04;
+      const gap = notes1.length * step + step;
+      freqList(notes1).forEach((f, i) => tone(f, t0 + i * step, dur));
+      freqList(notes2).forEach((f, i) => tone(f, t0 + gap + i * step, dur));
+    });
+  }
+
+  // Temporarily override master gain for a single play call (aural dynamics tasks).
+  // The gain resets automatically after the sequence ends.
+  function sequenceAt(notes, gain, step = 0.42, dur = 0.46) {
+    play((c) => {
+      if (master) master.gain.value = Math.max(0, Math.min(1, gain));
+      const t0 = c.currentTime + 0.04;
+      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
+      const endTime = t0 + (notes.length - 1) * step + dur + 0.1;
+      const delay = (endTime - c.currentTime) * 1000;
+      setTimeout(() => { if (master) master.gain.value = 0.6; }, delay);
+    });
+  }
+
   // Repeat the most recent sound (the "replay" / "hear it again" control).
   function replay() {
     if (lastPlay) play(lastPlay);
@@ -143,7 +167,7 @@
   function isEnabled() { return enabled; }
 
   const api = {
-    note, sequence, chord, freqSequence, freqChord, replay,
+    note, sequence, sequencePair, sequenceAt, chord, freqSequence, freqChord, replay,
     setEnabled, isEnabled, ensure, unlock, isAvailable,
   };
 
