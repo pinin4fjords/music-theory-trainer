@@ -68,12 +68,14 @@
     }
 
     // Parse the current hash and navigate to it (defaults to home).
+    // "quiz" is not restored on refresh — quiz sessions don't survive a page reload.
     function fromHash() {
       const raw = (win.location && win.location.hash || "").replace(/^#/, "");
       if (!raw) { navigate("home"); return; }
       const slash = raw.indexOf("/");
       const name = slash === -1 ? raw : raw.slice(0, slash);
       const param = slash === -1 ? null : decodeURIComponent(raw.slice(slash + 1));
+      if (name === "quiz") { navigate("home"); return; }
       if (views[name]) navigate(name, param);
       else navigate("home");
     }

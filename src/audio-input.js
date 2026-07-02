@@ -128,10 +128,11 @@
 
     stream = await global.navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-    // Prefer sharing the MTT.audio context to avoid two audio graphs.
+    // Use a dedicated AudioContext for mic — do NOT share with the playback context.
+    // On mobile Chrome, adding a MediaStreamSource to the playback context triggers
+    // audio rerouting (voice-comm mode) which cuts off any melody already playing.
     const AC = global.AudioContext || global.webkitAudioContext;
-    const audioMod = global.MTT && global.MTT.audio;
-    ctx = (audioMod && audioMod.ensure && audioMod.ensure()) || new AC();
+    ctx = new AC();
 
     analyser = ctx.createAnalyser();
     analyser.fftSize = BUFFER_SIZE * 2;
