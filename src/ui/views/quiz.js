@@ -210,13 +210,22 @@
       return inp ? inp.midiToName(midi) : String(midi);
     }
 
+    // Compare two MIDI notes ignoring octave. Uses circular pitch-class distance
+    // so B (11) vs C (0) gives 1, not 11. Tolerance of 1 allows slightly flat/sharp.
+    function pcMatch(detMidi, expMidi) {
+      const det = ((detMidi % 12) + 12) % 12;
+      const exp = ((expMidi % 12) + 12) % 12;
+      const diff = Math.abs(det - exp);
+      return Math.min(diff, 12 - diff) <= 1;
+    }
+
     function showResult(detected) {
       const expected = targets.map(function (t) { return t.midi; });
 
       let exact = 0;
       if (detected) {
         for (let i = 0; i < expected.length; i++) {
-          if (detected[i] != null && Math.abs(detected[i] - expected[i]) <= 1) exact++;
+          if (detected[i] != null && pcMatch(detected[i], expected[i])) exact++;
         }
       }
 
@@ -241,7 +250,7 @@
         html += `<span class="muted" style="font-style:italic">not enough detected — try again</span>`;
       } else {
         detected.forEach(function (midi, i) {
-          const match = expected[i] != null && Math.abs(midi - expected[i]) <= 1;
+          const match = expected[i] != null && pcMatch(midi, expected[i]);
           html += `<span class="seq-note ${match ? "match" : "miss"}">${noteLabel(midi)}</span>`;
           if (i < detected.length - 1) html += `<span class="seq-arrow">→</span>`;
         });
