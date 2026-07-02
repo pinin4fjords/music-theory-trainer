@@ -356,20 +356,37 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 }
 .mic-self-report .btn { font-size: .9rem; }
 
-/* Sequence mic panel. */
-.mic-sequence-panel .mic-sequence-progress {
-  font-size: .88rem; color: var(--ink-soft);
-  display: flex; align-items: center; gap: 6px; margin: 0 0 10px;
+/* Sequence mic panel — listen-then-score mode. */
+.mic-seq-result { margin-top: 12px; }
+.seq-compare {
+  font-size: .9rem; display: flex; flex-direction: column; gap: 5px;
+  padding: 10px; background: var(--surface); border-radius: var(--radius-sm);
+  border: 1px solid var(--line); overflow-x: auto;
 }
-.seq-dot {
-  font-size: .8rem; opacity: .35; transition: opacity .15s, color .15s;
+.seq-row {
+  display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-width: 0;
 }
-.seq-dot.done { opacity: 1; color: var(--good); }
-.seq-dot.now  { opacity: 1; color: var(--accent); font-size: 1rem; }
-.mic-current-note-staff {
-  margin-bottom: 10px;
+.seq-row-label {
+  font-size: .78rem; color: var(--ink-soft); min-width: 72px;
+  flex-shrink: 0;
 }
-.mic-current-note-staff .staff-wrap { margin: 0; }
+.seq-note {
+  font-weight: 600; padding: 2px 6px; border-radius: 4px;
+  background: var(--surface-2); white-space: nowrap;
+}
+.seq-note.match { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
+.seq-note.miss  { background: color-mix(in srgb, var(--bad)  18%, transparent); color: var(--bad); }
+.seq-note.exp   { background: transparent; }
+.seq-arrow { color: var(--ink-soft); font-size: .8rem; flex-shrink: 0; }
+.seq-score {
+  margin: 8px 0 0; font-size: .88rem; font-weight: 600;
+}
+.seq-score.ok   { color: var(--good); }
+.seq-score.part { color: var(--accent); }
+.seq-score.bad  { color: var(--bad); }
+.seq-btn-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+}
 
 /* Embedded staff notation. */
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
