@@ -148,8 +148,9 @@ describe("DOM - first-run onboarding", () => {
     picks[2].click(); // Grade 3
     expect(inst.store.settings().grade).toBe(3);
     expect(inst.store.settings().gradeChosen).toBe(true);
-    // Picking a grade starts practice.
-    expect(document.querySelector(".quiz-prompt")).toBeTruthy();
+    // Picking a grade navigates to the home dashboard, ready to start practice.
+    expect(document.querySelector(".grade-pick")).toBeFalsy(); // onboarding picker gone
+    expect(document.querySelector("button")).toBeTruthy(); // home view rendered (has Start button)
   });
 });
 
