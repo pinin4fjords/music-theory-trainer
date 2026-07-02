@@ -308,7 +308,15 @@
       silenceCount = 0;
       listening = false;
 
-      // Request mic immediately — must stay in the user-gesture call stack.
+      // Start audio synchronously, before any await — mobile browsers (Chrome/Safari)
+      // gate AudioContext on a direct user gesture; once we await the mic, that window closes.
+      if (hasAutoPlay) {
+        startBtn.textContent = "▶ Playing…";
+        statusEl.textContent = "Listen carefully…";
+        try { q.audio(); } catch { /* ignore */ }
+      }
+
+      // Request mic — must stay in the user-gesture call stack.
       try {
         stopDetector = await ai.startPitchDetection(function ({ midi, cents, clarity }) {
           if (finished) return;
@@ -339,9 +347,6 @@
       }
 
       if (hasAutoPlay) {
-        startBtn.textContent = "▶ Playing…";
-        statusEl.textContent = "Listen carefully…";
-        try { q.audio(); } catch { /* ignore */ }
         setTimeout(function () {
           if (finished) return;
           readings = []; // discard any mic bleed from the speakers
