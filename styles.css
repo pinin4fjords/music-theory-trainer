@@ -309,6 +309,85 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .idk-btn:hover { border-color: var(--accent); color: var(--accent); }
 .idk-btn:disabled { opacity: .5; cursor: default; }
 
+/* --- Aural trainer: mic input & pitch meter -------------------------------- */
+.mic-panel {
+  margin-top: 14px; padding: 16px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.pitch-meter { margin-bottom: 12px; }
+.pitch-meter-labels {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: .82rem; color: var(--ink-soft); margin-bottom: 6px;
+}
+.pitch-target-label {
+  font-weight: 700; font-size: 1.05rem; color: var(--accent);
+}
+.pitch-bar {
+  position: relative; height: 22px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 11px; overflow: visible;
+}
+.pitch-zone.good {
+  position: absolute; top: 0; bottom: 0;
+  left: calc(50% - 23%); width: 46%;
+  background: color-mix(in srgb, var(--good) 18%, transparent);
+  border-radius: 10px;
+}
+.pitch-needle {
+  position: absolute; top: -3px; bottom: -3px; width: 4px;
+  background: var(--ink-soft); border-radius: 2px;
+  transform: translateX(-50%); transition: left .05s linear, background .12s;
+}
+.pitch-needle.on-pitch { background: var(--good); }
+.pitch-needle.off-pitch { background: var(--bad); }
+.pitch-reading {
+  text-align: center; font-size: .85rem; font-variant-numeric: tabular-nums;
+  color: var(--ink-soft); margin-top: 6px; min-height: 1.2em;
+}
+.mic-start-btn {
+  display: block; width: 100%; margin-top: 10px;
+  padding: 11px 16px; font-size: 1rem;
+}
+.mic-status {
+  margin: 8px 0 0; font-size: .88rem; color: var(--ink-soft); min-height: 1.3em;
+}
+.mic-self-report {
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.mic-self-report .btn { font-size: .9rem; }
+
+/* Sequence mic panel — listen-then-score mode. */
+.mic-seq-result { margin-top: 12px; }
+.seq-compare {
+  font-size: .9rem; display: flex; flex-direction: column; gap: 5px;
+  padding: 10px; background: var(--surface); border-radius: var(--radius-sm);
+  border: 1px solid var(--line); overflow-x: auto;
+}
+.seq-row {
+  display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; min-width: 0;
+}
+.seq-row-label {
+  font-size: .78rem; color: var(--ink-soft); min-width: 72px;
+  flex-shrink: 0;
+}
+.seq-note {
+  font-weight: 600; padding: 2px 6px; border-radius: 4px;
+  background: var(--surface-2); white-space: nowrap;
+}
+.seq-note.match { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); }
+.seq-note.miss  { background: color-mix(in srgb, var(--bad)  18%, transparent); color: var(--bad); }
+.seq-note.exp   { background: transparent; }
+.seq-arrow { color: var(--ink-soft); font-size: .8rem; flex-shrink: 0; }
+.seq-score {
+  margin: 8px 0 0; font-size: .88rem; font-weight: 600;
+}
+.seq-score.ok   { color: var(--good); }
+.seq-score.part { color: var(--accent); }
+.seq-score.bad  { color: var(--bad); }
+.seq-btn-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
+}
+
 /* Embedded staff notation. */
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
 .staff-wrap .staff { color: var(--ink); height: 132px; max-width: 100%; }
@@ -827,4 +906,9 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 
   /* Quiz finish: buttons stack vertically */
   .finish-card + * [style*="display:flex"][style*="gap:10px"] { flex-direction: column; }
+
+  /* Mic panel: full-width on mobile */
+  .mic-panel { margin-top: 12px; }
+  .pitch-bar { height: 28px; }
+  .mic-self-report .btn { width: 100%; margin-top: 6px; box-sizing: border-box; }
 }

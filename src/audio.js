@@ -56,6 +56,9 @@
       const p = c.resume();
       if (p && typeof p.catch === "function") p.catch(() => {});
     }
+    // Also unlock the piano context if it's been initialised.
+    const piano = global.MTT && global.MTT.audioPiano;
+    if (piano && piano.unlock) piano.unlock();
   }
 
   function tone(freq, when, dur = 0.6, gain = 0.25, type = "triangle") {
@@ -76,6 +79,14 @@
     } catch {
       /* one bad tone must never break a session */
     }
+  }
+
+  // Returns the piano engine when loaded and ready; null otherwise.
+  // Checked at call time so audio.js can load before audio-piano.js.
+  function getPiano() {
+    if (!enabled) return null;
+    const p = global.MTT && global.MTT.audioPiano;
+    return (p && p.isReady()) ? p : null;
   }
 
   const music = () => global.MTT.music;
@@ -103,10 +114,14 @@
   }
 
   function note(n, dur = 0.6) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.note(n, dur); lastPlay(); return; }
     play((c) => tone(freqList([n])[0], c.currentTime, dur));
   }
 
   function sequence(notes, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequence(notes, step, dur); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
       freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
@@ -114,12 +129,16 @@
   }
 
   function chord(notes, dur = 1.1) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.chord(notes, dur); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
       freqList(notes).forEach((f) => tone(f, t0, dur, 0.18));
     });
   }
 
+  // freqSequence and freqChord use raw frequencies for physics demos (harmonic
+  // series, monochord) where exact Hz matters more than timbre — keep synthesis.
   function freqSequence(freqs, step = 0.5, dur = 0.5) {
     play((c) => {
       const t0 = c.currentTime + 0.04;
@@ -134,16 +153,48 @@
     });
   }
 
-  // Repeat the most recent sound (the "replay" / "hear it again" control).
+  // Play two note sequences back-to-back with a one-beat gap between them.
+  function sequencePair(notes1, notes2, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequencePair(notes1, notes2, step, dur); lastPlay(); return; }
+    play((c) => {
+      const t0 = c.currentTime + 0.04;
+      const gap = notes1.length * step + step;
+      freqList(notes1).forEach((f, i) => tone(f, t0 + i * step, dur));
+      freqList(notes2).forEach((f, i) => tone(f, t0 + gap + i * step, dur));
+    });
+  }
+
+  // Play at a specific volume level (aural dynamics tasks).
+  function sequenceAt(notes, gain, step = 0.42, dur = 0.46) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequenceAt(notes, gain, step, dur); lastPlay(); return; }
+    play((c) => {
+      if (master) master.gain.value = Math.max(0, Math.min(1, gain));
+      const t0 = c.currentTime + 0.04;
+      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
+      const endTime = t0 + (notes.length - 1) * step + dur + 0.1;
+      const delay = (endTime - c.currentTime) * 1000;
+      setTimeout(() => { if (master) master.gain.value = 0.6; }, delay);
+    });
+  }
+
+  // Repeat the most recent sound. lastPlay is either a zero-arg piano thunk or
+  // a (c)=> synth function — handle both.
   function replay() {
-    if (lastPlay) play(lastPlay);
+    if (!lastPlay) return;
+    if (lastPlay.length === 0) {
+      if (enabled) { try { lastPlay(); } catch { /* ignore */ } }
+    } else {
+      play(lastPlay);
+    }
   }
 
   function setEnabled(on) { enabled = !!on; }
   function isEnabled() { return enabled; }
 
   const api = {
-    note, sequence, chord, freqSequence, freqChord, replay,
+    note, sequence, sequencePair, sequenceAt, chord, freqSequence, freqChord, replay,
     setEnabled, isEnabled, ensure, unlock, isAvailable,
   };
 

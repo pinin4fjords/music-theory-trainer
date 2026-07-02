@@ -12,10 +12,365 @@
  * 1-9 select a choice, and focus moves to the feedback then the Next button.
  * Rendering each question is guarded so one bad item can never kill the session.
  *
+ * Mic-input questions (q.micTask): the standard choice buttons are replaced by a
+ * pitch-detection panel that auto-detects success. Self-report buttons are shown
+ * as a fallback (for when microphone access is unavailable or detection fails).
+ *
  * Public surface: global `MTT.ui.views.quiz`.
  */
 (function (global) {
   "use strict";
+
+  // --- Mic task panel -------------------------------------------------------
+
+  // Single-pitch variant: detect one held note.
+  function renderMicPitch(view, q, C, ctx, onResult) {
+    const task = q.micTask;
+    const ai = global.MTT && global.MTT.audioInput;
+    let stopDetector = null;
+    let holdTimer = null;
+    let holdStarted = false;
+
+    const panel = C.el(`<div class="mic-panel"></div>`);
+    const meter = C.pitchMeter(task.targetName || "?");
+    const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn mic-start-btn";
+    startBtn.type = "button";
+    startBtn.textContent = "🎤 Start singing";
+
+    function stop() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      if (stopDetector) { try { stopDetector(); } catch { /* ok */ } stopDetector = null; }
+      holdStarted = false;
+    }
+
+    if (!ai || !ai.isAvailable()) {
+      panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available — listen and self-report below.</p>`));
+      view.appendChild(panel);
+      return stop;
+    }
+
+    startBtn.addEventListener("click", async function () {
+      startBtn.disabled = true;
+      startBtn.textContent = "🎤 Listening…";
+      statusEl.textContent = "Requesting microphone access…";
+
+      try {
+        stopDetector = await ai.startPitchDetection(function ({ midi, cents, clarity }) {
+          meter.update({ midi, cents, clarity });
+
+          if (midi == null) {
+            if (holdStarted) {
+              clearTimeout(holdTimer); holdTimer = null;
+              holdStarted = false;
+              statusEl.textContent = "Keep singing — hold the note steady.";
+            }
+            return;
+          }
+
+          const diff = Math.abs(midi - task.targetMidi);
+          const tol = task.toleranceSemitones != null ? task.toleranceSemitones : 1.0;
+          const onPitch = diff <= tol;
+
+          if (onPitch) {
+            statusEl.textContent = "On pitch!";
+            if (!holdStarted) {
+              holdStarted = true;
+              const minHold = task.minHoldMs != null ? task.minHoldMs : 600;
+              holdTimer = setTimeout(function () {
+                stop();
+                startBtn.textContent = "🎤 Done";
+                statusEl.textContent = "Great — pitch detected correctly.";
+                onResult(q.answer);
+              }, minHold);
+            }
+          } else {
+            if (holdStarted) {
+              clearTimeout(holdTimer); holdTimer = null;
+              holdStarted = false;
+            }
+            const semis = midi - task.targetMidi;
+            statusEl.textContent = semis > 0 ? "A little too high — try coming down." : "A little too low — try coming up.";
+          }
+        });
+        statusEl.textContent = "Sing the note — hold it steady.";
+      } catch (err) {
+        startBtn.disabled = false;
+        startBtn.textContent = "🎤 Start singing";
+        statusEl.textContent = "Could not access microphone — use self-report below.";
+      }
+    });
+
+    panel.appendChild(meter);
+    panel.appendChild(startBtn);
+    panel.appendChild(statusEl);
+    view.appendChild(panel);
+    return stop;
+  }
+
+  // Sequence variant: play phrase → listen → score.
+  //
+  // If task.autoPlayAndRespondMs is set (echo tasks): one "Hear & respond" button
+  // plays q.audio() then opens the mic automatically after playback ends. The mic
+  // is requested on the button click (user-gesture context) and gated by a
+  // `listening` flag; readings collected during playback are discarded so speaker
+  // bleed from the piano doesn't pollute the buffer.
+  //
+  // If not set (sight-singing): a plain "Start singing" button opens the mic.
+  //
+  // Segmentation always returns exactly targets.length notes:
+  //   1. Detect natural note boundaries by pitch jumps > 1.5 semitones.
+  //   2. Too many groups → merge the adjacent pair with the smallest pitch gap
+  //      (most likely the same note with a brief glide).
+  //   3. Too few groups → split the longest group at its midpoint.
+  // This respects actual note durations rather than assuming equal lengths.
+  //
+  // task.targets = [{midi, name, staffHtml}, ...]
+  function renderMicSequence(view, q, C, ctx, onResult) {
+    const task = q.micTask;
+    const targets = task.targets;
+    const N = targets.length;
+    const ai = global.MTT && global.MTT.audioInput;
+    const hasAutoPlay = !!(task.autoPlayAndRespondMs && q.audio);
+
+    const SILENCE_READINGS = 7; // ~560 ms at 80 ms/poll
+    const MIN_CLARITY = 0.78;
+
+    let stopDetector = null;
+    let listening = false; // gated: ignore readings during playback
+    let hasSang = false;
+    let finished = false;
+    let silenceCount = 0;
+    let readings = [];
+
+    const panel = C.el(`<div class="mic-panel mic-sequence-panel"></div>`);
+    const meter = C.pitchMeter("–");
+    const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
+    const resultEl = C.el(`<div class="mic-seq-result"></div>`);
+    resultEl.hidden = true;
+
+    function stopMic() {
+      if (stopDetector) { try { stopDetector(); } catch { /* ok */ } stopDetector = null; }
+    }
+
+    // Segment a buffer of {midi, clarity} readings into exactly n notes.
+    // Phase 1 — natural boundaries: split on pitch jumps > 1.5 semitones.
+    // Phase 2 — adjust count:
+    //   Too many → merge adjacent pair with smallest pitch gap (same note / glide).
+    //   Too few  → split longest group at midpoint.
+    function forceSegmentNotes(rds, n) {
+      const clear = rds.filter(function (r) { return r.midi != null && r.clarity >= MIN_CLARITY; });
+      if (clear.length < n) return null;
+
+      function groupMedian(g) {
+        const s = g.map(function (r) { return r.midi; }).sort(function (a, b) { return a - b; });
+        return s[Math.floor(s.length / 2)];
+      }
+
+      // Phase 1: split on pitch jumps.
+      const groups = [];
+      let grp = [clear[0]];
+      for (let i = 1; i < clear.length; i++) {
+        if (Math.abs(clear[i].midi - grp[grp.length - 1].midi) > 1.5) {
+          groups.push(grp);
+          grp = [];
+        }
+        grp.push(clear[i]);
+      }
+      groups.push(grp);
+
+      // Phase 2a: merge down to n.
+      while (groups.length > n) {
+        let minGap = Infinity, minIdx = 0;
+        for (let i = 0; i < groups.length - 1; i++) {
+          const gap = Math.abs(groupMedian(groups[i]) - groupMedian(groups[i + 1]));
+          if (gap < minGap) { minGap = gap; minIdx = i; }
+        }
+        groups.splice(minIdx, 2, groups[minIdx].concat(groups[minIdx + 1]));
+      }
+
+      // Phase 2b: split up to n.
+      while (groups.length < n) {
+        let maxLen = 0, maxIdx = 0;
+        for (let i = 0; i < groups.length; i++) {
+          if (groups[i].length > maxLen) { maxLen = groups[i].length; maxIdx = i; }
+        }
+        const g = groups[maxIdx];
+        const mid = Math.floor(g.length / 2);
+        groups.splice(maxIdx, 1, g.slice(0, mid), g.slice(mid));
+      }
+
+      return groups.map(groupMedian);
+    }
+
+    function noteLabel(midi) {
+      const inp = global.MTT.audioInput;
+      return inp ? inp.midiToName(midi) : String(midi);
+    }
+
+    // Compare two MIDI notes ignoring octave. Uses circular pitch-class distance
+    // so B (11) vs C (0) gives 1, not 11. Tolerance of 1 allows slightly flat/sharp.
+    function pcMatch(detMidi, expMidi) {
+      const det = ((detMidi % 12) + 12) % 12;
+      const exp = ((expMidi % 12) + 12) % 12;
+      const diff = Math.abs(det - exp);
+      return Math.min(diff, 12 - diff) <= 1;
+    }
+
+    function showResult(detected) {
+      const expected = targets.map(function (t) { return t.midi; });
+
+      let exact = 0;
+      if (detected) {
+        for (let i = 0; i < expected.length; i++) {
+          if (detected[i] != null && pcMatch(detected[i], expected[i])) exact++;
+        }
+      }
+
+      let intMatch = 0;
+      const intTotal = expected.length - 1;
+      if (detected) {
+        for (let i = 0; i < Math.min(detected.length, expected.length) - 1; i++) {
+          const ds = detected[i + 1] - detected[i];
+          const es = expected[i + 1] - expected[i];
+          if (Math.sign(ds) === Math.sign(es) && Math.abs(Math.abs(ds) - Math.abs(es)) <= 1) intMatch++;
+        }
+      }
+
+      let html = `<div class="seq-compare">`;
+      html += `<div class="seq-row"><span class="seq-row-label">Expected</span>`;
+      targets.forEach(function (t, i) {
+        html += `<span class="seq-note exp">${t.name}</span>`;
+        if (i < targets.length - 1) html += `<span class="seq-arrow">→</span>`;
+      });
+      html += `</div><div class="seq-row"><span class="seq-row-label">You sang</span>`;
+      if (!detected) {
+        html += `<span class="muted" style="font-style:italic">not enough detected — try again</span>`;
+      } else {
+        detected.forEach(function (midi, i) {
+          const match = expected[i] != null && pcMatch(midi, expected[i]);
+          html += `<span class="seq-note ${match ? "match" : "miss"}">${noteLabel(midi)}</span>`;
+          if (i < detected.length - 1) html += `<span class="seq-arrow">→</span>`;
+        });
+      }
+      html += `</div></div>`;
+
+      if (detected) {
+        const allGood = exact === expected.length;
+        const noteScore = allGood ? `All ${expected.length} notes correct` : `${exact} of ${expected.length} notes matched`;
+        const intScore = intTotal > 0 ? ` · ${intMatch}/${intTotal} intervals correct` : "";
+        html += `<p class="seq-score ${allGood ? "ok" : exact > 0 ? "part" : "bad"}">${noteScore}${intScore}</p>`;
+      }
+
+      resultEl.innerHTML = html;
+      resultEl.hidden = false;
+
+      const allGood = detected && exact === expected.length;
+      const actRow = C.el(`<div class="seq-btn-row"></div>`);
+      actRow.appendChild(C.button("↺ Try again", function () {
+        resultEl.hidden = true;
+        actRow.remove();
+        readings = [];
+        hasSang = false;
+        finished = false;
+        silenceCount = 0;
+        listening = false;
+        startBtn.disabled = false;
+        startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Sing again";
+        statusEl.textContent = hasAutoPlay ? "" : "Press start, then sing the full phrase.";
+      }));
+      actRow.appendChild(C.button(allGood ? "Next →" : "Accept & continue", function () {
+        stopMic();
+        onResult(q.answer);
+      }, { className: allGood ? "" : "ghost" }));
+      panel.appendChild(actRow);
+    }
+
+    if (!ai || !ai.isAvailable()) {
+      panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available — use self-report below.</p>`));
+      view.appendChild(panel);
+      return stopMic;
+    }
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn mic-start-btn";
+    startBtn.type = "button";
+    startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
+    statusEl.textContent = hasAutoPlay ? "" : "Press start, then sing the full phrase.";
+
+    startBtn.addEventListener("click", async function () {
+      startBtn.disabled = true;
+      readings = [];
+      hasSang = false;
+      finished = false;
+      silenceCount = 0;
+      listening = false;
+
+      // Request mic immediately — must stay in the user-gesture call stack.
+      try {
+        stopDetector = await ai.startPitchDetection(function ({ midi, cents, clarity }) {
+          if (finished) return;
+          meter.update({ midi, cents, clarity });
+          if (!listening) return; // discard readings during playback
+          readings.push({ midi: midi, clarity: clarity || 0 });
+          const clear = midi != null && (clarity || 0) >= MIN_CLARITY;
+          if (clear) {
+            hasSang = true;
+            silenceCount = 0;
+            statusEl.textContent = "Singing…";
+          } else if (hasSang) {
+            silenceCount++;
+            if (silenceCount >= SILENCE_READINGS) {
+              finished = true;
+              stopMic();
+              startBtn.textContent = "🎤 Done";
+              statusEl.textContent = "";
+              showResult(forceSegmentNotes(readings, N));
+            }
+          }
+        });
+      } catch (err) {
+        startBtn.disabled = false;
+        startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
+        statusEl.textContent = "Could not access microphone — use self-report below.";
+        return;
+      }
+
+      if (hasAutoPlay) {
+        startBtn.textContent = "▶ Playing…";
+        statusEl.textContent = "Listen carefully…";
+        try { q.audio(); } catch { /* ignore */ }
+        setTimeout(function () {
+          if (finished) return;
+          readings = []; // discard any mic bleed from the speakers
+          hasSang = false;
+          silenceCount = 0;
+          listening = true;
+          statusEl.textContent = "Sing now!";
+        }, task.autoPlayAndRespondMs);
+      } else {
+        listening = true;
+        statusEl.textContent = "Sing the whole phrase, then pause — it will score automatically.";
+      }
+    });
+
+    panel.appendChild(meter);
+    panel.appendChild(startBtn);
+    panel.appendChild(statusEl);
+    panel.appendChild(resultEl);
+    view.appendChild(panel);
+    return stopMic;
+  }
+
+  // Dispatches to the appropriate mic handler based on task type.
+  function renderMicTask(view, q, C, ctx, onResult) {
+    if (q.micTask.type === "sequence") return renderMicSequence(view, q, C, ctx, onResult);
+    return renderMicPitch(view, q, C, ctx, onResult);
+  }
+
+  // --- Main render ----------------------------------------------------------
 
   function render(main, ctx, arg) {
     const C = ctx.C;
@@ -54,6 +409,7 @@
       const { topic, q } = session[idx];
       let answered = false;
       questionStart = ctx.now();
+      let stopMic = null; // cleanup function for mic sessions
 
       const view = C.el(`<div class="view"></div>`);
 
@@ -87,33 +443,54 @@
         if (ctx.audio.isEnabled()) safe(q.audio);
       }
 
-      const wrap = C.el(`<div class="choices" role="group" aria-label="Answer choices" style="margin-top:16px"></div>`);
-      const choiceButtons = [];
+      // Mic-task: pitch-detection panel instead of numbered choice buttons.
+      // Self-report ghost buttons shown as fallback below the meter.
+      let choiceButtons = [];
+      let idkBtn = null;
 
-      q.choices.forEach((choice, i) => {
-        const btn = document.createElement("button");
-        btn.className = "choice";
-        btn.type = "button";
-        // Number prefix doubles as a keyboard shortcut hint.
-        btn.innerHTML = `<span class="choice-key" aria-hidden="true">${i + 1}</span> ${choice}`;
-        btn._choice = choice;
-        btn.addEventListener("click", () => reveal(choice === q.answer ? "correct" : "wrong", btn));
-        wrap.appendChild(btn);
-        choiceButtons.push(btn);
-      });
-      view.appendChild(wrap);
+      if (q.micTask) {
+        stopMic = renderMicTask(view, q, C, ctx, function (detected) {
+          if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null);
+        });
+        const selfReport = C.el(`<div class="mic-self-report"></div>`);
+        selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable):</span>`));
+        q.choices.forEach((choice) => {
+          const sb = C.button(choice, () => {
+            if (!answered) reveal(choice === q.answer ? "correct" : "wrong", null);
+          }, { className: "ghost" });
+          selfReport.appendChild(sb);
+        });
+        view.appendChild(selfReport);
+      } else {
+        const wrap = C.el(`<div class="choices" role="group" aria-label="Answer choices" style="margin-top:16px"></div>`);
 
-      const idkBtn = document.createElement("button");
-      idkBtn.className = "idk-btn";
-      idkBtn.type = "button";
-      idkBtn.textContent = "I don't know - explain";
-      idkBtn.addEventListener("click", () => reveal("idk", null));
-      view.appendChild(idkBtn);
+        q.choices.forEach((choice, i) => {
+          const btn = document.createElement("button");
+          btn.className = "choice";
+          btn.type = "button";
+          // Number prefix doubles as a keyboard shortcut hint.
+          btn.innerHTML = `<span class="choice-key" aria-hidden="true">${i + 1}</span> ${choice}`;
+          btn._choice = choice;
+          btn.addEventListener("click", () => reveal(choice === q.answer ? "correct" : "wrong", btn));
+          wrap.appendChild(btn);
+          choiceButtons.push(btn);
+        });
+        view.appendChild(wrap);
+
+        idkBtn = document.createElement("button");
+        idkBtn.className = "idk-btn";
+        idkBtn.type = "button";
+        idkBtn.textContent = "I don't know - explain";
+        idkBtn.addEventListener("click", () => reveal("idk", null));
+        view.appendChild(idkBtn);
+      }
 
       main.appendChild(view);
 
-      // Keyboard shortcuts: 1-9 pick a choice while unanswered.
-      view.addEventListener("keydown", onKeydown);
+      // Keyboard shortcuts: 1-9 pick a choice while unanswered (only for standard choice questions).
+      if (!q.micTask) {
+        view.addEventListener("keydown", onKeydown);
+      }
       function onKeydown(e) {
         if (answered) return;
         const n = parseInt(e.key, 10);
@@ -127,6 +504,7 @@
       function reveal(kind, pickedBtn) {
         if (answered) return;
         answered = true;
+        if (stopMic) { try { stopMic(); } catch { /* ok */ } stopMic = null; }
         const correct = kind === "correct";
         if (correct) score++;
         const responseMs = ctx.now() - questionStart;

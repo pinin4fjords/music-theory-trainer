@@ -120,7 +120,52 @@
     return { body, close };
   }
 
-  const api = { el, clear, announce, ensureLiveRegion, focus, cardButton, button, playButton, openExplainerModal };
+  // A pitch meter for aural singing tasks. Shows target note, a needle that
+  // tracks detected pitch, and colour feedback (on/off pitch).
+  // Call meter.update({ midi, cents, clarity }) on each detector frame.
+  // Call meter.setTarget(noteName) to label what the user should sing.
+  function pitchMeter(targetName) {
+    const wrap = document.createElement("div");
+    wrap.className = "pitch-meter";
+    wrap.setAttribute("aria-label", "Pitch meter");
+    wrap.innerHTML =
+      `<div class="pitch-meter-labels"><span class="pitch-low">♭ too low</span><span class="pitch-target-label">${targetName || "?"}</span><span class="pitch-high">too high ♯</span></div>`
+      + `<div class="pitch-bar" role="meter" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">`
+      + `  <div class="pitch-zone good"></div>`
+      + `  <div class="pitch-needle" aria-hidden="true"></div>`
+      + `</div>`
+      + `<div class="pitch-reading">–</div>`;
+
+    const bar = wrap.querySelector(".pitch-bar");
+    const needle = wrap.querySelector(".pitch-needle");
+    const reading = wrap.querySelector(".pitch-reading");
+
+    wrap.update = function ({ midi, cents, clarity }) {
+      if (midi == null || clarity < (global.MTT.audioInput && global.MTT.audioInput.MIN_CLARITY || 0.85)) {
+        needle.className = "pitch-needle";
+        needle.style.left = "50%";
+        reading.textContent = "–";
+        bar.setAttribute("aria-valuenow", "0");
+        return;
+      }
+      const clamped = Math.max(-50, Math.min(50, cents));
+      const pct = 50 + (clamped / 50) * 46;
+      needle.style.left = pct + "%";
+      const onPitch = Math.abs(cents) < 25;
+      needle.className = "pitch-needle" + (onPitch ? " on-pitch" : " off-pitch");
+      const midiName = global.MTT.audioInput ? global.MTT.audioInput.midiToName(midi) : String(midi);
+      reading.textContent = midiName + (cents >= 0 ? "+" : "") + cents + "¢";
+      bar.setAttribute("aria-valuenow", clamped);
+    };
+
+    wrap.setTarget = function (name) {
+      wrap.querySelector(".pitch-target-label").textContent = name || "?";
+    };
+
+    return wrap;
+  }
+
+  const api = { el, clear, announce, ensureLiveRegion, focus, cardButton, button, playButton, openExplainerModal, pitchMeter };
 
   global.MTT = global.MTT || {};
   global.MTT.ui = global.MTT.ui || {};

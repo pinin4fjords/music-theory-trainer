@@ -68,6 +68,7 @@
 
     router.register("home", global.MTT.ui.views.home.render);
     router.register("learn", global.MTT.ui.views.learn.render);
+    router.register("aural", global.MTT.ui.views.aural.render);
     router.register("explore", global.MTT.ui.views.explainer.render);
     router.register("play", global.MTT.ui.views.playground.render);
     router.register("quiz", global.MTT.ui.views.quiz.render);

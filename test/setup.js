@@ -22,11 +22,13 @@ src("core/validate.js");
 src("core/diagnose.js");
 src("notation.js");
 src("audio.js");
+src("audio-input.js");
 src("core/srs.js");
 src("core/analytics.js");
 src("core/storage.js");
 src("core/persist.js");
 src("content.js");
+src("aural-content.js");
 src("core/session.js");
 src("core/state.js");
 
@@ -41,5 +43,6 @@ if (typeof document !== "undefined") {
   src("ui/views/playground.js");
   src("ui/views/progress.js");
   src("ui/views/reference.js");
+  src("ui/views/aural.js");
   src("ui/app.js");
 }
