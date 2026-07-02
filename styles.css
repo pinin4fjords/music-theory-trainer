@@ -878,6 +878,7 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
   nav.tabs button::after { display: block; font-size: .72rem; font-weight: 500; line-height: 1; color: currentColor; }
   nav.tabs button[data-tab="home"]::after      { content: "Home"; }
   nav.tabs button[data-tab="learn"]::after     { content: "Learn"; }
+  nav.tabs button[data-tab="aural"]::after     { content: "Aural"; }
   nav.tabs button[data-tab="reference"]::after { content: "Ref"; }
   nav.tabs button[data-tab="explore"]::after   { content: "Why"; }
   nav.tabs button[data-tab="play"]::after      { content: "Play"; }
