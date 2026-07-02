@@ -293,28 +293,24 @@
   }
 
   // Test 1B: Echo a short melody (Grade 1 - 3 notes, C major, C4-E4).
-  // The examiner plays the phrase three times; the candidate sings it back each time.
+  // Phrase plays once, then the mic opens automatically for an immediate response.
   function g1EchoMelodyQuestion(rng) {
     const phrase = pick(rng, G1_ECHO_PHRASES);
-    const step = 0.55;
+    const step = 0.55, dur = 0.5;
+    // playback duration + 350 ms buffer before mic opens
+    const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this short phrase — it plays <strong>three times</strong>. Then <strong>sing it back</strong> note by note.${sequenceStaff(phrase)}`,
-      audio: function () {
-        const a = audio();
-        const gap = phrase.length * step * 1000 + 700;
-        a.sequence(phrase, step, 0.5);
-        setTimeout(function () { a.sequence(phrase, step, 0.5); }, gap);
-        setTimeout(function () { a.sequence(phrase, step, 0.5); }, gap * 2);
-      },
+      prompt: `Listen to this short phrase, then <strong>sing it back</strong>.${sequenceStaff(phrase)}`,
+      audio: function () { audio().sequence(phrase, step, dur); },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
+        autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
-        minHoldMs: 450,
       },
       choices: ["I sang the phrase", "I couldn't match it"],
       answer: "I sang the phrase",
-      explanation: `Grade 1 echo singing: the examiner plays a short 2-bar phrase three times and you sing it back. Focus on the shape — whether the melody goes up, down, or stays the same — rather than trying to name the notes.`,
+      explanation: `Grade 1 echo singing: the examiner plays a short phrase and you sing it back immediately. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
     };
   }
 
@@ -444,30 +440,26 @@
   }
 
   // Grade 2 echo melody: 4 notes, major or minor key, range up to dominant.
+  // Phrase plays once, then mic opens automatically for an immediate response.
   function g2EchoMelodyQuestion(rng) {
     const isMajor = rng.bool();
     const phrases = isMajor ? G2_ECHO_PHRASES_MAJOR : G2_ECHO_PHRASES_MINOR;
     const phrase = pick(rng, phrases);
     const keyLabel = isMajor ? "major" : "minor";
-    const step = 0.52;
+    const step = 0.52, dur = 0.48;
+    const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this ${keyLabel}-key phrase — it plays <strong>three times</strong>. Then <strong>sing it back</strong> note by note.${sequenceStaff(phrase)}`,
-      audio: function () {
-        const a = audio();
-        const gap = phrase.length * step * 1000 + 700;
-        a.sequence(phrase, step, 0.48);
-        setTimeout(function () { a.sequence(phrase, step, 0.48); }, gap);
-        setTimeout(function () { a.sequence(phrase, step, 0.48); }, gap * 2);
-      },
+      prompt: `Listen to this ${keyLabel}-key phrase, then <strong>sing it back</strong>.${sequenceStaff(phrase)}`,
+      audio: function () { audio().sequence(phrase, step, dur); },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
+        autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
-        minHoldMs: 450,
       },
       choices: ["I sang the phrase", "I couldn't match it"],
       answer: "I sang the phrase",
-      explanation: `Grade 2 echo singing: phrases can be in major or minor keys and extend up to the 5th (dominant). Listen to whether the 3rd note feels higher or lower than you expected — that's often the clue to major vs minor.`,
+      explanation: `Grade 2 echo singing: phrases can be in major or minor keys and extend up to the 5th. The lowered 3rd note in minor phrases is the key difference — it gives the darker, more unsettled feeling.`,
     };
   }
 
