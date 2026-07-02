@@ -39,8 +39,9 @@
       ag.topics.forEach(function (t) {
         // Strip leading "Aural: " from the title for display.
         const shortTitle = t.title.replace(/^Aural:\s*/i, "");
+        const icon = global.MTT.ui.icons.iconHtml(t.id);
         const card = C.cardButton(
-          `<div class="topic-head"><h3>${shortTitle}</h3></div>` +
+          `<div class="topic-head">${icon}<h3>${shortTitle}</h3></div>` +
           `<div class="why">${t.why || ""}</div>`,
           function () { ctx.router.navigate("quiz", { single: t }); }
         );

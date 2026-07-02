@@ -233,9 +233,17 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .topic:hover, .as-button:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--line-strong); }
 .topic h3 { margin: 6px 0 6px; }
 .topic .why { color: var(--ink-soft); font-size: .92rem; }
-.topic-head { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.topic-head { display: flex; align-items: center; gap: 10px; }
 .topic-head h3 { margin: 6px 0; }
+.topic-head .pill { margin-left: auto; }
 .as-button { font: inherit; color: inherit; text-align: left; width: 100%; display: block; cursor: pointer; }
+
+.topic-icon {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  background: var(--accent-soft); color: var(--accent);
+}
+.topic-icon-svg { width: 19px; height: 19px; }
 
 .why-box { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: var(--radius-sm); padding: 13px 15px; margin: 14px 0; }
 .why-box strong { color: var(--accent); }

@@ -49,7 +49,8 @@
     main.appendChild(view);
     const grid = C.el(`<div class="grid" style="margin-top:18px"></div>`);
     ctx.content.explainers.forEach((e) => {
-      grid.appendChild(C.cardButton(`<h3>${e.title}</h3><div class="why">${e.blurb}</div>`, () => ctx.router.navigate("explore", e.id)));
+      const icon = global.MTT.ui.icons.iconHtml(e.id);
+      grid.appendChild(C.cardButton(`<div class="topic-head">${icon}<h3>${e.title}</h3></div><div class="why">${e.blurb}</div>`, () => ctx.router.navigate("explore", e.id)));
     });
     view.appendChild(grid);
 

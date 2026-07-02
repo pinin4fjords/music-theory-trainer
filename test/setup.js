@@ -34,6 +34,7 @@ src("core/state.js");
 
 // UI modules are loaded only when a DOM is present (jsdom test files).
 if (typeof document !== "undefined") {
+  src("ui/icons.js");
   src("ui/components.js");
   src("ui/router.js");
   src("ui/views/home.js");

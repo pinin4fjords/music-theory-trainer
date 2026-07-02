@@ -34,7 +34,8 @@
       const grid = C.el(`<div class="grid"></div>`);
       g.topics.forEach((t) => {
         const badge = isComingNext(t) ? `<span class="pill outline">coming next</span>` : "";
-        const card = C.cardButton(`<div class="topic-head"><h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
+        const icon = global.MTT.ui.icons.iconHtml(t.id);
+        const card = C.cardButton(`<div class="topic-head">${icon}<h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
           () => ctx.router.navigate("learn", t.id));
         grid.appendChild(card);
       });
