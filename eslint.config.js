@@ -8,7 +8,7 @@ import globals from "globals";
  */
 export default [
   {
-    ignores: ["node_modules/**", "coverage/**", "**/*.min.js"],
+    ignores: ["node_modules/**", "coverage/**", "**/*.min.js", "src/vendor/**"],
   },
   {
     files: ["src/**/*.js"],

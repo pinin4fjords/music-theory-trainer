@@ -96,7 +96,7 @@
           }
         });
         statusEl.textContent = "Sing the note — hold it steady.";
-      } catch (err) {
+      } catch {
         startBtn.disabled = false;
         startBtn.textContent = "🎤 Start singing";
         statusEl.textContent = "Could not access microphone — use self-report below.";
@@ -331,7 +331,7 @@
             }
           }
         });
-      } catch (err) {
+      } catch {
         startBtn.disabled = false;
         startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
         statusEl.textContent = "Could not access microphone — use self-report below.";
@@ -445,7 +445,7 @@
 
       // Mic-task: pitch-detection panel instead of numbered choice buttons.
       // Self-report ghost buttons shown as fallback below the meter.
-      let choiceButtons = [];
+      const choiceButtons = [];
       let idkBtn = null;
 
       if (q.micTask) {

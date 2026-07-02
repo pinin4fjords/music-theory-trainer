@@ -23,7 +23,6 @@
 (function (global) {
   "use strict";
 
-  const M = global.MTT.music;
   function audio() {
     const piano = global.MTT.audioPiano;
     return (piano && piano.isReady()) ? piano : global.MTT.audio;
@@ -57,13 +56,6 @@
     n = n || 4;
     const pool = rng.shuffle([...new Set(distractors)].filter((d) => d !== correct));
     return rng.shuffle([correct, ...pool.slice(0, n - 1)]);
-  }
-
-  // Wrap a MIDI note list in a call to audio().sequence().
-  function seqFn(midiNotes, step, dur) {
-    step = step || 0.42;
-    dur = dur || 0.46;
-    return function () { audio().sequence(midiNotes, step, dur); };
   }
 
   // Build a targets array for a sequence micTask.
@@ -314,15 +306,6 @@
     };
   }
 
-  function g1AuralQuestion(rng) {
-    const type = rng.int(0, 3);
-    if (type === 0) return g1TimeSigQuestion(rng);
-    if (type === 1) return g1SpotChangeQuestion(rng);
-    if (type === 2) return g1DynamicsQuestion(rng);
-    return g1ArticulationQuestion(rng);
-  }
-
-
   // =========================================================================
   // Grade 2 generators
   // =========================================================================
@@ -378,10 +361,8 @@
           setTimeout(function () {
             const before = frag.slice(0, changeIdx);
             const after = frag.slice(changeIdx + 1);
-            const t0Offset = 0.04;
             const c = a.ensure();
             if (!c) return;
-            const t0 = c.currentTime + t0Offset;
             // Manually schedule using freqSequence can't do this, so we use sequence twice.
             // This is a reasonable approximation: the changed note plays later.
             if (before.length) a.sequence(before, stepMs / 1000, durLong);
@@ -461,15 +442,6 @@
       answer: "I sang the phrase",
       explanation: `Grade 2 echo singing: phrases can be in major or minor keys and extend up to the 5th. The lowered 3rd note in minor phrases is the key difference — it gives the darker, more unsettled feeling.`,
     };
-  }
-
-  function g2AuralQuestion(rng) {
-    const type = rng.int(0, 4);
-    if (type === 0) return g2TimeSigQuestion(rng);
-    if (type === 1) return g2ChangeTypeQuestion(rng);
-    if (type === 2) return g2TempoQuestion(rng);
-    if (type === 3) return g1DynamicsQuestion(rng);
-    return g1ArticulationQuestion(rng);
   }
 
   // =========================================================================
@@ -576,13 +548,6 @@
     return pick(rng, questions).gen();
   }
 
-  function g4AuralQuestion(rng) {
-    const type = rng.int(0, 2);
-    if (type === 0) return g4SightSingQuestion(rng);
-    if (type === 1) return g4RhythmTimeSigQuestion(rng);
-    return g4CharacterQuestion(rng);
-  }
-
   // =========================================================================
   // Grade 5 generators
   // =========================================================================
@@ -653,14 +618,6 @@
       answer: "I sang the phrase",
       explanation: `Grade 5 sight-singing: 6 notes, range up to a 5th above and 4th below tonic, one leap of a 4th allowed. Plan the biggest interval (the 4th leap) before you start singing — the rest will usually be steps.`,
     };
-  }
-
-  function g5AuralQuestion(rng) {
-    const type = rng.int(0, 3);
-    if (type === 0) return g5SightSingQuestion(rng);
-    if (type === 1) return g5StyleQuestion(rng);
-    if (type === 2) return g3TimeSigQuestion(rng);
-    return g3TonalityQuestion(rng);
   }
 
   // =========================================================================
