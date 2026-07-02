@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const { app } = globalThis.MTT;
 
@@ -281,5 +281,56 @@ describe("DOM - linkable pages (hash routing)", () => {
     expect(inst.router.getCurrent()).toBe("learn");
     expect(document.querySelector("#main h1").textContent).toMatch(/Keys up to 5 sharps/);
     window.location.hash = "";
+  });
+});
+
+describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("shows the actual note/interval score, not the self-report sentinel as 'the answer'", async () => {
+    const ai = globalThis.MTT.audioInput;
+    const realIsAvailable = ai.isAvailable;
+    const realStart = ai.startPitchDetection;
+
+    // Fix the generated question (rather than letting the topic's own random
+    // phrase pick vary the target count) so the test knows exactly how many
+    // notes to "sing".
+    const topic = instance.ctx.content.auralGrades[0].topics.find((t) => t.id === "g1-aural-sing");
+    const fixedQuestion = topic.questions(globalThis.MTT.rng.create("fixed-echo"));
+    const targetCount = fixedQuestion.micTask.targets.length;
+    const fixedTopic = Object.assign({}, topic, { questions: () => fixedQuestion });
+
+    let capturedCallback = null;
+    ai.isAvailable = () => true;
+    ai.startPitchDetection = async (cb) => { capturedCallback = cb; return () => {}; };
+
+    try {
+      instance.router.navigate("quiz", { single: fixedTopic });
+
+      vi.useFakeTimers();
+      document.querySelector(".mic-start-btn").click();
+      await vi.advanceTimersByTimeAsync(5000); // past the auto-play-then-open-mic delay
+      vi.useRealTimers();
+
+      expect(capturedCallback).toBeTruthy();
+      // Sing F#4 (pitch class 6) - the phrases only ever use C/D/E (0/2/4), all
+      // more than a semitone away, so every note is a guaranteed mismatch (the
+      // pcMatch tolerance is ±1 semitone). Then go quiet to end the attempt.
+      for (let i = 0; i < targetCount + 3; i++) capturedCallback({ midi: 66, cents: 0, clarity: 0.9 });
+      for (let i = 0; i < 8; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
+
+      const acceptBtn = [...document.querySelectorAll(".seq-btn-row button")]
+        .find((b) => /Accept & continue/.test(b.textContent));
+      expect(acceptBtn).toBeTruthy();
+      acceptBtn.click();
+
+      const revealText = document.querySelector(".reveal").textContent;
+      expect(revealText).toMatch(/Not quite/);
+      expect(revealText).toMatch(new RegExp(`0 of ${targetCount} notes matched`));
+      expect(revealText).not.toMatch(/I sang the phrase/);
+    } finally {
+      ai.isAvailable = realIsAvailable;
+      ai.startPitchDetection = realStart;
+    }
   });
 });

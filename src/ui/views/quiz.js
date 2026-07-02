@@ -257,11 +257,16 @@
       }
       html += `</div></div>`;
 
+      // Plain-text score summary, reused both in the panel and (on a wrong
+      // result) in the question's reveal feedback - see notesScoreText below.
+      let noteScoreText = "";
+      let intScoreText = "";
       if (detected) {
-        const allGood = exact === expected.length;
-        const noteScore = allGood ? `All ${expected.length} notes correct` : `${exact} of ${expected.length} notes matched`;
-        const intScore = intTotal > 0 ? ` · ${intMatch}/${intTotal} intervals correct` : "";
-        html += `<p class="seq-score ${allGood ? "ok" : exact > 0 ? "part" : "bad"}">${noteScore}${intScore}</p>`;
+        const allGoodScore = exact === expected.length;
+        noteScoreText = allGoodScore ? `All ${expected.length} notes correct` : `${exact} of ${expected.length} notes matched`;
+        intScoreText = intTotal > 0 ? `${intMatch}/${intTotal} intervals correct` : "";
+        const sep = intScoreText ? " · " : "";
+        html += `<p class="seq-score ${allGoodScore ? "ok" : exact > 0 ? "part" : "bad"}">${noteScoreText}${sep}${intScoreText}</p>`;
       }
 
       resultEl.innerHTML = html;
@@ -284,8 +289,11 @@
       actRow.appendChild(C.button(allGood ? "Next →" : "Accept & continue", function () {
         stopMic();
         // Report the actual match result, not an automatic "correct" — the reveal
-        // step compares this against q.answer to grade the question.
-        onResult(allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }));
+        // step compares this against q.answer to grade the question. On a wrong
+        // result also pass the note/interval score so the reveal can explain
+        // *why* it was wrong instead of echoing the self-report sentinel answer.
+        const scoreDetail = allGood ? null : [noteScoreText, intScoreText].filter(Boolean).join(", ");
+        onResult(allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }), scoreDetail);
       }, { className: allGood ? "" : "ghost" }));
       panel.appendChild(actRow);
     }
@@ -470,8 +478,8 @@
       let idkBtn = null;
 
       if (q.micTask) {
-        stopMic = renderMicTask(view, q, C, ctx, function (detected) {
-          if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null);
+        stopMic = renderMicTask(view, q, C, ctx, function (detected, scoreDetail) {
+          if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail);
         });
         const selfReport = C.el(`<div class="mic-self-report"></div>`);
         selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable):</span>`));
@@ -522,7 +530,7 @@
         }
       }
 
-      function reveal(kind, pickedBtn) {
+      function reveal(kind, pickedBtn, scoreDetail) {
         if (answered) return;
         answered = true;
         if (stopMic) { try { stopMic(); } catch { /* ok */ } stopMic = null; }
@@ -542,10 +550,18 @@
         });
         if (idkBtn) idkBtn.disabled = true;
 
+        // Mic tasks grade against a self-report sentinel ("I sang the phrase"),
+        // not a real answer choice, so it reads as nonsense to echo it back
+        // ("the answer is I sang the phrase"). Show the actual note/interval
+        // score instead when we have one (from the sung attempt); the plain
+        // self-report buttons carry no such detail, so fall back to a bare
+        // "Not quite" there.
         const verdict = correct
           ? `<span class="ok">✓ Correct</span>`
           : kind === "wrong"
-            ? `<span class="no">✗ Not quite</span> - the answer is <b>${q.answer}</b>.`
+            ? q.micTask
+              ? `<span class="no">✗ Not quite</span>${scoreDetail ? ` - ${scoreDetail}.` : ""}`
+              : `<span class="no">✗ Not quite</span> - the answer is <b>${q.answer}</b>.`
             : `<span class="idk-label">The answer is <b>${q.answer}</b>.</span>`;
         const diag = !correct ? safeDiagnose(q, pickedBtn ? pickedBtn._choice : null) : null;
         const why = q.explanation ? `<div class="why-line">${q.explanation}</div>` : "";
@@ -578,7 +594,11 @@
         view.appendChild(revealEl);
 
         C.announce(
-          (correct ? "Correct. " : "Not quite. The answer is " + q.answer + ". ")
+          (correct
+            ? "Correct. "
+            : q.micTask
+              ? "Not quite. " + (scoreDetail ? scoreDetail + ". " : "")
+              : "Not quite. The answer is " + q.answer + ". ")
           + (q.explanation ? stripTags(q.explanation) : ""),
         );
 
