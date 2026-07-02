@@ -126,7 +126,13 @@
     if (!isAvailable()) throw new Error("Microphone not available in this browser.");
     stop(); // clean up any previous session
 
-    stream = await global.navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    // Disable audio processing: auto-gain and noise-suppression distort the raw
+    // signal the autocorrelation detector needs, and turning them off reduces how
+    // aggressively the OS audio session is reconfigured when the mic opens.
+    stream = await global.navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false,
+    });
 
     // Use a dedicated AudioContext for mic — do NOT share with the playback context.
     // On mobile Chrome, adding a MediaStreamSource to the playback context triggers

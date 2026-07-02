@@ -300,6 +300,43 @@
     startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
     statusEl.textContent = hasAutoPlay ? "" : "Press start, then sing the full phrase.";
 
+    // Detector callback: the meter always updates; readings are only collected
+    // once `listening` is true (i.e. after playback, when the mic is open).
+    function onPitch({ midi, cents, clarity }) {
+      if (finished) return;
+      meter.update({ midi, cents, clarity });
+      if (!listening) return;
+      readings.push({ midi: midi, clarity: clarity || 0 });
+      const clear = midi != null && (clarity || 0) >= MIN_CLARITY;
+      if (clear) {
+        hasSang = true;
+        silenceCount = 0;
+        statusEl.textContent = "Singing…";
+      } else if (hasSang) {
+        silenceCount++;
+        if (silenceCount >= SILENCE_READINGS) {
+          finished = true;
+          stopMic();
+          startBtn.textContent = "🎤 Done";
+          statusEl.textContent = "";
+          showResult(forceSegmentNotes(readings, N));
+        }
+      }
+    }
+
+    // Open the mic (getUserMedia). Returns true on success, false if denied.
+    async function beginListening() {
+      try {
+        stopDetector = await ai.startPitchDetection(onPitch);
+        return true;
+      } catch {
+        startBtn.disabled = false;
+        startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
+        statusEl.textContent = "Could not access microphone — use self-report below.";
+        return false;
+      }
+    }
+
     startBtn.addEventListener("click", async function () {
       startBtn.disabled = true;
       readings = [];
@@ -309,48 +346,20 @@
       listening = false;
 
       if (hasAutoPlay) {
-        startBtn.textContent = "▶ Opening mic…";
-        statusEl.textContent = "";
-      }
-
-      // Open mic first — mic now uses a dedicated AudioContext (audio-input.js) so
-      // activating it won't reroute or interrupt the playback AudioContext.
-      try {
-        stopDetector = await ai.startPitchDetection(function ({ midi, cents, clarity }) {
-          if (finished) return;
-          meter.update({ midi, cents, clarity });
-          if (!listening) return; // discard readings during playback
-          readings.push({ midi: midi, clarity: clarity || 0 });
-          const clear = midi != null && (clarity || 0) >= MIN_CLARITY;
-          if (clear) {
-            hasSang = true;
-            silenceCount = 0;
-            statusEl.textContent = "Singing…";
-          } else if (hasSang) {
-            silenceCount++;
-            if (silenceCount >= SILENCE_READINGS) {
-              finished = true;
-              stopMic();
-              startBtn.textContent = "🎤 Done";
-              statusEl.textContent = "";
-              showResult(forceSegmentNotes(readings, N));
-            }
-          }
-        });
-      } catch {
-        startBtn.disabled = false;
-        startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
-        statusEl.textContent = "Could not access microphone — use self-report below.";
-        return;
-      }
-
-      if (hasAutoPlay) {
+        // Phase 1: play the phrase with the mic CLOSED. On Android, getUserMedia
+        // switches the OS audio session to communication mode, which ducks/cuts
+        // any sound currently playing — even on a separate AudioContext — so the
+        // melody must finish sounding before the mic opens.
         startBtn.textContent = "▶ Playing…";
         statusEl.textContent = "Listen carefully…";
         try { q.audio(); } catch { /* ignore */ }
-        setTimeout(function () {
+
+        // Phase 2: after playback completes, open the mic during the silence.
+        setTimeout(async function () {
           if (finished) return;
-          readings = []; // discard mic bleed from speakers during playback
+          startBtn.textContent = "🎤 Opening mic…";
+          if (!(await beginListening())) return;
+          readings = [];
           hasSang = false;
           silenceCount = 0;
           listening = true;
@@ -359,6 +368,7 @@
           statusEl.textContent = "Sing the phrase — stop when done.";
         }, task.autoPlayAndRespondMs);
       } else {
+        if (!(await beginListening())) return;
         listening = true;
         statusEl.textContent = "Sing the whole phrase, then pause — it will score automatically.";
       }
