@@ -283,7 +283,9 @@
       }));
       actRow.appendChild(C.button(allGood ? "Next →" : "Accept & continue", function () {
         stopMic();
-        onResult(q.answer);
+        // Report the actual match result, not an automatic "correct" — the reveal
+        // step compares this against q.answer to grade the question.
+        onResult(allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }));
       }, { className: allGood ? "" : "ghost" }));
       panel.appendChild(actRow);
     }
@@ -317,6 +319,7 @@
         if (silenceCount >= SILENCE_READINGS) {
           finished = true;
           stopMic();
+          startBtn.classList.remove("mic-singing");
           startBtn.textContent = "🎤 Done";
           statusEl.textContent = "";
           showResult(forceSegmentNotes(readings, N));
