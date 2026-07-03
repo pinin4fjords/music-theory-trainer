@@ -180,9 +180,72 @@
     };
   }
 
+  // Consonant harmonic intervals, in semitones (ignoring octave doublings):
+  // minor/major 3rd, perfect 5th, minor/major 6th, octave. Perfect consonances
+  // (5th, octave/unison) are tracked separately so parallels can be forbidden.
+  const CONSONANT_SEMIS = [3, 4, 7, 8, 9, 12];
+  const PERFECT_SEMIS = new Set([0, 7, 12]);
+
+  function scalePcSet(key, mode) {
+    const steps = mode === "minor" ? MINOR_STEPS : MAJOR_STEPS;
+    const tonic = KEY_PC[key] != null ? KEY_PC[key] : 0;
+    return new Set(steps.map((s) => (tonic + s) % 12));
+  }
+
+  // Build a genuinely independent companion line for a generated melody: a
+  // first-species-style counterpoint where every note forms a consonance with
+  // the melody, the companion stays diatonic, and parallel perfect 5ths/octaves
+  // are forbidden (so the two lines are not the locked parallel thirds the old
+  // `thirdBelow` produced). `direction` places it below (default) or above.
+  function generateCompanion(rng, melody, opts) {
+    opts = opts || {};
+    const below = opts.direction !== "above";
+    const pcs = scalePcSet(melody.key, melody.mode);
+    const line = [];
+    let prevInterval = null;
+    let prevCompanion = null;
+    for (let i = 0; i < melody.notes.length; i++) {
+      const t = melody.notes[i];
+      // Candidate companion pitches a consonant interval below (or above) that
+      // are in key.
+      const cands = [];
+      for (const s of CONSONANT_SEMIS) {
+        const c = below ? t - s : t + s;
+        if (pcs.has(((c % 12) + 12) % 12)) cands.push({ midi: c, semi: s });
+      }
+      if (!cands.length) { line.push(below ? t - 12 : t + 12); prevInterval = 12; prevCompanion = line[i]; continue; }
+      const scored = cands.map(function (cand) {
+        let score = rng.float(0, 1);
+        // Prefer imperfect consonances (3rds/6ths) for independence and colour.
+        if (!PERFECT_SEMIS.has(cand.semi)) score += 1.5;
+        // Prefer contrary/oblique motion between the two lines.
+        if (i > 0) {
+          const tMove = Math.sign(t - melody.notes[i - 1]);
+          const cMove = Math.sign(cand.midi - prevCompanion);
+          if (tMove !== 0 && cMove !== 0 && tMove !== cMove) score += 1.0; // contrary
+          else if (cMove === 0 || tMove === 0) score += 0.5;               // oblique
+          // Forbid parallel perfect consonances (same perfect interval, similar motion).
+          if (PERFECT_SEMIS.has(cand.semi) && PERFECT_SEMIS.has(prevInterval) &&
+              cand.semi === prevInterval && tMove === cMove && tMove !== 0) {
+            score -= 10;
+          }
+        }
+        return { cand: cand, score: score };
+      }).sort(function (a, b) { return b.score - a.score; });
+      const chosen = scored[0].cand;
+      line.push(chosen.midi);
+      prevInterval = chosen.semi;
+      prevCompanion = chosen.midi;
+    }
+    return line;
+  }
+
   const api = {
     generateMelody: generateMelody,
     generateChange: generateChange,
+    generateCompanion: generateCompanion,
+    scalePcSet: scalePcSet,
+    CONSONANT_SEMIS: CONSONANT_SEMIS,
     degreeSemitone: degreeSemitone,
     MAJOR_STEPS: MAJOR_STEPS,
     MINOR_STEPS: MINOR_STEPS,

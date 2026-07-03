@@ -71,6 +71,42 @@ describe("aural melody generator - spec conformance", () => {
   });
 });
 
+describe("aural companion-line (counterpoint) generator", () => {
+  const spec = SPECS["g3-echo"];
+  const CONSONANT = new Set([0, 3, 4, 7, 8, 9]); // semitones mod octave
+  const PERFECT = new Set([0, 7]);
+
+  it("is consonant, diatonic, below the melody, with no parallel perfect 5ths/8ves", () => {
+    const r = rng.create("companion");
+    for (let i = 0; i < 200; i++) {
+      const m = auralGen.generateMelody(r, spec);
+      const comp = auralGen.generateCompanion(r, m, { direction: "below" });
+      expect(comp.length).toBe(m.notes.length);
+      const pcs = auralGen.scalePcSet(m.key, m.mode);
+
+      const intervals = [];
+      for (let k = 0; k < comp.length; k++) {
+        expect(comp[k]).toBeLessThanOrEqual(m.notes[k]); // below (or unison)
+        expect(pcs.has(((comp[k] % 12) + 12) % 12)).toBe(true); // diatonic
+        const semi = ((m.notes[k] - comp[k]) % 12 + 12) % 12;
+        expect(CONSONANT.has(semi)).toBe(true); // consonant
+        intervals.push(semi);
+      }
+
+      // No two consecutive identical perfect consonances moving in the same
+      // direction (parallel 5ths / octaves).
+      for (let k = 1; k < comp.length; k++) {
+        if (PERFECT.has(intervals[k]) && intervals[k] === intervals[k - 1]) {
+          const tMove = Math.sign(m.notes[k] - m.notes[k - 1]);
+          const cMove = Math.sign(comp[k] - comp[k - 1]);
+          const parallel = tMove !== 0 && tMove === cMove;
+          expect(parallel).toBe(false);
+        }
+      }
+    }
+  });
+});
+
 describe("aural spot-the-change generator", () => {
   const spec = SPECS["g3-echo"];
 
