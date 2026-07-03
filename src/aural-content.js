@@ -1,4 +1,4 @@
-/* aural-content.js - grade aural trainer topics, Grades 1-5.
+/* aural-content.js - grade aural trainer topics, Grades 1-8.
  *
  * Stores aural practice topics in MTT.content.auralGrades after
  * content.js has loaded. Covers:
@@ -19,13 +19,33 @@
  *   Grade 3: 2/3/4 time, echo sing, spot change longer phrase, tonality/dynamics/tempo
  *   Grade 4: echo 4-bar, sight-sing 5 notes, features + time sig
  *   Grade 5: echo 4-bar, sight-sing 6 notes, features + style/period
+ *   Grade 6: two-part echo (upper), sight-sing, cadences, texture
+ *   Grade 7: two-part echo (lower), sight-sing w/ accompaniment, cadences +
+ *            interrupted, chord/modulation ID, time sig incl. 6/8
+ *   Grade 8: three-part echo (lowest), sight-sing, cadences + plagal,
+ *            extended chord/modulation ID
  */
 (function (global) {
   "use strict";
 
   function audio() {
+    const main = global.MTT.audio;
+    // Honour the sound toggle: the sampled-piano engine has no enabled flag of
+    // its own, so when sound is off fall back to the synth engine, whose play
+    // calls are gated and become no-ops. Otherwise "Hear it" would blast the
+    // piano at full volume with sound switched off.
+    if (main && main.isEnabled && !main.isEnabled()) return main;
     const piano = global.MTT.audioPiano;
-    return (piano && piano.isReady()) ? piano : global.MTT.audio;
+    return (piano && piano.isReady()) ? piano : main;
+  }
+
+  // Schedule a later phase of a multi-part stimulus through the audio module's
+  // cancellable scheduler, so leaving the view mid-phrase silences it. Falls
+  // back to a plain setTimeout where the coordinator isn't present (e.g. tests).
+  function later(fn, ms) {
+    const a = global.MTT.audio;
+    if (a && a.after) return a.after(fn, ms);
+    return global.setTimeout(fn, ms);
   }
 
   // Notation helpers — render a treble-clef staff snippet inline in a prompt.
@@ -95,18 +115,42 @@
   }
 
   // --- Rhythmic meter patterns --------------------------------------------
-  // Play a metrically clear "click track" to establish the pulse.
-  // Strong beat: MIDI 76 (E5, bright/high), weak beat: MIDI 64 (E4, muted/low).
+  // Play a metrically clear "click track" to establish the pulse. Accent is
+  // carried by BOTH pitch and loudness so two-time and four-time are actually
+  // distinguishable: the downbeat is high (E5) and loudest; in four-time beat 3
+  // gets a medium accent (the secondary stress); every other beat is soft and
+  // low (E4). Returns parallel `notes` and `velocities` arrays for sequence().
   // Playing 3 bars makes the pattern unmistakable.
   function meterNotes(beatsPerBar, bars) {
     bars = bars || 3;
     const notes = [];
+    const velocities = [];
     for (let b = 0; b < bars; b++) {
       for (let beat = 0; beat < beatsPerBar; beat++) {
-        notes.push(beat === 0 ? MIDI.E5 : MIDI.E4);
+        if (beat === 0) { notes.push(MIDI.E5); velocities.push(1.0); }
+        else if (beatsPerBar === 4 && beat === 2) { notes.push(MIDI.E4); velocities.push(0.66); }
+        else { notes.push(MIDI.E4); velocities.push(0.34); }
       }
     }
-    return notes;
+    return { notes: notes, velocities: velocities };
+  }
+
+  // 6/8 compound click: two dotted-crotchet main beats per bar, each divided
+  // into three quavers (STRONG-weak-weak, medium-weak-weak). Played at quaver
+  // speed so the lilting "1-and-a 2-and-a" grouping is audibly distinct from
+  // the two even clicks of simple two-time.
+  function compoundSixEightNotes(bars) {
+    bars = bars || 3;
+    const notes = [];
+    const velocities = [];
+    for (let b = 0; b < bars; b++) {
+      for (let q = 0; q < 6; q++) {
+        if (q === 0) { notes.push(MIDI.E5); velocities.push(1.0); }
+        else if (q === 3) { notes.push(MIDI.E5); velocities.push(0.66); }
+        else { notes.push(MIDI.E4); velocities.push(0.34); }
+      }
+    }
+    return { notes: notes, velocities: velocities };
   }
 
   // --- Melodic fragment helpers -------------------------------------------
@@ -171,6 +215,30 @@
 
   function patternLabel(beatsPerBar, pattern) {
     return `<b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}`;
+  }
+
+  // A rhythm is isochronous if every note is the same length; two isochronous
+  // patterns in different metres can be acoustically identical (the classic
+  // "2/4 over two bars vs 4/4" trap), so they must not be offered against each
+  // other as answers.
+  function isIsochronous(pattern) {
+    return pattern.every((d) => d === pattern[0]);
+  }
+
+  // Per-note loudness for a clapped rhythm so the bar-lines are audible: the
+  // first note of each bar is accented, and four-time gets a lighter secondary
+  // accent on beat 3. `durations` is the flat (already bar-repeated) array.
+  function rhythmAccents(durations, beatsPerBar) {
+    const vel = [];
+    let beatPos = 0;
+    for (let i = 0; i < durations.length; i++) {
+      const inBar = ((beatPos % beatsPerBar) + beatsPerBar) % beatsPerBar;
+      if (inBar < 1e-6) vel.push(1.0);
+      else if (beatsPerBar === 4 && Math.abs(inBar - 2) < 1e-6) vel.push(0.66);
+      else vel.push(0.4);
+      beatPos += durations[i];
+    }
+    return vel;
   }
 
   // Grade 1 echo phrases: 3 notes, steps only, C major, range C4-E4.
@@ -274,10 +342,10 @@
   function g1TimeSigQuestion(rng) {
     const beats = pick(rng, [2, 3]);
     const label = String(beats);
-    const notes = meterNotes(beats);
+    const { notes, velocities } = meterNotes(beats);
     return {
       prompt: `Listen to this rhythmic pattern — notice which beat sounds <strong>stronger</strong>. How many beats are in each bar?`,
-      audio: function () { audio().sequence(notes, 0.5, 0.12); },
+      audio: function () { audio().sequence(notes, 0.5, 0.12, velocities); },
       choices: choices(rng, label, ["2", "3", "4"], 2),
       answer: label,
       explanation: `That was in <b>${beats}/4</b> time — ${beats} beats per bar. The first beat of each bar has a stronger accent. Tap along and count: "ONE two, ONE two" for 2, or "ONE two three" for 3.`,
@@ -307,22 +375,19 @@
       // Crescendo (getting louder) vs diminuendo (getting quieter): use same melody,
       // first softly then loudly (or vice versa), ask which direction.
       const isGrow = rng.bool();
-      const notes = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4];
+      const notes = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4, MIDI.A4, MIDI.G4, MIDI.E4];
+      const lo = 0.22, hi = 1.0;
+      const ramp = notes.map(function (_, i) {
+        const frac = i / (notes.length - 1);
+        return isGrow ? lo + (hi - lo) * frac : hi - (hi - lo) * frac;
+      });
       const ans = isGrow ? "Getting louder (crescendo)" : "Getting quieter (diminuendo)";
       return {
         prompt: `Listen — does this music get <strong>louder</strong> or <strong>quieter</strong>?`,
-        audio: isGrow
-          ? function () {
-            audio().sequenceAt(notes, 0.15, 0.5, 0.45);
-            setTimeout(function () { audio().sequenceAt(notes, 0.7, 0.5, 0.45); }, notes.length * 500 + 400);
-          }
-          : function () {
-            audio().sequenceAt(notes, 0.7, 0.5, 0.45);
-            setTimeout(function () { audio().sequenceAt(notes, 0.15, 0.5, 0.45); }, notes.length * 500 + 400);
-          },
+        audio: function () { audio().sequence(notes, 0.42, 0.4, ramp); },
         choices: choices(rng, ans, ["Getting louder (crescendo)", "Getting quieter (diminuendo)"], 2),
         answer: ans,
-        explanation: `That was a <b>${isGrow ? "crescendo" : "diminuendo"}</b> — the music was ${isGrow ? "getting louder (marked <em>cresc.</em> in the score)" : "getting quieter (marked <em>dim.</em> or <em>decresc.</em>)"}.`,
+        explanation: `That was a <b>${isGrow ? "crescendo" : "diminuendo"}</b> — the volume changed <em>gradually</em> across the phrase, note by note (marked ${isGrow ? "<em>cresc.</em> or a widening hairpin &lt;" : "<em>dim.</em>/<em>decresc.</em> or a narrowing hairpin &gt;"} in the score), not as a sudden step between two levels.`,
       };
     }
     // Straightforward loud vs quiet.
@@ -399,7 +464,7 @@
         audio: function () {
           const a = audio();
           a.sequenceRhythm(frag, baseDurations, beatSec);
-          setTimeout(function () { a.sequenceRhythm(frag, modDurations, beatSec); }, gapMs);
+          later(function () { a.sequenceRhythm(frag, modDurations, beatSec); }, gapMs);
         },
         choices: choices(rng, ans, ["A pitch (note) change", "A rhythm change"], 2),
         answer: ans,
@@ -423,12 +488,12 @@
         const notes = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4, MIDI.A4];
         // Play at slow step then faster step to simulate accel.
         audio().sequence(notes.slice(0, 3), 0.7, 0.65);
-        setTimeout(function () { audio().sequence(notes.slice(3), 0.3, 0.28); }, 3 * 700 + 400);
+        later(function () { audio().sequence(notes.slice(3), 0.3, 0.28); }, 3 * 700 + 400);
       }},
       { type: "ritardando", label: "Getting slower", play: function () {
         const notes = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4, MIDI.A4];
         audio().sequence(notes.slice(0, 3), 0.3, 0.28);
-        setTimeout(function () { audio().sequence(notes.slice(3), 0.7, 0.65); }, 3 * 300 + 400);
+        later(function () { audio().sequence(notes.slice(3), 0.7, 0.65); }, 3 * 300 + 400);
       }},
       { type: "steady", label: "Staying the same", play: function () {
         audio().sequence([MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4, MIDI.A4], 0.45, 0.42);
@@ -508,16 +573,16 @@
       { beats: 4, sig: "4/4" },
     ];
     const opt = pick(rng, options);
-    const notes = meterNotes(opt.beats);
+    const { notes, velocities } = meterNotes(opt.beats);
     const label = String(opt.beats);
     const expl = {
-      "2/4": "2/4 has two crotchet beats — a march feel.",
-      "3/4": "3/4 has three crotchet beats — a waltz feel.",
-      "4/4": "4/4 (common time) has four crotchet beats. Beats 1 and 3 are stronger, beat 1 strongest. Compare: march feels in 4, waltz in 3.",
+      "2/4": "2/4 has two crotchet beats — a march feel. Only beat 1 is accented.",
+      "3/4": "3/4 has three crotchet beats — a waltz feel: a strong beat 1, then two lighter beats.",
+      "4/4": "4/4 (common time) has four crotchet beats. Beat 1 is strongest and beat 3 has a lighter secondary accent — that extra mid-bar stress is what tells four-time apart from two-time.",
     };
     return {
       prompt: `Listen to this rhythmic pattern. How many <strong>beats</strong> are in each bar?`,
-      audio: function () { audio().sequence(notes, 0.5, 0.12); },
+      audio: function () { audio().sequence(notes, 0.5, 0.12, velocities); },
       choices: choices(rng, label, ["2", "3", "4"], 3),
       answer: label,
       explanation: `That was in <b>${opt.sig}</b> time. ${expl[opt.sig]}`,
@@ -588,16 +653,23 @@
     for (let bar = 0; bar < 2; bar++) {
       pattern.forEach((beats) => { notes.push(MIDI.E4); durations.push(beats); });
     }
+    const velocities = rhythmAccents(durations, beatsPerBar);
     const ans = patternLabel(beatsPerBar, pattern);
     const sameMeterDistractors = patterns.filter((p) => p !== pattern).map((p) => patternLabel(beatsPerBar, p));
+    // A cross-meter distractor is only fair if it can't sound the same as the
+    // target: never pit two isochronous patterns (in different metres) against
+    // each other, since the metric accents are then the only cue and both labels
+    // "match" the pulse equally.
     const otherMeter = pick(rng, [2, 3, 4].filter((b) => b !== beatsPerBar));
-    const otherDistractor = patternLabel(otherMeter, pick(rng, CLAP_RHYTHM_PATTERNS[otherMeter]));
+    let otherPool = CLAP_RHYTHM_PATTERNS[otherMeter];
+    if (isIsochronous(pattern)) otherPool = otherPool.filter((p) => !isIsochronous(p));
+    const otherDistractor = patternLabel(otherMeter, pick(rng, otherPool));
     return {
-      prompt: `Listen to this rhythm, clapped on a single note. Which pattern matches what you heard, and how many beats are in each bar?`,
-      audio: function () { audio().sequenceRhythm(notes, durations, 0.5); },
+      prompt: `Listen to this rhythm, clapped on a single note (the first beat of each bar is accented). Which pattern matches what you heard, and how many beats are in each bar?`,
+      audio: function () { audio().sequenceRhythm(notes, durations, 0.5, velocities); },
       choices: choices(rng, ans, [...sameMeterDistractors, otherDistractor], 3),
       answer: ans,
-      explanation: `That was <b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}, repeated over two bars. The <b>rhythm</b> is the actual pattern of long and short notes — different from the steady <b>pulse</b> you clapped in earlier grades, which stays even throughout.`,
+      explanation: `That was <b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}, repeated over two bars. Count the beats between the accented downbeats to fix the metre, then the pattern of long and short notes within the bar gives the rhythm.`,
     };
   }
 
@@ -721,6 +793,26 @@
     return C_MAJOR_SCALE[idx - 2];
   }
 
+  // Diatonic "3rd below" within an arbitrary major key. The sight-singing
+  // accompaniment must stay in the phrase's own key (a plain -3 semitones or a
+  // C-major lookup would sound out-of-key against G, D or B♭ major). Builds the
+  // major scale of `tonicMidi`'s key across octaves and steps two scale-degrees
+  // down from the given note.
+  function majorScaleMidis(tonicPc) {
+    const steps = [0, 2, 4, 5, 7, 9, 11];
+    const out = [];
+    for (let oct = 24; oct <= 96; oct += 12) {
+      steps.forEach((s) => { const m = oct + tonicPc + s; if (m >= 24 && m <= 96) out.push(m); });
+    }
+    return out.sort((a, b) => a - b);
+  }
+  function diatonicThirdBelow(midi, tonicMidi) {
+    const scale = majorScaleMidis(((tonicMidi % 12) + 12) % 12);
+    const idx = scale.indexOf(midi);
+    if (idx < 2) return midi - 3;
+    return scale[idx - 2];
+  }
+
   // Diatonic triads (root position) transposed to any of CHORD_KEYS by shifting
   // the C-major voicing wholesale — the voicing (spacing/register) stays fixed,
   // only the absolute pitch moves, which is all that matters for audio-only
@@ -754,7 +846,7 @@
     return function () {
       const a = audio();
       a.chord(chordPair[0], 0.9);
-      setTimeout(function () { a.chord(chordPair[1], 1.1); }, 950);
+      later(function () { a.chord(chordPair[1], 1.1); }, 950);
     };
   }
 
@@ -787,7 +879,7 @@
   function playChordSequence(chordSeq) {
     return function () {
       const a = audio();
-      chordSeq.forEach(function (ch, i) { setTimeout(function () { a.chord(ch, 1.0); }, i * 950); });
+      chordSeq.forEach(function (ch, i) { later(function () { a.chord(ch, 1.0); }, i * 950); });
     };
   }
 
@@ -808,8 +900,9 @@
 
   // The note that signals each modulation is always the same *scale-degree*
   // relative to the starting key: a raised 4th announces the dominant's
-  // leading note, a lowered 7th announces the subdominant's flat 7th, and a
-  // raised 5th announces the relative minor's leading note — true in any key.
+  // leading note, a lowered 7th (the flat 7th of the home key, which is the 4th
+  // of the new key) announces the subdominant, and a raised 5th announces the
+  // relative minor's leading note — true in any key.
   function modulationsForKey(key) {
     const shift = CHORD_KEYS[key];
     const t = (notes) => notes.map((m) => m + shift);
@@ -824,17 +917,17 @@
       { label: "Modulates to the dominant", accidentalNote: dominantNote, play: function () {
         const a = audio();
         a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        setTimeout(function () { a.sequence(t([66, MIDI.G4, MIDI.B4, MIDI.D5, MIDI.G4]), 0.42, 0.4); }, 1900);
+        later(function () { a.sequence(t([66, MIDI.G4, MIDI.B4, MIDI.D5, MIDI.G4]), 0.42, 0.4); }, 1900);
       } },
       { label: "Modulates to the subdominant", accidentalNote: subdominantNote, play: function () {
         const a = audio();
         a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        setTimeout(function () { a.sequence(t([70, 69, 65, 69, 72]), 0.42, 0.4); }, 1900);
+        later(function () { a.sequence(t([70, 69, 65, 69, 72]), 0.42, 0.4); }, 1900);
       } },
       { label: "Modulates to the relative minor", accidentalNote: `${relativeMinorNote} (leading note of ${relativeMinorName} minor)`, play: function () {
         const a = audio();
         a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        setTimeout(function () { a.sequence(t([68, MIDI.A4, MIDI.E4, MIDI.A4, MIDI.C5]), 0.42, 0.4); }, 1900);
+        later(function () { a.sequence(t([68, MIDI.A4, MIDI.E4, MIDI.A4, MIDI.C5]), 0.42, 0.4); }, 1900);
       } },
     ];
   }
@@ -1002,19 +1095,20 @@
   // where 6/8 appears in the aural test.
   function g7TimeSigQuestion(rng) {
     const options = [
-      { beats: 2, label: "2", sig: "2/4", note: "2/4 has two crotchet beats (march feel)" },
-      { beats: 3, label: "3", sig: "3/4", note: "3/4 has three crotchet beats (waltz feel)" },
-      { beats: 4, label: "4", sig: "4/4", note: "4/4 (common time) has four crotchet beats — beats 1 and 3 are strong, beat 1 strongest" },
-      { beats: 2, label: "2", sig: "6/8", note: "6/8 has two dotted-crotchet beats (two main pulses, each divided into three — a lilting, swinging feel)" },
+      { label: "Two time (2/4)", sig: "2/4", compound: false, beats: 2, note: "two even crotchet beats, only beat 1 accented (march feel)" },
+      { label: "Three time (3/4)", sig: "3/4", compound: false, beats: 3, note: "three crotchet beats, a strong beat 1 then two lighter beats (waltz feel)" },
+      { label: "Four time (4/4)", sig: "4/4", compound: false, beats: 4, note: "four crotchet beats with a strong beat 1 and a lighter accent on beat 3" },
+      { label: "Compound time (6/8)", sig: "6/8", compound: true, beats: 2, note: "two main beats, but each divides into <em>three</em> quavers — a lilting 1-and-a 2-and-a swing" },
     ];
     const opt = pick(rng, options);
-    const notes = meterNotes(opt.beats);
+    const played = opt.compound ? compoundSixEightNotes() : meterNotes(opt.beats);
+    const step = opt.compound ? 0.28 : 0.5;
     return {
-      prompt: `Listen to this rhythmic pattern. How many <strong>main beats</strong> are in each bar? (6/8 has 2 main beats.)`,
-      audio: function () { audio().sequence(notes, 0.5, 0.12); },
-      choices: choices(rng, opt.label, ["2", "3", "4"], 3),
+      prompt: `Listen to this rhythmic pattern. Is it in <strong>two, three, four or 6/8 time</strong>? Listen for whether each beat divides in two (simple) or three (compound).`,
+      audio: function () { audio().sequence(played.notes, step, 0.12, played.velocities); },
+      choices: choices(rng, opt.label, options.map((o) => o.label), 4),
       answer: opt.label,
-      explanation: `That was in <b>${opt.sig}</b> time — ${opt.note}.`,
+      explanation: `That was in <b>${opt.sig}</b> time — ${opt.note}. The tell for 6/8 is the triple subdivision: you can count "1-and-a, 2-and-a" against just two main pulses.`,
     };
   }
 
@@ -1041,13 +1135,13 @@
   function g7SightSingQuestion(rng) {
     const keyDef = pick(rng, G7_SIGHT_PHRASES);
     const phrase = pick(rng, keyDef.phrases);
-    const bass = phrase.map(thirdBelow);
+    const bass = phrase.map(function (m) { return diatonicThirdBelow(m, keyDef.root); });
     return {
       prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.${sequenceStaff(phrase)}`,
       audio: function () {
         const a = audio();
         a.note(keyDef.root, 1.0);
-        setTimeout(function () { a.sequence(bass, 0.6, 0.55); }, 1100);
+        later(function () { a.sequence(bass, 0.6, 0.55); }, 1100);
       },
       micTask: {
         type: "sequence",
@@ -1078,14 +1172,15 @@
   function g8SightSingQuestion(rng) {
     const keyDef = pick(rng, G7_SIGHT_PHRASES);
     const phrase = pick(rng, keyDef.phrases);
-    // A line a 6th above each target note (an octave up, then a 3rd back down).
-    const upper = phrase.map(function (m) { return thirdBelow(m + 12); });
+    // A line a 6th above each target note (an octave up, then a diatonic 3rd
+    // back down), kept in the phrase's own key.
+    const upper = phrase.map(function (m) { return diatonicThirdBelow(m + 12, keyDef.root); });
     return {
       prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(phrase)}`,
       audio: function () {
         const a = audio();
         a.note(keyDef.root, 1.0);
-        setTimeout(function () { a.sequence(upper, 0.6, 0.55); }, 1100);
+        later(function () { a.sequence(upper, 0.6, 0.55); }, 1100);
       },
       micTask: {
         type: "sequence",
