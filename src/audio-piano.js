@@ -99,6 +99,20 @@
     notes.forEach(function (n, i) { queueNote(ctx, toMidi(n), t0 + i * step, dur, vol); });
   }
 
+  // Play notes with per-note durations (in beats; 1 = crotchet) rather than a
+  // fixed step — see audio.js sequenceRhythm for the synth-fallback twin.
+  function sequenceRhythm(notes, durations, beatSec) {
+    beatSec = beatSec === undefined ? 0.5 : beatSec;
+    const ctx = ensure();
+    if (!ctx) return;
+    let t = ctx.currentTime + 0.04;
+    notes.forEach(function (n, i) {
+      const noteDur = (durations[i] || 1) * beatSec;
+      if (n !== null) queueNote(ctx, toMidi(n), t, noteDur * 0.88, 1.0);
+      t += noteDur;
+    });
+  }
+
   function chord(notes, dur) {
     dur = dur === undefined ? 1.1 : dur;
     const ctx = ensure();
@@ -124,6 +138,7 @@
   const api = {
     note: note,
     sequence: sequence,
+    sequenceRhythm: sequenceRhythm,
     sequencePair: sequencePair,
     sequenceAt: sequenceAt,
     chord: chord,
