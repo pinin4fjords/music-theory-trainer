@@ -48,6 +48,20 @@
     return global.setTimeout(fn, ms);
   }
 
+  function auralGen() { return global.MTT.auralGen; }
+
+  // Per-grade generator specs (see aural-generators.js). These encode the ABRSM
+  // constraints for each task so echo/memory/spot-change stimuli are generated
+  // fresh each time instead of being drawn from a memorisable fixed bank.
+  const MELODY_SPECS = {
+    g1Echo: { keys: ["C"], mode: "major", range: { above: 2, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: ["tonic", "mediant"], endsOn: "free" },
+    g2Echo: { keys: ["C", "G", "F"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
+    g3Echo: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
+    memory: { keys: ["C", "G", "D"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 3, rhythmPalette: [[1, 1, 1], [2, 1], [1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
+    g1Change: { keys: ["C"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
+    g3Change: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 4, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
+  };
+
   // Notation helpers — render a treble-clef staff snippet inline in a prompt.
   const PC_NOTE = [
     { letter: "C", alter: 0 }, { letter: "C", alter: 1 }, { letter: "D", alter: 0 },
@@ -153,18 +167,6 @@
     return { notes: notes, velocities: velocities };
   }
 
-  // --- Melodic fragment helpers -------------------------------------------
-
-  // 4-note ascending/descending patterns in C major.
-  const MELODY_FRAGMENTS = [
-    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4],
-    [MIDI.G4, MIDI.F4, MIDI.E4, MIDI.D4],
-    [MIDI.E4, MIDI.F4, MIDI.G4, MIDI.E4],
-    [MIDI.C4, MIDI.E4, MIDI.G4, MIDI.E4],
-    [MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4],
-    [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4],
-  ];
-
   // --- Rhythm (note-value) helpers ----------------------------------------
   // Durations are in beats (1 = crotchet, 0.5 = quaver, 1.5 = dotted
   // crotchet, 2 = minim). Used anywhere a phrase needs real mixed note
@@ -182,26 +184,6 @@
 
   function patternGlyphs(pattern) {
     return pattern.map(beatGlyph).join(" ");
-  }
-
-  // 4-note duration patterns (each totalling 4 beats — one 4/4 bar) used by
-  // the Grade 2 pitch-or-rhythm change test, paired against MELODY_FRAGMENTS.
-  const RHYTHM_PATTERNS = [
-    [1, 1, 1, 1],
-    [2, 1, 0.5, 0.5],
-    [0.5, 0.5, 1, 2],
-    [1, 0.5, 0.5, 2],
-    [1.5, 0.5, 1, 1],
-    [1, 1.5, 0.5, 1],
-  ];
-
-  // Change the duration of one note (longer or shorter) while leaving every
-  // pitch untouched — the "how long" counterpart to modifyNote's "which note".
-  function modifyRhythm(durations, idx, rng) {
-    const out = durations.slice();
-    const longer = rng.bool();
-    out[idx] = longer ? out[idx] * 2 : out[idx] / 2;
-    return { durations: out, longer };
   }
 
   // One-bar rhythm patterns (beats sum to the time signature) for the "clap
@@ -240,51 +222,6 @@
     }
     return vel;
   }
-
-  // Grade 1 echo phrases: 3 notes, steps only, C major, range C4-E4.
-  const G1_ECHO_PHRASES = [
-    [MIDI.C4, MIDI.D4, MIDI.C4],
-    [MIDI.E4, MIDI.D4, MIDI.C4],
-    [MIDI.C4, MIDI.D4, MIDI.E4],
-    [MIDI.C4, MIDI.E4, MIDI.D4],
-    [MIDI.D4, MIDI.E4, MIDI.D4],
-    [MIDI.E4, MIDI.D4, MIDI.E4],
-  ];
-
-  // Grade 2 echo phrases: 4 notes, steps + minor 3rd, major or minor.
-  const G2_ECHO_PHRASES_MAJOR = [
-    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.C4],
-    [MIDI.C4, MIDI.E4, MIDI.D4, MIDI.C4],
-    [MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4],
-    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.D4],
-    [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4],
-  ];
-  const G2_ECHO_PHRASES_MINOR = [
-    [MIDI.C4, MIDI.D4, 63, MIDI.C4],   // C D Eb C
-    [63, MIDI.D4, MIDI.C4, MIDI.D4],   // Eb D C D
-    [MIDI.C4, 63, MIDI.D4, MIDI.C4],   // C Eb D C
-    [MIDI.C4, MIDI.D4, 63, MIDI.D4],   // C D Eb D
-  ];
-
-  // Grade 3 echo phrases: 4 notes, steps + occasional 3rd, range within a full
-  // octave (C4-C5) rather than Grade 2's tonic-to-dominant range.
-  const G3_ECHO_PHRASES_MAJOR = [
-    [MIDI.C4, MIDI.E4, MIDI.D4, MIDI.C4],
-    [MIDI.E4, MIDI.G4, MIDI.F4, MIDI.E4],
-    [MIDI.G4, MIDI.A4, MIDI.G4, MIDI.E4],
-    [MIDI.C5, MIDI.B4, MIDI.G4, MIDI.E4],
-    [MIDI.A4, MIDI.G4, MIDI.E4, MIDI.C4],
-    [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.G4],
-    [MIDI.G4, MIDI.E4, MIDI.C4, MIDI.D4],
-  ];
-  const G3_ECHO_PHRASES_MINOR = [
-    [MIDI.C4, 63, MIDI.D4, MIDI.C4],          // C Eb D C
-    [63, MIDI.F4, MIDI.G4, 63],               // Eb F G Eb
-    [MIDI.G4, MIDI.F4, 63, MIDI.D4],          // G F Eb D
-    [MIDI.C5, 70, MIDI.G4, 63],                // C' Bb G Eb
-    [68, MIDI.G4, 63, MIDI.D4],               // Ab G Eb D
-    [MIDI.C4, MIDI.D4, 63, MIDI.F4],          // C D Eb F
-  ];
 
   // Grade 4 sight-sing phrases: 5 notes, starts on tonic, 3rd below/above, C/F/G major.
   const G4_SIGHT_PHRASES = [
@@ -327,13 +264,6 @@
     ]},
   ];
 
-  // Create a modified copy with one note changed (up a tone = +2 semitones).
-  function modifyNote(notes, idx) {
-    const out = notes.slice();
-    out[idx] = out[idx] + 2;
-    return out;
-  }
-
   // =========================================================================
   // Grade 1 generators
   // =========================================================================
@@ -353,20 +283,32 @@
   }
 
   // Test 1C: Spot where the pitch change is (beginning or end).
-  function g1SpotChangeQuestion(rng) {
-    const frag = pick(rng, MELODY_FRAGMENTS);
-    const pos = rng.bool() ? "beginning" : "end";
-    const changeIdx = pos === "beginning" ? 0 : frag.length - 1;
-    const original = frag.slice();
-    const modified = modifyNote(frag, changeIdx);
-    return {
-      prompt: `Listen to this short phrase played <strong>twice</strong>. One note is <strong>different</strong> the second time. Where is the change?`,
-      audio: function () { audio().sequencePair(original, modified, 0.5, 0.45); },
-      choices: choices(rng, "At the " + pos, ["At the beginning", "At the end"], 2),
-      answer: "At the " + pos,
-      explanation: `The change was <b>at the ${pos}</b>. Compare the ${pos === "beginning" ? "first" : "last"} note of each playing — the second time, that note was a step higher.`,
+  // Play a phrase, then its one-note variant, each with its own rhythm.
+  function playChangePair(orig, mod, beatSec) {
+    const totalMs = orig.durations.reduce(function (s, d) { return s + d; }, 0) * beatSec * 1000;
+    return function () {
+      const a = audio();
+      a.sequenceRhythm(orig.notes, orig.durations, beatSec);
+      later(function () { a.sequenceRhythm(mod.notes, mod.durations, beatSec); }, totalMs + 700);
     };
   }
+
+  // Spot-where-the-change-is (ABRSM 1C/3C): a generated phrase is played, then
+  // repeated with one note altered near the beginning or the end.
+  function spotChangeQuestion(rng, specKey) {
+    const m = auralGen().generateMelody(rng, MELODY_SPECS[specKey]);
+    const c = auralGen().generateChange(rng, m, { allowRhythm: false });
+    const dirWord = c.direction === "up" ? "higher" : "lower";
+    return {
+      prompt: `Listen to this phrase played <strong>twice</strong>. One note is <strong>different</strong> the second time. Where is the change?`,
+      audio: playChangePair(c.original, c.modified, 0.5),
+      choices: choices(rng, "At the " + c.position, ["At the beginning", "At the end"], 2),
+      answer: "At the " + c.position,
+      explanation: `The change was <b>near the ${c.position}</b>. Compare the ${c.position === "beginning" ? "opening" : "closing"} notes of each playing — the second time one note was a step ${dirWord}.`,
+    };
+  }
+  function g1SpotChangeQuestion(rng) { return spotChangeQuestion(rng, "g1Change"); }
+  function g3SpotChangeQuestion(rng) { return spotChangeQuestion(rng, "g3Change"); }
 
   // Test 1D: Identify dynamics (loud / quiet).
   function g1DynamicsQuestion(rng) {
@@ -423,25 +365,39 @@
 
   // Test 1B: Echo a short melody (Grade 1 - 3 notes, C major, C4-E4).
   // Phrase plays once, then the mic opens automatically for an immediate response.
-  function g1EchoMelodyQuestion(rng) {
-    const phrase = pick(rng, G1_ECHO_PHRASES);
-    const step = 0.55, dur = 0.5;
-    // playback duration + 350 ms buffer before mic opens
-    const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
+  // Milliseconds until a rhythmic phrase finishes sounding, plus a buffer before
+  // the mic opens for the echo response.
+  function echoRespondMs(durations, beatSec) {
+    const total = durations.reduce(function (s, d) { return s + d; }, 0);
+    return Math.round(total * beatSec * 1000 + 350);
+  }
+
+  // Shared echo generator driven by the melodic engine. `specKey` selects the
+  // per-grade spec; `copy` supplies the prompt/choices/explanation text.
+  function echoMelodyQuestion(rng, specKey, copy) {
+    const m = auralGen().generateMelody(rng, MELODY_SPECS[specKey]);
+    const beatSec = 0.55;
     return {
-      prompt: `Listen to this short phrase, then <strong>sing it back</strong>. It's an ear test, so the notes aren't shown - you'll see them when you're done.`,
-      audio: function () { audio().sequence(phrase, step, dur); },
+      prompt: copy.prompt,
+      audio: function () { audio().sequenceRhythm(m.notes, m.durations, beatSec); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
-        autoPlayAndRespondMs: autoPlayAndRespondMs,
-        toleranceSemitones: 1.0,
-        revealStaffHtml: sequenceStaff(phrase),
+        targets: makeSequenceTargets(m.notes),
+        autoPlayAndRespondMs: echoRespondMs(m.durations, beatSec),
+        toleranceSemitones: copy.tolerance != null ? copy.tolerance : 1.0,
+        revealStaffHtml: sequenceStaff(m.notes),
       },
-      choices: ["I sang the phrase", "I couldn't match it"],
-      answer: "I sang the phrase",
-      explanation: `Grade 1 echo singing: the examiner plays a short phrase and you sing it back immediately. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
+      choices: copy.choices || ["I sang the phrase", "I couldn't match it"],
+      answer: (copy.choices || ["I sang the phrase"])[0],
+      explanation: copy.explanation,
     };
+  }
+
+  function g1EchoMelodyQuestion(rng) {
+    return echoMelodyQuestion(rng, "g1Echo", {
+      prompt: `Listen to this short phrase, then <strong>sing it back</strong>. It's an ear test, so the notes aren't shown - you'll see them when you're done.`,
+      explanation: `Grade 1 echo singing: the examiner plays a short phrase and you sing it back immediately. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
+    });
   }
 
   // =========================================================================
@@ -450,35 +406,18 @@
 
   // Test 2C: Identify pitch vs rhythm change AND beginning vs end.
   function g2ChangeTypeQuestion(rng) {
-    const isPitch = rng.bool();
-    const pos = rng.bool() ? "beginning" : "end";
-    const frag = pick(rng, MELODY_FRAGMENTS);
-    const changeIdx = pos === "beginning" ? 0 : frag.length - 1;
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g1Change);
+    const c = auralGen().generateChange(rng, m, { allowRhythm: true });
+    const isPitch = c.kind === "pitch";
     const ans = isPitch ? "A pitch (note) change" : "A rhythm change";
-    const beatSec = 0.5;
-    if (!isPitch) {
-      const baseDurations = pick(rng, RHYTHM_PATTERNS);
-      const { durations: modDurations, longer } = modifyRhythm(baseDurations, changeIdx, rng);
-      const gapMs = (baseDurations.reduce((s, d) => s + d, 0) + 1) * beatSec * 1000;
-      return {
-        prompt: `Listen to this phrase played <strong>twice</strong>. One thing is <strong>different</strong> the second time — is it the <em>pitch</em> (which note) or the <em>rhythm</em> (how long)?`,
-        audio: function () {
-          const a = audio();
-          a.sequenceRhythm(frag, baseDurations, beatSec);
-          later(function () { a.sequenceRhythm(frag, modDurations, beatSec); }, gapMs);
-        },
-        choices: choices(rng, ans, ["A pitch (note) change", "A rhythm change"], 2),
-        answer: ans,
-        explanation: `The change was in the <b>rhythm</b> — the note at the ${pos} became ${longer ? "longer" : "shorter"} the second time. Listen for whether a note is held longer or cut shorter, not whether it's higher or lower.`,
-      };
-    }
-    const modified = modifyNote(frag, changeIdx);
     return {
-      prompt: `Listen to this phrase played <strong>twice</strong>. One thing is <strong>different</strong> the second time — is it the <em>pitch</em> or the <em>rhythm</em>?`,
-      audio: function () { audio().sequencePair(frag, modified, 0.5, 0.45); },
+      prompt: `Listen to this phrase played <strong>twice</strong>. One thing is <strong>different</strong> the second time — is it the <em>pitch</em> (which note) or the <em>rhythm</em> (how long)?`,
+      audio: playChangePair(c.original, c.modified, 0.5),
       choices: choices(rng, ans, ["A pitch (note) change", "A rhythm change"], 2),
       answer: ans,
-      explanation: `The change was in the <b>pitch</b> — one note moved to a different step the second time. Listen for whether any notes sound higher or lower, not shorter or longer.`,
+      explanation: isPitch
+        ? `The change was in the <b>pitch</b> — near the ${c.position}, one note moved a step ${c.direction === "up" ? "higher" : "lower"} the second time. Listen for whether any note sounds higher or lower, not shorter or longer.`
+        : `The change was in the <b>rhythm</b> — near the ${c.position}, one note became ${c.longer ? "longer" : "shorter"} the second time. Listen for whether a note is held longer or cut shorter, not whether it's higher or lower.`,
     };
   }
 
@@ -514,54 +453,20 @@
     };
   }
 
-  // Grade 2 echo melody: 4 notes, major or minor key, range up to dominant.
-  // Phrase plays once, then mic opens automatically for an immediate response.
+  // Grade 2 echo melody: major only (tonic-to-dominant); minor enters at 3B.
   function g2EchoMelodyQuestion(rng) {
-    // ABRSM 2B echoes are major only (tonic-to-dominant); minor is introduced at
-    // 3B, so the minor phrases live in the Grade 3 pool.
-    const phrase = pick(rng, G2_ECHO_PHRASES_MAJOR);
-    const step = 0.52, dur = 0.48;
-    const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
-    return {
+    return echoMelodyQuestion(rng, "g2Echo", {
       prompt: `Listen to this major-key phrase, then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
-      audio: function () { audio().sequence(phrase, step, dur); },
-      micTask: {
-        type: "sequence",
-        targets: makeSequenceTargets(phrase),
-        autoPlayAndRespondMs: autoPlayAndRespondMs,
-        toleranceSemitones: 1.0,
-        revealStaffHtml: sequenceStaff(phrase),
-      },
-      choices: ["I sang the phrase", "I couldn't match it"],
-      answer: "I sang the phrase",
       explanation: `Grade 2 echo singing: short major-key phrases spanning up to a 5th, tonic to dominant. Fix the tonic in your ear first, then follow the shape up and down from it.`,
-    };
+    });
   }
 
-  // Grade 3 echo melody: 4 notes, major or minor, range within a full octave.
+  // Grade 3 echo melody: major or minor, range within an octave.
   function g3EchoMelodyQuestion(rng) {
-    const isMajor = rng.bool();
-    // Grade 3 is where minor keys enter the sung tests: draw on both the Grade 3
-    // minor phrases and the tonic-mediant minor phrases relocated from Grade 2.
-    const phrases = isMajor ? G3_ECHO_PHRASES_MAJOR : G3_ECHO_PHRASES_MINOR.concat(G2_ECHO_PHRASES_MINOR);
-    const phrase = pick(rng, phrases);
-    const keyLabel = isMajor ? "major" : "minor";
-    const step = 0.5, dur = 0.46;
-    const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
-    return {
-      prompt: `Listen to this ${keyLabel}-key phrase, then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
-      audio: function () { audio().sequence(phrase, step, dur); },
-      micTask: {
-        type: "sequence",
-        targets: makeSequenceTargets(phrase),
-        autoPlayAndRespondMs: autoPlayAndRespondMs,
-        toleranceSemitones: 1.0,
-        revealStaffHtml: sequenceStaff(phrase),
-      },
-      choices: ["I sang the phrase", "I couldn't match it"],
-      answer: "I sang the phrase",
+    return echoMelodyQuestion(rng, "g3Echo", {
+      prompt: `Listen to this phrase (it may be major or minor), then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
       explanation: `Grade 3 echo singing: phrases stay within a single octave and can be in major or minor. Mostly stepwise motion with the occasional leap of a 3rd — hum the shape internally before you sing.`,
-    };
+    });
   }
 
   // =========================================================================
@@ -613,7 +518,7 @@
   function g3AuralQuestion(rng) {
     const type = rng.int(0, 4);
     if (type === 0) return g3TimeSigQuestion(rng);
-    if (type === 1) return g1SpotChangeQuestion(rng);
+    if (type === 1) return g3SpotChangeQuestion(rng);
     if (type === 2) return g3TonalityQuestion(rng);
     if (type === 3) return g1DynamicsQuestion(rng);
     return g1ArticulationQuestion(rng);
@@ -626,54 +531,27 @@
   // Test 4A/5A: sing back a melody from memory. The melody is played twice, then
   // the singer reproduces it with no printed score. Octave range, major or minor
   // up to 3 sharps/flats, sung register kept within roughly A3-E5.
-  const MEMORY_PHRASES = [
-    { name: "C major", phrases: [
-      [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.G4, MIDI.E4, MIDI.C4],
-      [MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5, MIDI.B4, MIDI.G4],
-    ]},
-    { name: "G major", phrases: [
-      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],
-      [MIDI.G4, MIDI.B4, MIDI.A4, MIDI.G4, 66, MIDI.G4], // G B A G F# G
-    ]},
-    { name: "F major", phrases: [
-      [65, 67, MIDI.A4, 72, MIDI.A4, 65],       // F G A C' A F
-      [65, MIDI.A4, MIDI.G4, 65, MIDI.E4, 65],  // F A G F E F
-    ]},
-    { name: "A minor", phrases: [
-      [MIDI.A3, MIDI.C4, MIDI.E4, MIDI.C4, MIDI.B3, MIDI.A3],
-      [MIDI.A3, MIDI.B3, MIDI.C4, MIDI.E4, MIDI.C4, MIDI.A3],
-    ]},
-    { name: "D minor", phrases: [
-      [MIDI.D4, 65, MIDI.A4, 65, MIDI.E4, MIDI.D4],  // D F A F E D
-      [MIDI.D4, MIDI.E4, 65, MIDI.A4, 65, MIDI.D4],  // D E F A F D
-    ]},
-    { name: "E minor", phrases: [
-      [MIDI.E4, MIDI.G4, MIDI.B4, MIDI.G4, 66, MIDI.E4], // E G B G F# E
-      [MIDI.E4, 66, MIDI.G4, MIDI.B4, MIDI.G4, MIDI.E4], // E F# G B G E
-    ]},
-  ];
-
+  const MODE_LABEL = { major: "major", minor: "minor" };
   function memorySingQuestion(rng, gradeLabel) {
-    const keyDef = pick(rng, MEMORY_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
-    const step = 0.5, dur = 0.46;
-    const onePlayMs = (phrase.length - 1) * step * 1000 + dur * 1000;
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.memory);
+    const beatSec = 0.5;
+    const onePlayMs = m.durations.reduce(function (s, d) { return s + d; }, 0) * beatSec * 1000;
     const gapMs = 900;
     // The mic opens after BOTH playings finish.
     const autoPlayAndRespondMs = Math.round(onePlayMs + gapMs + onePlayMs + 350);
     return {
-      prompt: `Listen to this melody in <b>${keyDef.name}</b>, played <strong>twice</strong>. Then <strong>sing it back from memory</strong> - there is no score to read.`,
+      prompt: `Listen to this ${MODE_LABEL[m.mode]}-key melody, played <strong>twice</strong>. Then <strong>sing it back from memory</strong> - there is no score to read.`,
       audio: function () {
         const a = audio();
-        a.sequence(phrase, step, dur);
-        later(function () { a.sequence(phrase, step, dur); }, onePlayMs + gapMs);
+        a.sequenceRhythm(m.notes, m.durations, beatSec);
+        later(function () { a.sequenceRhythm(m.notes, m.durations, beatSec); }, onePlayMs + gapMs);
       },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        targets: makeSequenceTargets(m.notes),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
-        revealStaffHtml: sequenceStaff(phrase),
+        revealStaffHtml: sequenceStaff(m.notes),
       },
       choices: ["I sang it back", "I couldn't manage it"],
       answer: "I sang it back",
