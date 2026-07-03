@@ -121,6 +121,58 @@
     [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4],
   ];
 
+  // --- Rhythm (note-value) helpers ----------------------------------------
+  // Durations are in beats (1 = crotchet, 0.5 = quaver, 1.5 = dotted
+  // crotchet, 2 = minim). Used anywhere a phrase needs real mixed note
+  // values instead of an isochronous pulse.
+
+  function beatGlyph(beats) {
+    const helpers = global.MTT.content && global.MTT.content.helpers;
+    const glyph = helpers && helpers.noteValueGlyph;
+    if (!glyph) return String(beats);
+    if (beats === 0.5) return glyph("quaver");
+    if (beats === 1.5) return glyph("crotchet") + `<span aria-hidden="true" style="margin-left:-7px;font-weight:bold">.</span>`;
+    if (beats === 2) return glyph("minim");
+    return glyph("crotchet");
+  }
+
+  function patternGlyphs(pattern) {
+    return pattern.map(beatGlyph).join(" ");
+  }
+
+  // 4-note duration patterns (each totalling 4 beats — one 4/4 bar) used by
+  // the Grade 2 pitch-or-rhythm change test, paired against MELODY_FRAGMENTS.
+  const RHYTHM_PATTERNS = [
+    [1, 1, 1, 1],
+    [2, 1, 0.5, 0.5],
+    [0.5, 0.5, 1, 2],
+    [1, 0.5, 0.5, 2],
+    [1.5, 0.5, 1, 1],
+    [1, 1.5, 0.5, 1],
+  ];
+
+  // Change the duration of one note (longer or shorter) while leaving every
+  // pitch untouched — the "how long" counterpart to modifyNote's "which note".
+  function modifyRhythm(durations, idx, rng) {
+    const out = durations.slice();
+    const longer = rng.bool();
+    out[idx] = longer ? out[idx] * 2 : out[idx] / 2;
+    return { durations: out, longer };
+  }
+
+  // One-bar rhythm patterns (beats sum to the time signature) for the "clap
+  // the rhythm" test at Grade 4+, played on a single repeated pitch since a
+  // clapped rhythm carries no pitch information.
+  const CLAP_RHYTHM_PATTERNS = {
+    2: [[1, 1], [0.5, 0.5, 1], [1, 0.5, 0.5], [1.5, 0.5]],
+    3: [[1, 1, 1], [2, 1], [1, 2], [0.5, 0.5, 1, 1], [1.5, 0.5, 1]],
+    4: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2], [0.5, 0.5, 1, 1, 1], [2, 0.5, 0.5, 1]],
+  };
+
+  function patternLabel(beatsPerBar, pattern) {
+    return `<b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}`;
+  }
+
   // Grade 1 echo phrases: 3 notes, steps only, C major, range C4-E4.
   const G1_ECHO_PHRASES = [
     [MIDI.C4, MIDI.D4, MIDI.C4],
@@ -336,50 +388,25 @@
     const pos = rng.bool() ? "beginning" : "end";
     const frag = pick(rng, MELODY_FRAGMENTS);
     const changeIdx = pos === "beginning" ? 0 : frag.length - 1;
-    let modified;
-    if (isPitch) {
-      modified = modifyNote(frag, changeIdx);
-    } else {
-      // Rhythm change: shorten note (played staccato-style at 0.08 vs 0.45)
-      modified = frag.slice(); // notes same, but indicate via explanation
-    }
-    const changeType = isPitch ? "A pitch (note) change" : "A rhythm change";
-    const ans = changeType;
+    const ans = isPitch ? "A pitch (note) change" : "A rhythm change";
+    const beatSec = 0.5;
     if (!isPitch) {
-      // For rhythm change, play modified with very short note duration at change position.
+      const baseDurations = pick(rng, RHYTHM_PATTERNS);
+      const { durations: modDurations, longer } = modifyRhythm(baseDurations, changeIdx, rng);
+      const gapMs = (baseDurations.reduce((s, d) => s + d, 0) + 1) * beatSec * 1000;
       return {
         prompt: `Listen to this phrase played <strong>twice</strong>. One thing is <strong>different</strong> the second time — is it the <em>pitch</em> (which note) or the <em>rhythm</em> (how long)?`,
         audio: function () {
-          const stepMs = 500;
-          const durLong = 0.45;
-          const durShort = 0.08;
           const a = audio();
-          // First: normal phrase.
-          a.sequence(frag, stepMs / 1000, durLong);
-          // Second: one note has shortened duration — use same MIDI notes, different dur.
-          // Approximate by playing two segments: before change + short + after.
-          const delay = (frag.length * stepMs + stepMs);
-          setTimeout(function () {
-            const before = frag.slice(0, changeIdx);
-            const after = frag.slice(changeIdx + 1);
-            const c = a.ensure();
-            if (!c) return;
-            // Manually schedule using freqSequence can't do this, so we use sequence twice.
-            // This is a reasonable approximation: the changed note plays later.
-            if (before.length) a.sequence(before, stepMs / 1000, durLong);
-            setTimeout(function () {
-              a.note(frag[changeIdx], durShort);
-              setTimeout(function () {
-                if (after.length) a.sequence(after, stepMs / 1000, durLong);
-              }, stepMs);
-            }, before.length * stepMs);
-          }, delay);
+          a.sequenceRhythm(frag, baseDurations, beatSec);
+          setTimeout(function () { a.sequenceRhythm(frag, modDurations, beatSec); }, gapMs);
         },
         choices: choices(rng, ans, ["A pitch (note) change", "A rhythm change"], 2),
         answer: ans,
-        explanation: `The change was in the <b>rhythm</b> — one note had a different length the second time. Listen for whether a note is longer or shorter, not whether it's higher or lower.`,
+        explanation: `The change was in the <b>rhythm</b> — the note at the ${pos} became ${longer ? "longer" : "shorter"} the second time. Listen for whether a note is held longer or cut shorter, not whether it's higher or lower.`,
       };
     }
+    const modified = modifyNote(frag, changeIdx);
     return {
       prompt: `Listen to this phrase played <strong>twice</strong>. One thing is <strong>different</strong> the second time — is it the <em>pitch</em> or the <em>rhythm</em>?`,
       audio: function () { audio().sequencePair(frag, modified, 0.5, 0.45); },
@@ -547,9 +574,31 @@
     };
   }
 
-  // Test 4C part 2: Identify time signature after listening (2/4, 3/4, or 4/4).
+  // Test 4C part 2: clap back the rhythm, then say whether it's in 2, 3, or 4
+  // time. The app can't grade a clap, so it plays a one-bar rhythm (mixed note
+  // values, repeated over two bars on a single pitch, since a clapped rhythm
+  // carries no pitch of its own) and asks which notated pattern matches —
+  // folding "which rhythm" and "which time signature" into one answer.
   function g4RhythmTimeSigQuestion(rng) {
-    return g3TimeSigQuestion(rng);
+    const beatsPerBar = pick(rng, [2, 3, 4]);
+    const patterns = CLAP_RHYTHM_PATTERNS[beatsPerBar];
+    const pattern = pick(rng, patterns);
+    const notes = [];
+    const durations = [];
+    for (let bar = 0; bar < 2; bar++) {
+      pattern.forEach((beats) => { notes.push(MIDI.E4); durations.push(beats); });
+    }
+    const ans = patternLabel(beatsPerBar, pattern);
+    const sameMeterDistractors = patterns.filter((p) => p !== pattern).map((p) => patternLabel(beatsPerBar, p));
+    const otherMeter = pick(rng, [2, 3, 4].filter((b) => b !== beatsPerBar));
+    const otherDistractor = patternLabel(otherMeter, pick(rng, CLAP_RHYTHM_PATTERNS[otherMeter]));
+    return {
+      prompt: `Listen to this rhythm, clapped on a single note. Which pattern matches what you heard, and how many beats are in each bar?`,
+      audio: function () { audio().sequenceRhythm(notes, durations, 0.5); },
+      choices: choices(rng, ans, [...sameMeterDistractors, otherDistractor], 3),
+      answer: ans,
+      explanation: `That was <b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}, repeated over two bars. The <b>rhythm</b> is the actual pattern of long and short notes — different from the steady <b>pulse</b> you clapped in earlier grades, which stays even throughout.`,
+    };
   }
 
   // Test 4C part 1: character / features questions.
@@ -1133,8 +1182,8 @@
         {
           id: "g4-aural-time",
           title: "Aural: time signature & rhythm",
-          why: "Grade 4 Test C (part 2) asks you to clap back the rhythm (not just the pulse) and then identify the time signature. Distinguishing pulse from rhythm is the key skill.",
-          what: "<p>The <b>pulse</b> is the steady beat underlying the music. The <b>rhythm</b> is the actual pattern of long and short notes as written. To clap the rhythm you need to reproduce the exact durations of each note, not just an even beat.</p>",
+          why: "Grade 4 Test C (part 2) asks you to clap back the rhythm (not just the pulse) and then identify the time signature. Distinguishing pulse from rhythm is the key skill. Since typing can't grade a clap, this app instead asks you to pick the notated pattern that matches what you heard.",
+          what: "<p>The <b>pulse</b> is the steady beat underlying the music. The <b>rhythm</b> is the actual pattern of long and short notes as written — a mix of note values, not just an even beat. Compare the played rhythm against each notated option before choosing.</p>",
           questions: g4RhythmTimeSigQuestion,
           tags: ["aural"],
         },

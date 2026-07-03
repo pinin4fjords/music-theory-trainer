@@ -128,6 +128,23 @@
     });
   }
 
+  // Play notes with per-note durations (in beats; 1 = crotchet) rather than a
+  // fixed step — needed for genuine rhythm patterns (mixed note values), as
+  // opposed to sequence()'s isochronous pulse. A `null` entry in notes is a
+  // rest: silent, but still advances the clock by its duration.
+  function sequenceRhythm(notes, durations, beatSec = 0.5) {
+    const p = getPiano();
+    if (p) { lastPlay = () => p.sequenceRhythm(notes, durations, beatSec); lastPlay(); return; }
+    play((c) => {
+      let t = c.currentTime + 0.04;
+      notes.forEach((n, i) => {
+        const noteDur = (durations[i] || 1) * beatSec;
+        if (n !== null) tone(freqList([n])[0], t, noteDur * 0.88);
+        t += noteDur;
+      });
+    });
+  }
+
   function chord(notes, dur = 1.1) {
     const p = getPiano();
     if (p) { lastPlay = () => p.chord(notes, dur); lastPlay(); return; }
@@ -194,7 +211,7 @@
   function isEnabled() { return enabled; }
 
   const api = {
-    note, sequence, sequencePair, sequenceAt, chord, freqSequence, freqChord, replay,
+    note, sequence, sequenceRhythm, sequencePair, sequenceAt, chord, freqSequence, freqChord, replay,
     setEnabled, isEnabled, ensure, unlock, isAvailable,
   };
 

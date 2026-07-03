@@ -1660,7 +1660,7 @@
 
   const api = {
     grades, explainers, reference,
-    helpers: { choices, pick, staffBlock },
+    helpers: { choices, pick, staffBlock, noteValueGlyph },
   };
 
   global.MTT = global.MTT || {};
