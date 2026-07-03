@@ -720,21 +720,6 @@
   // Semitone offset from C for each key the harmony tasks can appear in.
   const CHORD_KEYS = { C: 0, G: 7, F: 5, D: 2 };
 
-  // Every C-major diatonic note from C2 to C7, ascending — used to find "the
-  // diatonic note two scale-steps below X" (i.e. a 3rd below) for harmonizing
-  // a given line, at any octave.
-  const C_MAJOR_SCALE = (function () {
-    const steps = [0, 2, 4, 5, 7, 9, 11];
-    const out = [];
-    for (let oct = 24; oct <= 96; oct += 12) steps.forEach((s) => out.push(oct + s));
-    return out;
-  })();
-  function thirdBelow(midi) {
-    const idx = C_MAJOR_SCALE.indexOf(midi);
-    if (idx < 2) return midi - 3;
-    return C_MAJOR_SCALE[idx - 2];
-  }
-
   // Diatonic "3rd below" within an arbitrary major key. The sight-singing
   // accompaniment must stay in the phrase's own key (a plain -3 semitones or a
   // C-major lookup would sound out-of-key against G, D or B♭ major). Builds the
@@ -939,41 +924,36 @@
     };
   }
 
-  // Two-part phrases for the Grade 6-7 two-part echo task: a top line plus a
-  // 3rd-below harmony line, played together. Grade 6 echoes the top line,
-  // Grade 7 echoes the bottom line — same material, different target.
-  const TWO_PART_PHRASES = [
-    { top: [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.C4] },
-    { top: [MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4] },
-    { top: [MIDI.G4, MIDI.F4, MIDI.E4, MIDI.D4] },
-    { top: [MIDI.C4, MIDI.E4, MIDI.D4, MIDI.C4] },
-    { top: [MIDI.F4, MIDI.E4, MIDI.D4, MIDI.C4] },
-    { top: [MIDI.G4, MIDI.E4, MIDI.F4, MIDI.D4] },
-  ].map(function (p) { return { top: p.top, bottom: p.top.map(thirdBelow) }; });
+  // Spec for the generated multi-part material (Grade 6-8 two/three-part echo and
+  // the texture question): a singable melodic line to which a real, independent
+  // companion line is added by the counterpoint generator.
+  const MULTI_PART_SPEC = { keys: ["C", "G", "D"], mode: "either", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" };
+  const MULTI_BEAT = 0.55;
 
-  function twoPartAudio(top, bottom, step, dur) {
+  // Play several note-against-note lines together with a shared rhythm.
+  function playParts(lines, durations) {
     return function () {
       const a = audio();
-      a.sequence(top, step, dur);
-      a.sequence(bottom, step, dur);
+      lines.forEach(function (line) { a.sequenceRhythm(line, durations, MULTI_BEAT); });
     };
   }
 
-  // Shared two-part echo generator: `voice` selects which line the student
-  // must sing back — the other plays purely as harmonic context.
+  // Shared two-part echo generator: `voice` selects which line the student sings
+  // back; the other plays as harmonic context. The two lines are generated as
+  // real first-species counterpoint (consonant, independent contour, no parallel
+  // perfect 5ths/octaves) rather than locked parallel thirds.
   function twoPartEchoQuestion(rng, voice, gradeLabel) {
-    const set = pick(rng, TWO_PART_PHRASES);
-    const target = set[voice];
-    const step = 0.55, dur = 0.5;
-    const autoPlayAndRespondMs = Math.round(((target.length - 1) * step + dur) * 1000 + 350);
+    const m = auralGen().generateMelody(rng, MULTI_PART_SPEC);
+    const bottom = auralGen().generateCompanion(rng, m, { direction: "below" });
+    const target = voice === "top" ? m.notes : bottom;
     const which = voice === "top" ? "upper" : "lower";
     return {
       prompt: `Listen to this two-part phrase, then sing back <strong>just the ${which} line</strong>. Your line stays hidden until afterwards - isolate it by ear.`,
-      audio: twoPartAudio(set.top, set.bottom, step, dur),
+      audio: playParts([m.notes, bottom], m.durations),
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(target),
-        autoPlayAndRespondMs: autoPlayAndRespondMs,
+        autoPlayAndRespondMs: echoRespondMs(m.durations, MULTI_BEAT),
         toleranceSemitones: gradeLabel === "Grade 7" ? 0.5 : 1.0,
         revealStaffHtml: sequenceStaff(target),
       },
@@ -983,30 +963,19 @@
     };
   }
 
-  // Three-part phrases for the Grade 8 echo task: top line, a 3rd below, and a
-  // 3rd below that again — student echoes the lowest (bass) line.
-  const THREE_PART_PHRASES = TWO_PART_PHRASES.map(function (p) {
-    return { top: p.top, mid: p.bottom, bottom: p.bottom.map(thirdBelow) };
-  });
-
   function threePartEchoQuestion(rng) {
-    const set = pick(rng, THREE_PART_PHRASES);
-    const step = 0.55, dur = 0.5;
-    const autoPlayAndRespondMs = Math.round(((set.bottom.length - 1) * step + dur) * 1000 + 350);
+    const m = auralGen().generateMelody(rng, MULTI_PART_SPEC);
+    const mid = auralGen().generateCompanion(rng, m, { direction: "below" });
+    const bottom = auralGen().generateCompanion(rng, { notes: mid, key: m.key, mode: m.mode }, { direction: "below" });
     return {
       prompt: `Listen to this three-part phrase, then sing back <strong>just the lowest line</strong>. It stays hidden until afterwards - track it by ear.`,
-      audio: function () {
-        const a = audio();
-        a.sequence(set.top, step, dur);
-        a.sequence(set.mid, step, dur);
-        a.sequence(set.bottom, step, dur);
-      },
+      audio: playParts([m.notes, mid, bottom], m.durations),
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(set.bottom),
-        autoPlayAndRespondMs: autoPlayAndRespondMs,
+        targets: makeSequenceTargets(bottom),
+        autoPlayAndRespondMs: echoRespondMs(m.durations, MULTI_BEAT),
         toleranceSemitones: 0.5,
-        revealStaffHtml: sequenceStaff(set.bottom),
+        revealStaffHtml: sequenceStaff(bottom),
       },
       choices: ["I sang the lowest line", "I couldn't match it"],
       answer: "I sang the lowest line",
@@ -1015,22 +984,21 @@
   }
 
   // Texture question (Grade 6+): single line, melody+accompaniment, or two
-  // independent moving lines. The exam only ever asks the generic "texture"
-  // question — these three plain-language options are how a candidate answers it.
+  // independent moving lines. The "two independent lines" option now plays a
+  // genuine counterpoint (independent contour), not parallel thirds.
   function textureQuestion(rng) {
-    const melody = [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.F4, MIDI.G4];
+    const m = auralGen().generateMelody(rng, MULTI_PART_SPEC);
+    const companion = auralGen().generateCompanion(rng, m, { direction: "below" });
+    const totalSec = m.durations.reduce(function (s, d) { return s + d; }, 0) * MULTI_BEAT;
+    const drone = m.tonicMidi - 12;
     const options = [
-      { type: "single", label: "A single melodic line", play: function () { audio().sequence(melody, 0.42, 0.4); } },
+      { type: "single", label: "A single melodic line", play: function () { audio().sequenceRhythm(m.notes, m.durations, MULTI_BEAT); } },
       { type: "accompanied", label: "A melody with a sustained accompaniment", play: function () {
         const a = audio();
-        a.sequence(melody, 0.42, 0.4);
-        a.note(MIDI.C3, 2.3);
+        a.sequenceRhythm(m.notes, m.durations, MULTI_BEAT);
+        a.note(drone, totalSec + 0.3);
       } },
-      { type: "twoLines", label: "Two independent moving lines", play: function () {
-        const a = audio();
-        a.sequence(melody, 0.42, 0.4);
-        a.sequence(melody.map(thirdBelow), 0.42, 0.4);
-      } },
+      { type: "twoLines", label: "Two independent moving lines", play: playParts([m.notes, companion], m.durations) },
     ];
     const opt = pick(rng, options);
     return {
@@ -1038,7 +1006,7 @@
       audio: opt.play,
       choices: choices(rng, opt.label, options.map((x) => x.label), 3),
       answer: opt.label,
-      explanation: `That was <b>${opt.label.toLowerCase()}</b>. Texture questions ask how many independent things are happening at once — a bare tune, a tune over accompaniment, or several lines moving together.`,
+      explanation: `That was <b>${opt.label.toLowerCase()}</b>. Texture questions ask how many independent things are happening at once — a bare tune, a tune over a held accompaniment, or two lines moving independently against each other.`,
     };
   }
 
