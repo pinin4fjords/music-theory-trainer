@@ -20,6 +20,15 @@ describe("session - grade filtering & foundational review", () => {
     expect(s.length).toBeGreaterThan(0);
     expect(s.every((x) => x.topic.grade === 1)).toBe(true);
   });
+
+  it("auralTopics surfaces every aural grade's quizable topics with a grade field", () => {
+    const aural = session.auralTopics(content);
+    expect(aural.length).toBeGreaterThan(0);
+    expect(aural.every((t) => typeof t.questions === "function")).toBe(true);
+    expect(aural.every((t) => Number.isInteger(t.grade))).toBe(true);
+    const grades = new Set(aural.map((t) => t.grade));
+    for (let g = 1; g <= 8; g++) expect(grades.has(g)).toBe(true);
+  });
 });
 
 describe("session - assembly", () => {
@@ -30,6 +39,13 @@ describe("session - assembly", () => {
     expect(s.length).toBe(session.SESSION_LEN);
     const sigs = s.map((x) => session.qSig(x.q));
     expect(new Set(sigs).size).toBe(sigs.length); // all distinct
+  });
+
+  it("honors a custom session length", () => {
+    const s = session.build({
+      content, settings: { grade: 5, mode: "daily" }, srsMap: {}, rng: rng.create("sess-len"), now: 0, length: 20,
+    });
+    expect(s.length).toBe(20);
   });
 
   it("is deterministic for a fixed seed + state + now", () => {

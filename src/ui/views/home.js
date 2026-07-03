@@ -113,8 +113,9 @@
       });
     });
 
-    // Focus areas (weak topics).
-    const topics = ctx.session.quizableTopics(ctx.content);
+    // Focus areas (weak topics) - theory and aural topics both count, since
+    // both feed the same SRS data.
+    const topics = ctx.session.quizableTopics(ctx.content).concat(ctx.session.auralTopics(ctx.content));
     const weak = ctx.analytics.weakAreas(store.srsMap(), topics, 3);
     if (weak.length) {
       const panel = C.el(`<div class="card focus-card"><h3 style="margin-top:0">Focus areas</h3>
@@ -138,6 +139,7 @@
     // Quick links.
     const cards = view.querySelector("#home-cards");
     [["📚", "Learn", "Lessons by grade", "learn"],
+      ["👂", "Aural", "Listening & singing tests", "aural"],
       ["💡", "Explainers", "The why behind the theory", "explore"],
       ["🎹", "Playground", "Build & hear it", "play"],
       ["📈", "Progress", "Level & weak areas", "progress"]].forEach(([icon, title, sub, tab]) => {
