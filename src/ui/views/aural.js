@@ -18,13 +18,13 @@
     const view = C.el(
       `<div class="view">` +
         `<h1 tabindex="-1">Aural Training</h1>` +
-        `<p>These listening and singing tasks are the aural component of a <b>performance exam</b> (piano, violin, and other instruments), Grades 1-8 - a separate assessment from the written theory tests practised elsewhere in this app.</p>` +
+        `<p>These listening and singing tasks are the aural component of a <b>practical exam</b> (piano, violin, and other instruments), Grades 1-8 - a separate assessment from the written theory tests practised elsewhere in this app.</p>` +
       `</div>`
     );
     main.appendChild(view);
 
     if (!auralGrades.length) {
-      view.appendChild(C.el(`<p class="muted">No aural topics loaded.</p>`));
+      view.appendChild(C.el(`<p class="muted">Aural exercises aren't available right now. Try reloading the page.</p>`));
       return;
     }
 
@@ -43,7 +43,7 @@
         const card = C.cardButton(
           `<div class="topic-head">${icon}<h3>${shortTitle}</h3></div>` +
           `<div class="why">${t.why || ""}</div>`,
-          function () { ctx.router.navigate("quiz", { single: t }); }
+          function () { ctx.router.navigate("quiz", { single: Object.assign({}, t, { grade: ag.grade }) }); }
         );
         grid.appendChild(card);
       });

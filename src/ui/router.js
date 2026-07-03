@@ -26,7 +26,17 @@
     let ctx = null;
     let current = null;
     let currentParam = null;
+    let currentCleanup = null; // teardown fn a view may return (stop mic, timers)
     let lastHash = null; // the hash we last wrote, to distinguish our own changes
+
+    // Release any live audio/mic when leaving a view: stop the microphone stream
+    // and poll loop, and cancel scheduled/queued playback so a delayed second
+    // phrase can't sound over the next view.
+    function releaseMedia() {
+      const M = global.MTT || {};
+      if (M.audioInput && M.audioInput.stop) { try { M.audioInput.stop(); } catch { /* ok */ } }
+      if (M.audio && M.audio.cancel) { try { M.audio.cancel(); } catch { /* ok */ } }
+    }
 
     function register(name, fn) { views[name] = fn; }
     function setContext(c) { ctx = c; }
@@ -48,6 +58,8 @@
 
     function navigate(name, arg) {
       if (!views[name]) return;
+      if (currentCleanup) { try { currentCleanup(); } catch { /* ok */ } currentCleanup = null; }
+      releaseMedia();
       current = name;
       currentParam = typeof arg === "string" ? arg : null;
       navButtons.forEach((b) => {
@@ -58,7 +70,8 @@
       });
       setHash(name, arg);
       C().clear(main);
-      views[name](main, ctx, arg);
+      const cleanup = views[name](main, ctx, arg);
+      currentCleanup = typeof cleanup === "function" ? cleanup : null;
       const heading = main.querySelector("h1, h2");
       if (heading) C().focus(heading);
     }
