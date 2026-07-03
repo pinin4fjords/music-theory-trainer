@@ -777,11 +777,16 @@
     ];
   }
 
-  function playCadence(chordPair) {
+  // Play a cadence the way ABRSM presents it: sound the key chord (the tonic)
+  // first to establish the tonality, a short gap, then the cadence chords. Pass
+  // keyChord to prepend it; omit for a bare cadence.
+  function playCadence(chordPair, keyChord) {
     return function () {
       const a = audio();
-      a.chord(chordPair[0], 0.9);
-      later(function () { a.chord(chordPair[1], 1.1); }, 950);
+      let t = 0;
+      if (keyChord) { a.chord(keyChord, 0.85); t = 1250; }
+      later(function () { a.chord(chordPair[0], 0.9); }, t);
+      later(function () { a.chord(chordPair[1], 1.1); }, t + 950);
     };
   }
 
@@ -790,21 +795,24 @@
   // randomly-chosen key so students don't only ever hear C major.
   function auralCadenceQuestion(rng, count) {
     const key = pick(rng, Object.keys(CHORD_KEYS));
-    const pool = cadencesForKey(chordsForKey(key)).slice(0, count);
+    const chords = chordsForKey(key);
+    const pool = cadencesForKey(chords).slice(0, count);
     const c = pick(rng, pool);
     return {
-      prompt: `Listen to this two-chord cadence in <b>${key} major</b>. Which type is it?`,
-      audio: playCadence(c.chords),
+      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a two-chord cadence. Which cadence is it?`,
+      audio: playCadence(c.chords, chords.I),
       choices: choices(rng, c.label, pool.map((x) => x.label), count),
       answer: c.label,
       explanation: c.explanation,
     };
   }
 
-  function playChordSequence(chordSeq) {
+  function playChordSequence(chordSeq, keyChord) {
     return function () {
       const a = audio();
-      chordSeq.forEach(function (ch, i) { later(function () { a.chord(ch, 1.0); }, i * 950); });
+      let t0 = 0;
+      if (keyChord) { a.chord(keyChord, 0.85); t0 = 1250; }
+      chordSeq.forEach(function (ch, i) { later(function () { a.chord(ch, 1.0); }, t0 + i * 950); });
     };
   }
 
@@ -830,8 +838,8 @@
     const distractors = G7_CADENCE_PAIRS.filter((p) => p !== chosen).map((p) => pairLabel(p.pair));
     const ans = pairLabel(chosen.pair);
     return {
-      prompt: `Listen to this cadence in <b>${key} major</b>. Which two chords formed it, in order?`,
-      audio: playCadence([chords[chosen.pair[0]], chords[chosen.pair[1]]]),
+      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a cadence. Which two chords formed the cadence, in order?`,
+      audio: playCadence([chords[chosen.pair[0]], chords[chosen.pair[1]]], chords.I),
       choices: choices(rng, ans, distractors, 4),
       answer: ans,
       explanation: `That was <b>${ans}</b> - ${chosen.gloss}. In the exam you may answer with the Roman numerals (${chosen.pair[0]}-${chosen.pair[1]}), the technical names (${CHORD_TECHNICAL[chosen.pair[0]]}, ${CHORD_TECHNICAL[chosen.pair[1]]}), or the letter-name chords - all three are accepted.`,
@@ -1141,8 +1149,8 @@
     const ans = label(chosen.seq);
     const distractors = G8_CADENTIAL_PROGRESSIONS.filter((p) => p !== chosen).map((p) => label(p.seq));
     return {
-      prompt: `Listen to this three-chord progression in <b>${key} major</b>, ending with a cadence. Name the three chords in order.`,
-      audio: playChordSequence(chosen.seq.map((r) => chords[r])),
+      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a three-chord progression ending with a cadence. Name the three chords in order.`,
+      audio: playChordSequence(chosen.seq.map((r) => chords[r]), chords.I),
       choices: choices(rng, ans, distractors, 4),
       answer: ans,
       explanation: `That was <b>${ans}</b> - ${chosen.gloss}. Follow the bass to find each chord's root, then confirm the cadence formed by the last two chords.`,
