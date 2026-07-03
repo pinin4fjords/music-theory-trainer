@@ -66,11 +66,19 @@ describe("a11y - quiz interactivity", () => {
     expect([...document.querySelectorAll(".choice")].every((c) => c.tagName === "BUTTON")).toBe(true);
   });
 
-  it("number keys select a choice", () => {
+  it("number keys select a choice even when focus is not on the view", () => {
     instance.router.navigate("quiz", { single: notesTopic });
-    const view = document.querySelector("#main .view");
-    view.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    // Dispatch on document (not the view): the listener must live there, since
+    // focus is rarely on the view element itself between questions.
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "1", bubbles: true }));
     expect(document.querySelector(".reveal")).toBeTruthy();
+  });
+
+  it("focus moves to the question prompt on each question", () => {
+    instance.router.navigate("quiz", { single: notesTopic });
+    const prompt = document.querySelector(".quiz-prompt");
+    expect(prompt.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(prompt);
   });
 
   it("the reveal carries role=status and focus moves to the Next control", () => {

@@ -429,12 +429,26 @@
     let idx = 0;
     let score = 0;
     let questionStart = ctx.now();
+    let activeStopMic = null; // teardown for the current question's mic, if any
+    let activeKeyHandler = null; // document keydown listener for number-key answers
     const tally = {}; // topicId -> { title, grade, correct, total } for the finish summary
+
+    function detachKeyHandler() {
+      if (activeKeyHandler) { document.removeEventListener("keydown", activeKeyHandler); activeKeyHandler = null; }
+    }
 
     nextQuestion();
 
+    // Router calls this before navigating away: stop any open mic and remove the
+    // document-level key listener so it can't outlive the view.
+    return function teardown() {
+      if (activeStopMic) { try { activeStopMic(); } catch { /* ok */ } activeStopMic = null; }
+      detachKeyHandler();
+    };
+
     function nextQuestion() {
       if (idx >= session.length) return finish();
+      detachKeyHandler();
       C.clear(main);
       const { topic, q } = session[idx];
       let answered = false;
@@ -470,7 +484,22 @@
         const ab = C.playButton("Hear it", () => safe(q.audio));
         ab.setAttribute("aria-label", "Replay the sound for this question");
         view.appendChild(ab);
-        if (ctx.audio.isEnabled()) safe(q.audio);
+        if (ctx.audio.isEnabled()) {
+          safe(q.audio);
+        } else {
+          // Sound is off — this is a listening task, so say so and offer one-tap
+          // enable rather than leaving a silent, unusable question.
+          const notice = C.el(`<div class="sound-off-note" role="status" style="margin-top:10px;font-size:.9em"></div>`);
+          notice.appendChild(C.el(`<span class="muted">🔇 Sound is off — this is a listening task. </span>`));
+          notice.appendChild(C.button("Turn sound on", () => {
+            ctx.audio.setEnabled(true);
+            ctx.store.setSetting("sound", true);
+            ctx.audio.unlock();
+            notice.remove();
+            safe(q.audio);
+          }, { className: "ghost" }));
+          view.appendChild(notice);
+        }
       }
 
       // Mic-task: pitch-detection panel instead of numbered choice buttons.
@@ -482,6 +511,7 @@
         stopMic = renderMicTask(view, q, C, ctx, function (detected, scoreDetail) {
           if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail);
         });
+        activeStopMic = stopMic;
         const selfReport = C.el(`<div class="mic-self-report"></div>`);
         selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable) - your answer affects which topics the app revisits, so be honest:</span>`));
         q.choices.forEach((choice) => {
@@ -517,12 +547,17 @@
 
       main.appendChild(view);
 
-      // Keyboard shortcuts: 1-9 pick a choice while unanswered (only for standard choice questions).
-      if (!q.micTask) {
-        view.addEventListener("keydown", onKeydown);
-      }
+      // Move focus to the question so keyboard/screen-reader users land on the
+      // new content each time (the prior focus target was just cleared away).
+      prompt.setAttribute("tabindex", "-1");
+      C.focus(prompt);
+
+      // Keyboard shortcuts: 1-9 pick a choice while unanswered (only for standard
+      // choice questions). The listener lives on `document`, not the view element,
+      // because focus is rarely on the view — a listener there would never fire.
       function onKeydown(e) {
         if (answered) return;
+        if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
         const n = parseInt(e.key, 10);
         if (n >= 1 && n <= choiceButtons.length) {
           e.preventDefault();
@@ -530,11 +565,16 @@
           reveal(btn._choice === q.answer ? "correct" : "wrong", btn);
         }
       }
+      if (!q.micTask) {
+        activeKeyHandler = onKeydown;
+        document.addEventListener("keydown", onKeydown);
+      }
 
       function reveal(kind, pickedBtn, scoreDetail) {
         if (answered) return;
         answered = true;
-        if (stopMic) { try { stopMic(); } catch { /* ok */ } stopMic = null; }
+        detachKeyHandler();
+        if (stopMic) { try { stopMic(); } catch { /* ok */ } stopMic = null; activeStopMic = null; }
         const correct = kind === "correct";
         if (correct) score++;
         const responseMs = ctx.now() - questionStart;
@@ -612,11 +652,13 @@
     }
 
     function finish() {
-      const first = !single && ctx.store.recordSessionDay(ctx.now());
+      // Any completed session of a few questions counts toward the daily streak,
+      // aural and single-topic ones included — recordSessionDay is idempotent per
+      // day, so it can't be farmed by replaying.
+      const first = session.length >= 5 && ctx.store.recordSessionDay(ctx.now());
       C.clear(main);
       const st = ctx.store.get();
-      const streakLine = single ? "" :
-        `🔥 ${st.streak}-day streak` + (first ? " (counted today)" : "");
+      const streakLine = `🔥 ${st.streak}-day streak` + (first ? " (counted today)" : "");
 
       const view = C.el(`<div class="view"></div>`);
       view.appendChild(C.el(`
