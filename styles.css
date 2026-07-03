@@ -248,8 +248,12 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .why-box { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--line)); border-radius: var(--radius-sm); padding: 13px 15px; margin: 14px 0; }
 .why-box strong { color: var(--accent); }
 
-.disclaimer { max-width: 600px; margin: 0 auto 14px; text-align: center; font-size: .82rem; color: var(--ink-soft); }
-.disclaimer b { color: var(--ink); }
+.disclaimer-box {
+  background: var(--bad-soft); border: 1px solid color-mix(in srgb, var(--bad) 40%, var(--line));
+  border-radius: var(--radius-sm); padding: 13px 15px; margin: 14px 0;
+}
+.disclaimer-box p { margin: 0; font-size: .88rem; color: var(--ink); }
+.disclaimer-box b { color: var(--bad); }
 
 /* Practice-mode toggle + start card. */
 .start-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }

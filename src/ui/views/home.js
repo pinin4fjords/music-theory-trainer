@@ -71,6 +71,9 @@
           <h1 tabindex="-1">A few minutes of theory a day</h1>
           <p>Graded music theory, grounded in <i>why</i> as well as <i>what</i>. Set your grade and the daily session follows.</p>
         </div>
+        <div class="disclaimer-box" role="note">
+          <p><b>⚠ Just a hobby project.</b> I built this for my own practice, in my spare time - it isn't affiliated with any exam board, hasn't been checked by a teacher, and isn't guaranteed correct. Don't rely on it in place of official syllabuses or published study materials. Use at your own risk.</p>
+        </div>
         ${warn}
         ${statsHtml}
         <div class="card center start-card">
@@ -83,7 +86,6 @@
             : "Daily mix: spaced review across your current grade and everything below it."}</p>
           <p class="muted" style="margin-top:0">${done ? "Today's practice is done - come back tomorrow to keep the streak going." : "Ready for today's set?"}</p>
         </div>
-        <p class="disclaimer"><b>Personal project, no warranty.</b> Not affiliated with any exam board and not guaranteed correct. Do not use this as a substitute for official syllabuses or published study materials. Use at your own risk.</p>
         <div id="focus-area"></div>
         <div class="grid" id="home-cards"></div>
         <div class="card data-card">
