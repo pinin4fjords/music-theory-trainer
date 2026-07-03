@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Motif — daily music theory practice, Grades 1–8, grounded in why as well as what.">
   <title>Motif: daily music theory</title>
+  <script>
+    // Stamp the stored theme before first paint to avoid a light-to-dark flash.
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem("mtt.v1") || "{}");
+        var t = s && s.settings && s.settings.theme;
+        if (t === "system" || !t) {
+          t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) { /* first run / storage blocked - app applies theme on boot */ }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>

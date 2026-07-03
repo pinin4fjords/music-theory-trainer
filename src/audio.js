@@ -185,17 +185,15 @@
     });
   }
 
-  // Play at a specific volume level (aural dynamics tasks).
+  // Play at a specific volume level (aural dynamics tasks). Per-note gain, so a
+  // concurrent sound's volume is never corrupted by mutating the shared master.
   function sequenceAt(notes, gain, step = 0.42, dur = 0.46) {
     const p = getPiano();
     if (p) { lastPlay = () => p.sequenceAt(notes, gain, step, dur); lastPlay(); return; }
     play((c) => {
-      if (master) master.gain.value = Math.max(0, Math.min(1, gain));
+      const g = Math.max(0, Math.min(1, gain));
       const t0 = c.currentTime + 0.04;
-      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
-      const endTime = t0 + (notes.length - 1) * step + dur + 0.1;
-      const delay = (endTime - c.currentTime) * 1000;
-      setTimeout(() => { if (master) master.gain.value = 0.6; }, delay);
+      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur, g));
     });
   }
 
