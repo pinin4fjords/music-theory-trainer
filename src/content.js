@@ -32,8 +32,13 @@
   function pick(rng, arr) { return rng.pick(arr); }
 
   // n answer choices including the correct one plus distinct distractors.
-  function choices(rng, correct, distractors, n = 4) {
-    const pool = rng.shuffle([...new Set(distractors)].filter((d) => d !== correct));
+  // Pass excludeEnharmonic: true for questions whose answer is a specific
+  // note/pitch, so a distractor that is the same pitch class as the answer
+  // (e.g. F# when the answer is Gb) is never offered as a "wrong" choice.
+  function choices(rng, correct, distractors, n = 4, { excludeEnharmonic = false } = {}) {
+    let candidates = [...new Set(distractors)].filter((d) => d !== correct);
+    if (excludeEnharmonic) candidates = candidates.filter((d) => !M.sameSound(d, correct));
+    const pool = rng.shuffle(candidates);
     return rng.shuffle([correct, ...pool.slice(0, n - 1)]);
   }
 
@@ -80,7 +85,7 @@
       return `In a major scale, the 3rd, 6th, and 7th above the tonic are all major - that is where these quality names come from. A <b>major ${noun}</b> is the ${noun} as it appears above the tonic in a major scale${exNote ? ` (e.g. C to ${exNote} in C major)` : ""}. A semitone narrower gives a <b>minor ${noun}</b>; wider, an <b>augmented ${noun}</b>.`;
     }
     if (iv.quality === "minor") {
-      if (iv.number === 2) return `A minor 2nd is a half step (1 semitone) - the smallest interval in Western music. Unlike the 3rd, 6th, and 7th, the minor 2nd does not appear between the tonic and 2nd degree of any standard scale; 'minor' simply marks it as the smaller of the two step sizes. A semitone wider gives a <b>major 2nd</b>; narrower, a <b>diminished 2nd</b>.`;
+      if (iv.number === 2) return `A minor 2nd is a half step (1 semitone) - the smallest interval in Western music. Unlike the 3rd, 6th, and 7th, the minor 2nd does not appear between the tonic and 2nd degree of any major or minor scale; 'minor' simply marks it as the smaller of the two step sizes. A semitone wider gives a <b>major 2nd</b>; narrower, a <b>diminished 2nd</b>.`;
       const exNote = { 3: "E♭", 6: "A♭", 7: "B♭" }[iv.number];
       return `In a natural minor scale, the 3rd, 6th, and 7th above the tonic are all minor - that is where these quality names come from. A <b>minor ${noun}</b> is the ${noun} as it appears above the tonic in a minor scale${exNote ? ` (e.g. C to ${exNote} in C minor)` : ""}. A semitone wider gives a <b>major ${noun}</b>; narrower, a <b>diminished ${noun}</b>.`;
     }
@@ -149,7 +154,7 @@
     const aBase = a[0], bBase = b[0];
     const noteA = M.parseSpelled(a, 4);
     // If b's letter wraps around below a (e.g. B→C), it lives in the next octave.
-    const noteB = M.parseSpelled(b, LETTERS.indexOf(bBase) <= LETTERS.indexOf(aBase) ? 5 : 4);
+    const noteB = M.parseSpelled(b, LETTERS.indexOf(bBase) < LETTERS.indexOf(aBase) ? 5 : 4);
     const spec = { clef: "treble", notes: [noteA, noteB], accidentals: "all" };
     return {
       prompt: `Is the distance from <b>${a}</b> up to <b>${b}</b> a tone or a semitone?`,
@@ -803,7 +808,7 @@
     const pool = ["C", "D", "E", "F", "G", "A", "B", "Bb", "Eb", "F#", "Ab", "Db"];
     return {
       prompt: `A <b>${inst.name}</b> ${inst.blurb}. To sound concert <b>${M.spelledName(concert)}</b>, what note must be <i>written</i> for the player?`,
-      choices: choices(rng, M.spelledName(written), pool),
+      choices: choices(rng, M.spelledName(written), pool, 4, { excludeEnharmonic: true }),
       answer: M.spelledName(written),
       explanation: `Since the instrument sounds lower than written, you write <i>higher</i> by the same interval: a ${inst.quality} ${M.ordinal(inst.number)} above ${M.spelledName(concert)} is <b>${M.spelledName(written)}</b>. Transposing instruments exist because 18th-century natural instruments (horns, clarinets) were built for a single key; players swapped crooks or barrels to change key. When valves and keywork arrived, the notation convention stayed.`,
     };
@@ -822,7 +827,7 @@
     const spec = { clef: "treble", notes: [lo, hi] };
     return {
       prompt: `Transpose <b>${M.spelledName(root)}</b> <b>${word}</b> by a <b>${qual} ${M.ordinal(num)}</b>. What is the new note?`,
-      choices: choices(rng, M.spelledName(result), pool),
+      choices: choices(rng, M.spelledName(result), pool, 4, { excludeEnharmonic: true }),
       answer: M.spelledName(result),
       explanation: `A ${qual} ${M.ordinal(num)} ${word} from ${M.spelledName(root)} is <b>${M.spelledName(result)}</b> - count ${num} letter names ${word}, then adjust the accidental for the exact quality.` + staffBlock(spec),
     };
@@ -876,7 +881,7 @@
     { term: "Marcato", lang: "It.", meaning: "marked and accented", cat: "articulation" },
     { term: "Pizzicato (pizz.)", lang: "It.", meaning: "plucked (strings)", cat: "articulation" },
     { term: "Arco", lang: "It.", meaning: "with the bow (strings)", cat: "articulation" },
-    { term: "Slur", lang: "It.", meaning: "a curved line over notes: connect them smoothly in one gesture", cat: "articulation" },
+    { term: "Slur", lang: "Eng.", meaning: "a curved line over notes: connect them smoothly in one gesture", cat: "articulation" },
     // Expression & mood.
     { term: "Dolce", lang: "It.", meaning: "sweetly", cat: "expression" },
     { term: "Cantabile", lang: "It.", meaning: "in a singing style", cat: "expression" },
@@ -897,7 +902,7 @@
     { term: "Fine", lang: "It.", meaning: "the end", cat: "navigation" },
     { term: "Coda", lang: "It.", meaning: "a closing section", cat: "navigation" },
     { term: "Fermata (pause)", lang: "It.", meaning: "hold the note or rest longer than written", cat: "navigation" },
-    { term: "Tacet", lang: "It.", meaning: "silent - do not play", cat: "navigation" },
+    { term: "Tacet", lang: "Lat.", meaning: "silent - do not play", cat: "navigation" },
     // French.
     { term: "Lent", lang: "Fr.", meaning: "slow", cat: "french" },
     { term: "Modéré", lang: "Fr.", meaning: "at a moderate speed", cat: "french" },
@@ -1171,8 +1176,8 @@
         {
           id: "g2-keys", title: "More keys, major & minor",
           why: "Each new key is one more step round the circle of fifths - and every major key has a relative minor that shares its signature.",
-          what: "<p>Major keys out to A, B♭ and E♭, and the minor keys that share their signatures (a minor 3rd below the major). The minor's signature comes from its <i>relative major</i>.</p>",
-          questions: (rng) => (rng.bool(0.6) ? keySigSubset(rng, ["G", "D", "A", "F", "Bb", "Eb"]) : keySigSubset(rng, ["E", "A", "D", "G", "C"], "minor")),
+          what: "<p>Major keys out to A, B♭ and E♭, plus the minor keys <b>A, E and D minor</b> - the relative minors of C, G and F major. The minor's signature comes from its <i>relative major</i>.</p>",
+          questions: (rng) => (rng.bool(0.6) ? keySigSubset(rng, ["G", "D", "A", "F", "Bb", "Eb"]) : keySigSubset(rng, ["A", "E", "D"], "minor")),
         },
         {
           id: "g2-intervals", title: "Intervals by number",
@@ -1368,7 +1373,7 @@
         {
           id: "g6-chords", title: "Dominant & supertonic 7ths",
           why: "The dominant 7th (V7) is the engine of tonal harmony. In C major it is G-B-D-F: the tritone B-F wants to resolve inward by contrary motion (B rises a semitone to C, F falls a semitone to E), landing squarely on the tonic chord. No other interval has that built-in directional pull.",
-          what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V.</p>",
+          what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four positions - root position plus three inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V.</p>",
           questions: (rng) => dominant7thQuestion(rng),
         },
         {
@@ -1392,7 +1397,7 @@
         {
           id: "g7-chromatic", title: "Chromatic chords",
           why: "Grade 7 adds colour beyond the diatonic chords: the tense diminished 7th and the dark Neapolitan 6th are the first of the chromatic chords that make late-Romantic harmony so rich.",
-          what: "<p>The <b>diminished 7th</b> stacks minor 3rds and is highly unstable. The <b>Neapolitan 6th</b> is a major triad on the <i>flattened</i> supertonic (♭II), almost always in first inversion, used to approach the dominant. Plus secondary (non-dominant) 7th chords.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why 'Neapolitan'?</b> The name comes from the Neapolitan opera school of the early 18th century - composers like Alessandro Scarlatti and Pergolesi worked in Naples, which was then the dominant opera centre of Europe. They particularly favoured this striking ♭II chord. German theorists who imported and systematised Italian style named the chord after the city.</p>",
+          what: "<p>The <b>diminished 7th</b> stacks minor 3rds and is highly unstable. The <b>Neapolitan 6th</b> is a major triad on the <i>flattened</i> supertonic (♭II), almost always in first inversion, used to approach the dominant. Plus secondary (non-dominant) 7th chords.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why 'Neapolitan'?</b> The name conventionally links the chord to the Neapolitan opera school of the early 18th century - composers like Alessandro Scarlatti and Pergolesi worked in Naples, then the dominant opera centre of Europe, and made frequent use of this striking ♭II chord. But the chord itself is older: it already appears in Carissimi, Corelli, and Purcell. The name's exact origin is uncertain.</p>",
           questions: (rng) => chromaticChordQuestion(rng),
         },
         {
@@ -1416,7 +1421,7 @@
         {
           id: "g8-aug-sixth", title: "Augmented 6th chords",
           why: "The Italian, French and German augmented 6ths are the signature chromatic chords of Grade 8 - three flavours of the same striking interval, each resolving outward to the dominant.",
-          what: "<p>All three share an <b>augmented 6th</b> above the bass. The <b>Italian</b> adds a major 3rd; the <b>French</b> adds a major 3rd and an augmented 4th; the <b>German</b> adds a major 3rd and a perfect 5th (and sounds like a dominant 7th).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why Italian, French, German?</b> These are 19th-century German theorists' labels and don't reflect actual national usage - they found different versions of the chord in various repertoires and gave them nicknames. The structural differences matter more than the names: Italian has three notes (the leanest), French adds a note that creates a whole-tone sonority, German adds a perfect 5th making it enharmonically identical to a dominant 7th - which is why it needs careful voice-leading to avoid parallel 5ths when resolving.</p>",
+          what: "<p>All three share an <b>augmented 6th</b> above the bass. The <b>Italian</b> adds a major 3rd; the <b>French</b> adds a major 3rd and an augmented 4th; the <b>German</b> adds a major 3rd and a perfect 5th (and sounds like a dominant 7th).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why Italian, French, German?</b> These are conventional nicknames of uncertain origin and don't reflect actual national usage - the labels just distinguish the three shapes by ear, not by where composers used them. The structural differences matter more than the names: Italian has three notes (the leanest), French adds a note that creates a whole-tone sonority, German adds a perfect 5th making it enharmonically identical to a dominant 7th - which is why it needs careful voice-leading to avoid parallel 5ths when resolving.</p>",
           questions: (rng) => augmentedSixthQuestion(rng),
         },
         {
@@ -1511,7 +1516,7 @@
 
   const CLEF_REF = [
     ["Treble (G)", "2nd line up = G4", "violin, flute, oboe, right-hand piano, high voices"],
-    ["Bass (F)", "2nd line down = F3", "cello, bassoon, tuba, left-hand piano, low voices"],
+    ["Bass (F)", "2nd line down = F3", "cello, bassoon, trombone, tuba, left-hand piano, bass voice"],
     ["Alto (C)", "middle line = middle C", "viola"],
     ["Tenor (C)", "4th line up = middle C", "high cello, bassoon & trombone passages"],
   ];
