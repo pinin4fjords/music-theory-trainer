@@ -429,13 +429,14 @@
     // playback duration + 350 ms buffer before mic opens
     const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this short phrase, then <strong>sing it back</strong>.${sequenceStaff(phrase)}`,
+      prompt: `Listen to this short phrase, then <strong>sing it back</strong>. It's an ear test, so the notes aren't shown - you'll see them when you're done.`,
       audio: function () { audio().sequence(phrase, step, dur); },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
+        revealStaffHtml: sequenceStaff(phrase),
       },
       choices: ["I sang the phrase", "I couldn't match it"],
       answer: "I sang the phrase",
@@ -516,43 +517,46 @@
   // Grade 2 echo melody: 4 notes, major or minor key, range up to dominant.
   // Phrase plays once, then mic opens automatically for an immediate response.
   function g2EchoMelodyQuestion(rng) {
-    const isMajor = rng.bool();
-    const phrases = isMajor ? G2_ECHO_PHRASES_MAJOR : G2_ECHO_PHRASES_MINOR;
-    const phrase = pick(rng, phrases);
-    const keyLabel = isMajor ? "major" : "minor";
+    // ABRSM 2B echoes are major only (tonic-to-dominant); minor is introduced at
+    // 3B, so the minor phrases live in the Grade 3 pool.
+    const phrase = pick(rng, G2_ECHO_PHRASES_MAJOR);
     const step = 0.52, dur = 0.48;
     const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this ${keyLabel}-key phrase, then <strong>sing it back</strong>.${sequenceStaff(phrase)}`,
+      prompt: `Listen to this major-key phrase, then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
       audio: function () { audio().sequence(phrase, step, dur); },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
+        revealStaffHtml: sequenceStaff(phrase),
       },
       choices: ["I sang the phrase", "I couldn't match it"],
       answer: "I sang the phrase",
-      explanation: `Grade 2 echo singing: phrases can be in major or minor keys and extend up to the 5th. The lowered 3rd note in minor phrases is the key difference — it gives the darker, more unsettled feeling.`,
+      explanation: `Grade 2 echo singing: short major-key phrases spanning up to a 5th, tonic to dominant. Fix the tonic in your ear first, then follow the shape up and down from it.`,
     };
   }
 
   // Grade 3 echo melody: 4 notes, major or minor, range within a full octave.
   function g3EchoMelodyQuestion(rng) {
     const isMajor = rng.bool();
-    const phrases = isMajor ? G3_ECHO_PHRASES_MAJOR : G3_ECHO_PHRASES_MINOR;
+    // Grade 3 is where minor keys enter the sung tests: draw on both the Grade 3
+    // minor phrases and the tonic-mediant minor phrases relocated from Grade 2.
+    const phrases = isMajor ? G3_ECHO_PHRASES_MAJOR : G3_ECHO_PHRASES_MINOR.concat(G2_ECHO_PHRASES_MINOR);
     const phrase = pick(rng, phrases);
     const keyLabel = isMajor ? "major" : "minor";
     const step = 0.5, dur = 0.46;
     const autoPlayAndRespondMs = Math.round(((phrase.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this ${keyLabel}-key phrase, then <strong>sing it back</strong>.${sequenceStaff(phrase)}`,
+      prompt: `Listen to this ${keyLabel}-key phrase, then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
       audio: function () { audio().sequence(phrase, step, dur); },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
+        revealStaffHtml: sequenceStaff(phrase),
       },
       choices: ["I sang the phrase", "I couldn't match it"],
       answer: "I sang the phrase",
@@ -618,6 +622,66 @@
   // =========================================================================
   // Grade 4 generators
   // =========================================================================
+
+  // Test 4A/5A: sing back a melody from memory. The melody is played twice, then
+  // the singer reproduces it with no printed score. Octave range, major or minor
+  // up to 3 sharps/flats, sung register kept within roughly A3-E5.
+  const MEMORY_PHRASES = [
+    { name: "C major", phrases: [
+      [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.G4, MIDI.E4, MIDI.C4],
+      [MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5, MIDI.B4, MIDI.G4],
+    ]},
+    { name: "G major", phrases: [
+      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],
+      [MIDI.G4, MIDI.B4, MIDI.A4, MIDI.G4, 66, MIDI.G4], // G B A G F# G
+    ]},
+    { name: "F major", phrases: [
+      [65, 67, MIDI.A4, 72, MIDI.A4, 65],       // F G A C' A F
+      [65, MIDI.A4, MIDI.G4, 65, MIDI.E4, 65],  // F A G F E F
+    ]},
+    { name: "A minor", phrases: [
+      [MIDI.A3, MIDI.C4, MIDI.E4, MIDI.C4, MIDI.B3, MIDI.A3],
+      [MIDI.A3, MIDI.B3, MIDI.C4, MIDI.E4, MIDI.C4, MIDI.A3],
+    ]},
+    { name: "D minor", phrases: [
+      [MIDI.D4, 65, MIDI.A4, 65, MIDI.E4, MIDI.D4],  // D F A F E D
+      [MIDI.D4, MIDI.E4, 65, MIDI.A4, 65, MIDI.D4],  // D E F A F D
+    ]},
+    { name: "E minor", phrases: [
+      [MIDI.E4, MIDI.G4, MIDI.B4, MIDI.G4, 66, MIDI.E4], // E G B G F# E
+      [MIDI.E4, 66, MIDI.G4, MIDI.B4, MIDI.G4, MIDI.E4], // E F# G B G E
+    ]},
+  ];
+
+  function memorySingQuestion(rng, gradeLabel) {
+    const keyDef = pick(rng, MEMORY_PHRASES);
+    const phrase = pick(rng, keyDef.phrases);
+    const step = 0.5, dur = 0.46;
+    const onePlayMs = (phrase.length - 1) * step * 1000 + dur * 1000;
+    const gapMs = 900;
+    // The mic opens after BOTH playings finish.
+    const autoPlayAndRespondMs = Math.round(onePlayMs + gapMs + onePlayMs + 350);
+    return {
+      prompt: `Listen to this melody in <b>${keyDef.name}</b>, played <strong>twice</strong>. Then <strong>sing it back from memory</strong> - there is no score to read.`,
+      audio: function () {
+        const a = audio();
+        a.sequence(phrase, step, dur);
+        later(function () { a.sequence(phrase, step, dur); }, onePlayMs + gapMs);
+      },
+      micTask: {
+        type: "sequence",
+        targets: makeSequenceTargets(phrase),
+        autoPlayAndRespondMs: autoPlayAndRespondMs,
+        toleranceSemitones: 1.0,
+        revealStaffHtml: sequenceStaff(phrase),
+      },
+      choices: ["I sang it back", "I couldn't manage it"],
+      answer: "I sang it back",
+      explanation: `${gradeLabel} memory singing: a melody spanning up to an octave, major or minor (up to 3 sharps or flats), played twice. Hold the overall shape and the tonic in your head during the gap, then reproduce it - the two hearings are your only reference.`,
+    };
+  }
+  function g4MemorySingQuestion(rng) { return memorySingQuestion(rng, "Grade 4"); }
+  function g5MemorySingQuestion(rng) { return memorySingQuestion(rng, "Grade 5"); }
 
   // Test 4B: Sight-sing a 5-note phrase from a printed score.
   // Only tonic is played (for pitch reference). Student reads and sings in sequence.
@@ -825,8 +889,16 @@
       ii: t([MIDI.D4, MIDI.F4, MIDI.A4]),
       IV: t([65, MIDI.A4, 72]),
       V: t([MIDI.G4, MIDI.B4, MIDI.D5]),
+      V7: t([MIDI.G4, MIDI.B4, MIDI.D5, MIDI.F5]),
       vi: t([MIDI.A4, MIDI.C5, MIDI.E5]),
     };
+  }
+
+  // ABRSM chord-answer vocabulary: every naming (Roman numeral, technical name)
+  // is accepted in the exam, so labels carry both.
+  const CHORD_TECHNICAL = { I: "tonic", ii: "supertonic", IV: "subdominant", V: "dominant", V7: "dominant 7th", vi: "submediant" };
+  function chordNameLabel(roman) {
+    return `${roman} (${CHORD_TECHNICAL[roman]})`;
   }
 
   function cadencesForKey(chords) {
@@ -866,16 +938,6 @@
     };
   }
 
-  function progressionsForKey(chords) {
-    return [
-      { label: "I - IV - V", chords: [chords.I, chords.IV, chords.V] },
-      { label: "I - V - vi", chords: [chords.I, chords.V, chords.vi] },
-      { label: "I - ii - V", chords: [chords.I, chords.ii, chords.V] },
-      { label: "vi - IV - V", chords: [chords.vi, chords.IV, chords.V] },
-      { label: "I - IV - I", chords: [chords.I, chords.IV, chords.I] },
-    ];
-  }
-
   function playChordSequence(chordSeq) {
     return function () {
       const a = audio();
@@ -883,18 +945,33 @@
     };
   }
 
-  // Shared chord-progression-ID generator: pick from the first `count`
-  // progressions, in a randomly-chosen key.
-  function chordProgressionQuestion(rng, count) {
+  // ABRSM 7C(ii): a cadence is played, then the candidate names the TWO chords
+  // that formed it. The chord pool is the official Grade 7 set (tonic,
+  // subdominant, dominant, dominant 7th, submediant), all root position; the
+  // two-chord pairs are genuine cadential progressions rather than the generic
+  // I-IV-V strings the old chord-progression question used.
+  const G7_CADENCE_PAIRS = [
+    { pair: ["V", "I"], gloss: "a perfect cadence" },
+    { pair: ["V7", "I"], gloss: "a perfect cadence with a dominant 7th" },
+    { pair: ["I", "V"], gloss: "an imperfect cadence" },
+    { pair: ["IV", "V"], gloss: "an imperfect cadence approached from the subdominant" },
+    { pair: ["V", "vi"], gloss: "an interrupted cadence" },
+  ];
+  function pairLabel(pair) {
+    return `${chordNameLabel(pair[0])} - ${chordNameLabel(pair[1])}`;
+  }
+  function g7ChordCadenceQuestion(rng) {
     const key = pick(rng, Object.keys(CHORD_KEYS));
-    const pool = progressionsForKey(chordsForKey(key)).slice(0, count);
-    const p = pick(rng, pool);
+    const chords = chordsForKey(key);
+    const chosen = pick(rng, G7_CADENCE_PAIRS);
+    const distractors = G7_CADENCE_PAIRS.filter((p) => p !== chosen).map((p) => pairLabel(p.pair));
+    const ans = pairLabel(chosen.pair);
     return {
-      prompt: `Listen to this chord progression in <b>${key} major</b>. Which chords are they, in order?`,
-      audio: playChordSequence(p.chords),
-      choices: choices(rng, p.label, pool.map((x) => x.label), Math.min(4, count)),
-      answer: p.label,
-      explanation: `That was <b>${p.label}</b>. Naming chords by their scale-degree number (I, IV, V...) works in any key — I is built on the tonic, IV on the subdominant, V on the dominant, and so on.`,
+      prompt: `Listen to this cadence in <b>${key} major</b>. Which two chords formed it, in order?`,
+      audio: playCadence([chords[chosen.pair[0]], chords[chosen.pair[1]]]),
+      choices: choices(rng, ans, distractors, 4),
+      answer: ans,
+      explanation: `That was <b>${ans}</b> - ${chosen.gloss}. In the exam you may answer with the Roman numerals (${chosen.pair[0]}-${chosen.pair[1]}), the technical names (${CHORD_TECHNICAL[chosen.pair[0]]}, ${CHORD_TECHNICAL[chosen.pair[1]]}), or the letter-name chords - all three are accepted.`,
     };
   }
 
@@ -945,6 +1022,45 @@
     };
   }
 
+  // ABRSM 8C: a passage that *starts in a minor key* and modulates. The two most
+  // common destinations from minor are the relative major (no new accidental -
+  // the music simply brightens) and the dominant (announced by the sharpened
+  // leading note of the new key). Minor keys are chosen so the relative major is
+  // one of the app's keys. Notes are given in MIDI so the cadences are exact.
+  const MINOR_START_MODS = [
+    { minor: "A minor", establish: [57, 60, 64, 69],
+      toRelative: { chords: [[67, 71, 74], [60, 64, 67]] },          // G -> C
+      toDominant: { chords: [[59, 63, 66], [64, 68, 71]], signal: "D♯" } }, // B -> E, D♯ leads to E
+    { minor: "D minor", establish: [62, 65, 69, 74],
+      toRelative: { chords: [[60, 64, 67], [65, 69, 72]] },          // C -> F
+      toDominant: { chords: [[64, 68, 71], [69, 73, 76]], signal: "G♯" } }, // E -> A
+    { minor: "E minor", establish: [64, 67, 71, 76],
+      toRelative: { chords: [[62, 66, 69], [67, 71, 74]] },          // D -> G
+      toDominant: { chords: [[66, 70, 73], [71, 75, 78]], signal: "A♯" } }, // F♯ -> B
+  ];
+  function minorModulationQuestion(rng) {
+    const k = pick(rng, MINOR_START_MODS);
+    const toRelative = rng.bool();
+    const target = toRelative ? k.toRelative : k.toDominant;
+    const ans = toRelative ? "Modulates to the relative major" : "Modulates to the dominant";
+    const play = function () {
+      const a = audio();
+      a.sequence(k.establish, 0.32, 0.3);
+      later(function () { a.chord(target.chords[0], 0.9); }, 1500);
+      later(function () { a.chord(target.chords[1], 1.2); }, 2450);
+    };
+    const explanation = toRelative
+      ? `Modulates to the <b>relative major</b> — the minor's brighter partner a minor 3rd above, sharing the same key signature (so no new accidental appears; the music just turns from dark to bright as it settles onto the major chord).`
+      : `Modulates to the <b>dominant</b> — listen for <b>${target.signal}</b>, the sharpened leading note of the new key. From a minor key, the relative major and the dominant are the two commonest destinations.`;
+    return {
+      prompt: `Listen — this passage starts in <b>${k.minor}</b>, then <strong>modulates</strong>. Where does it move to?`,
+      audio: play,
+      choices: choices(rng, ans, ["Modulates to the relative major", "Modulates to the dominant", "Modulates to the subdominant"], 3),
+      answer: ans,
+      explanation: explanation,
+    };
+  }
+
   // Two-part phrases for the Grade 6-7 two-part echo task: a top line plus a
   // 3rd-below harmony line, played together. Grade 6 echoes the top line,
   // Grade 7 echoes the bottom line — same material, different target.
@@ -974,13 +1090,14 @@
     const autoPlayAndRespondMs = Math.round(((target.length - 1) * step + dur) * 1000 + 350);
     const which = voice === "top" ? "upper" : "lower";
     return {
-      prompt: `Listen to this two-part phrase, then sing back <strong>just the ${which} line</strong>.${sequenceStaff(target)}`,
+      prompt: `Listen to this two-part phrase, then sing back <strong>just the ${which} line</strong>. Your line stays hidden until afterwards - isolate it by ear.`,
       audio: twoPartAudio(set.top, set.bottom, step, dur),
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(target),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: gradeLabel === "Grade 7" ? 0.5 : 1.0,
+        revealStaffHtml: sequenceStaff(target),
       },
       choices: ["I sang the " + which + " line", "I couldn't match it"],
       answer: "I sang the " + which + " line",
@@ -999,7 +1116,7 @@
     const step = 0.55, dur = 0.5;
     const autoPlayAndRespondMs = Math.round(((set.bottom.length - 1) * step + dur) * 1000 + 350);
     return {
-      prompt: `Listen to this three-part phrase, then sing back <strong>just the lowest line</strong>.${sequenceStaff(set.bottom)}`,
+      prompt: `Listen to this three-part phrase, then sing back <strong>just the lowest line</strong>. It stays hidden until afterwards - track it by ear.`,
       audio: function () {
         const a = audio();
         a.sequence(set.top, step, dur);
@@ -1011,6 +1128,7 @@
         targets: makeSequenceTargets(set.bottom),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 0.5,
+        revealStaffHtml: sequenceStaff(set.bottom),
       },
       choices: ["I sang the lowest line", "I couldn't match it"],
       answer: "I sang the lowest line",
@@ -1113,7 +1231,6 @@
   }
 
   function g7CadenceQuestion(rng) { return auralCadenceQuestion(rng, 3); }
-  function g7ChordProgressionQuestion(rng) { return chordProgressionQuestion(rng, 3); }
   function g7ModulationQuestion(rng) { return modulationQuestion(rng); }
   function g7EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "bottom", "Grade 7"); }
 
@@ -1160,8 +1277,34 @@
   // =========================================================================
 
   function g8CadenceQuestion(rng) { return auralCadenceQuestion(rng, 4); }
-  function g8ChordProgressionQuestion(rng) { return chordProgressionQuestion(rng, 5); }
-  function g8ModulationQuestion(rng) { return modulationQuestion(rng); }
+
+  // ABRSM 8A(iii): name all three chords of a cadential progression (approach
+  // chord + the two cadence chords), drawn from the Grade 8 vocabulary.
+  const G8_CADENTIAL_PROGRESSIONS = [
+    { seq: ["ii", "V", "I"], gloss: "a perfect cadence approached through the supertonic" },
+    { seq: ["IV", "V", "I"], gloss: "a perfect cadence approached through the subdominant" },
+    { seq: ["I", "IV", "V"], gloss: "ending on an imperfect cadence" },
+    { seq: ["I", "ii", "V"], gloss: "ending on an imperfect cadence" },
+    { seq: ["I", "V", "vi"], gloss: "ending on an interrupted cadence" },
+  ];
+  function g8ChordProgressionQuestion(rng) {
+    const key = pick(rng, Object.keys(CHORD_KEYS));
+    const chords = chordsForKey(key);
+    const chosen = pick(rng, G8_CADENTIAL_PROGRESSIONS);
+    const label = (seq) => seq.map(chordNameLabel).join(" - ");
+    const ans = label(chosen.seq);
+    const distractors = G8_CADENTIAL_PROGRESSIONS.filter((p) => p !== chosen).map((p) => label(p.seq));
+    return {
+      prompt: `Listen to this three-chord progression in <b>${key} major</b>, ending with a cadence. Name the three chords in order.`,
+      audio: playChordSequence(chosen.seq.map((r) => chords[r])),
+      choices: choices(rng, ans, distractors, 4),
+      answer: ans,
+      explanation: `That was <b>${ans}</b> - ${chosen.gloss}. Follow the bass to find each chord's root, then confirm the cadence formed by the last two chords.`,
+    };
+  }
+  // ABRSM 8C presents two passages, one starting major and one starting minor,
+  // so Grade 8 mixes the major-start and minor-start modulation stimuli.
+  function g8ModulationQuestion(rng) { return rng.bool() ? minorModulationQuestion(rng) : modulationQuestion(rng); }
   function g8EchoThreePartQuestion(rng) { return threePartEchoQuestion(rng); }
 
   function g8FeaturesQuestion(rng) {
@@ -1230,7 +1373,7 @@
           id: "g1-aural-sing",
           title: "Aural: echo singing",
           why: "In the Grade 1 aural test the examiner plays a short two-bar melody three times and you sing it back each time. The melody is simple — 3 to 4 notes using steps in C major.",
-          what: "<p>Listen to the whole phrase first — notice its <b>shape</b> (going up? going down? a step or a skip?). Then sing it back note by note on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice.</p><p class=\"muted\" style=\"font-size:.9em\">The mic detects each note as you hold it and advances to the next automatically.</p>",
+          what: "<p>Listen to the whole phrase first — notice its <b>shape</b> (going up? going down? a step or a skip?). Then sing it back note by note on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice.</p><p class=\"muted\" style=\"font-size:.9em\">Sing the whole phrase, then pause — the mic records your attempt and scores all the notes together once you stop.</p>",
           questions: g1EchoMelodyQuestion,
           tags: ["aural"],
         },
@@ -1337,6 +1480,14 @@
           questions: g4SightSingQuestion,
           tags: ["aural"],
         },
+        {
+          id: "g4-aural-memory",
+          title: "Aural: sing from memory",
+          why: "Grade 4 Test A introduces memory singing: a melody spanning up to an octave (major or minor, up to 3 sharps or flats) is played twice, and you sing it back with no printed score.",
+          what: "<p>Nothing is written down - the two hearings are all you get. During the gap, keep the tonic and the melody's overall shape (where it rose and fell) fixed in your head, then reproduce it.</p>",
+          questions: g4MemorySingQuestion,
+          tags: ["aural"],
+        },
       ],
     },
     {
@@ -1377,6 +1528,14 @@
           why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic, and one allowed leap of a perfect 4th.",
           what: "<p>Spot the 4th leap before you start — it's the hardest interval to hit accurately. Everything else will be steps. Practice the sound of a perfect 4th (same as the start of 'Here Comes the Bride') so you can leap it confidently.</p>",
           questions: g5SightSingQuestion,
+          tags: ["aural"],
+        },
+        {
+          id: "g5-aural-memory",
+          title: "Aural: sing from memory",
+          why: "Grade 5 Test A repeats the memory-singing task: a melody up to an octave (major or minor, up to 3 sharps or flats) played twice, sung back from memory.",
+          what: "<p>Same skill as Grade 4, and worth drilling until it is automatic - fix the tonic and shape in your head during the gap between the two hearings, then sing it straight back.</p>",
+          questions: g5MemorySingQuestion,
           tags: ["aural"],
         },
       ],
@@ -1447,10 +1606,10 @@
         },
         {
           id: "g7-aural-chords",
-          title: "Aural: identify the chords",
-          why: "Grade 7 asks you to name a short chord progression by scale-degree number (I, IV, V, vi...) — the same skill as cadence ID, extended to three chords instead of two.",
-          what: "<p>Each chord is built on a degree of the scale: I on the tonic, IV on the subdominant, V on the dominant, vi on the submediant. Listen chord by chord rather than trying to hear the whole progression at once.</p>",
-          questions: g7ChordProgressionQuestion,
+          title: "Aural: name the cadence chords",
+          why: "Grade 7 plays a cadence and asks you to name the two chords that formed it, chosen from tonic, subdominant, dominant, dominant 7th and submediant — all in root position.",
+          what: "<p>Answer with Roman numerals (V-I), technical names (dominant to tonic), or letter-name chords — the exam accepts all three. Hear the bass move first (it carries the root of each chord), then check the quality above it.</p>",
+          questions: g7ChordCadenceQuestion,
           tags: ["aural"],
         },
         {
@@ -1508,17 +1667,17 @@
         },
         {
           id: "g8-aural-chords",
-          title: "Aural: identify the chords (extended)",
-          why: "Grade 8 extends the chord-progression task with a wider pool of progressions, including chords built on the supertonic and submediant alongside the primary triads.",
-          what: "<p>Keep naming chords by scale-degree number. The more progressions you've heard, the more each one starts to sound like a distinct, recognisable shape rather than a puzzle to work out from scratch.</p>",
+          title: "Aural: name the cadential chords",
+          why: "Grade 8 plays a three-chord cadential progression - an approach chord plus the two cadence chords - and asks you to name all three, drawn from the tonic, supertonic, subdominant, dominant and submediant.",
+          what: "<p>Answer with Roman numerals, technical names or letter-name chords. Hear the bass to fix each root, then identify the cadence at the end (the last two chords) and work back to the approach chord.</p>",
           questions: g8ChordProgressionQuestion,
           tags: ["aural"],
         },
         {
           id: "g8-aural-modulation",
           title: "Aural: spot the modulation",
-          why: "Grade 8 repeats the Grade 7 modulation task — identifying a move to the dominant, subdominant, or relative minor — with the real exam presenting two separate passages to test the skill twice.",
-          what: "<p>Same listening strategy as Grade 7: find the accidental that doesn't belong to the starting key, and let it tell you where the music has moved to.</p>",
+          why: "Grade 8 presents two passages: one starting in a major key and one starting in a minor key. From minor, the relative major and the dominant are the commonest destinations.",
+          what: "<p>For a major-key start, find the accidental that doesn't belong and let it name the new key. For a minor-key start, listen for the brightening onto the relative major, or the sharpened leading note that signals a move to the dominant.</p>",
           questions: g8ModulationQuestion,
           tags: ["aural"],
         },
