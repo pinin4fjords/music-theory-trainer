@@ -63,7 +63,7 @@ describe("content generators - property/smoke tests", () => {
       const keysSeen = new Set();
       for (let i = 0; i < 40; i++) {
         const q = topic.questions(r);
-        const m = q.prompt.match(/in <b>(\w+) major/);
+        const m = q.prompt.match(/<b>(\w+) major<\/b>/);
         expect(m).toBeTruthy();
         keysSeen.add(m[1]);
       }
