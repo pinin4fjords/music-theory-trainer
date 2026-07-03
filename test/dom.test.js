@@ -350,7 +350,8 @@ describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
       // more than a semitone away, so every note is a guaranteed mismatch (the
       // pcMatch tolerance is ±1 semitone). Then go quiet to end the attempt.
       for (let i = 0; i < targetCount + 3; i++) capturedCallback({ midi: 66, cents: 0, clarity: 0.9 });
-      for (let i = 0; i < 8; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
+      // Trailing silence past the ~1.2 s window (15 readings) ends the take.
+      for (let i = 0; i < 18; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
 
       const acceptBtn = [...document.querySelectorAll(".seq-btn-row button")]
         .find((b) => /Accept & continue/.test(b.textContent));

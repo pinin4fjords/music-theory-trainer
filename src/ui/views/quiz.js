@@ -21,6 +21,19 @@
 (function (global) {
   "use strict";
 
+  // A recovery-oriented message for a getUserMedia failure, keyed on the DOM
+  // exception name so the user is told what to actually do.
+  function micErrorMessage(err) {
+    const name = err && err.name;
+    if (name === "NotAllowedError" || name === "SecurityError") {
+      return "Microphone blocked — allow mic access for this site in your browser settings, then try again. You can also self-report below.";
+    }
+    if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+      return "No microphone found — connect one, or use self-report below.";
+    }
+    return "Could not access the microphone — use self-report below.";
+  }
+
   // --- Mic task panel -------------------------------------------------------
 
   // Single-pitch variant: detect one held note.
@@ -96,10 +109,10 @@
           }
         });
         statusEl.textContent = "Sing the note — hold it steady.";
-      } catch {
+      } catch (err) {
         startBtn.disabled = false;
         startBtn.textContent = "🎤 Start singing";
-        statusEl.textContent = "Could not access microphone — use self-report below.";
+        statusEl.textContent = micErrorMessage(err);
       }
     });
 
@@ -135,10 +148,12 @@
     const ai = global.MTT && global.MTT.audioInput;
     const hasAutoPlay = !!(task.autoPlayAndRespondMs && q.audio);
 
-    const SILENCE_READINGS = 7; // ~560 ms at 80 ms/poll
+    const SILENCE_READINGS = 15; // ~1.2 s at 80 ms/poll — a breath mid-phrase no longer ends the take
     const MIN_CLARITY = 0.78;
+    const MAX_LISTEN_MS = 20000; // hard stop so an open mic can't stay live forever
 
     let stopDetector = null;
+    let maxTimer = null; // auto-stop watchdog
     let listening = false; // gated: ignore readings during playback
     let hasSang = false;
     let finished = false;
@@ -152,7 +167,20 @@
     resultEl.hidden = true;
 
     function stopMic() {
+      if (maxTimer) { clearTimeout(maxTimer); maxTimer = null; }
       if (stopDetector) { try { stopDetector(); } catch { /* ok */ } stopDetector = null; }
+    }
+
+    // End the take and score whatever was captured. Called on trailing silence,
+    // or by the watchdog if the singer never stops (or never starts).
+    function finishAttempt() {
+      if (finished) return;
+      finished = true;
+      stopMic();
+      startBtn.classList.remove("mic-singing");
+      startBtn.textContent = "🎤 Done";
+      statusEl.textContent = "";
+      showResult(forceSegmentNotes(readings, N));
     }
 
     // Segment a buffer of {midi, clarity} readings into exactly n notes.
@@ -211,12 +239,15 @@
     }
 
     // Compare two MIDI notes ignoring octave. Uses circular pitch-class distance
-    // so B (11) vs C (0) gives 1, not 11. Tolerance of 1 allows slightly flat/sharp.
+    // so B (11) vs C (0) gives 1, not 11. The per-task tolerance is honoured so
+    // higher grades (0.5 semitone) are actually graded more strictly than lower
+    // ones (1.0) rather than everything grading like Grade 1.
+    const tolerance = task.toleranceSemitones != null ? task.toleranceSemitones : 1;
     function pcMatch(detMidi, expMidi) {
       const det = ((detMidi % 12) + 12) % 12;
       const exp = ((expMidi % 12) + 12) % 12;
       const diff = Math.abs(det - exp);
-      return Math.min(diff, 12 - diff) <= 1;
+      return Math.min(diff, 12 - diff) <= tolerance;
     }
 
     function showResult(detected) {
@@ -267,6 +298,8 @@
         intScoreText = intTotal > 0 ? `${intMatch}/${intTotal} intervals correct` : "";
         const sep = intScoreText ? " · " : "";
         html += `<p class="seq-score ${allGoodScore ? "ok" : exact > 0 ? "part" : "bad"}">${noteScoreText}${sep}${intScoreText}</p>`;
+        const tolText = tolerance < 1 ? `within ±${tolerance} of a semitone` : `within ±${tolerance} semitone`;
+        html += `<p class="muted" style="font-size:.8em;margin:.3em 0 0">Graded ${tolText}, ignoring octave.</p>`;
       }
 
       resultEl.innerHTML = html;
@@ -324,15 +357,16 @@
         statusEl.textContent = "Singing…";
       } else if (hasSang) {
         silenceCount++;
-        if (silenceCount >= SILENCE_READINGS) {
-          finished = true;
-          stopMic();
-          startBtn.classList.remove("mic-singing");
-          startBtn.textContent = "🎤 Done";
-          statusEl.textContent = "";
-          showResult(forceSegmentNotes(readings, N));
-        }
+        statusEl.textContent = "Pause detected — scoring when you stop…";
+        if (silenceCount >= SILENCE_READINGS) finishAttempt();
       }
+    }
+
+    // Start the watchdog once the mic is actually open, so an unresponsive or
+    // silent session can't leave the stream running indefinitely.
+    function armWatchdog() {
+      if (maxTimer) clearTimeout(maxTimer);
+      maxTimer = setTimeout(finishAttempt, MAX_LISTEN_MS);
     }
 
     // Open the mic (getUserMedia). Returns true on success, false if denied.
@@ -340,10 +374,10 @@
       try {
         stopDetector = await ai.startPitchDetection(onPitch);
         return true;
-      } catch {
+      } catch (err) {
         startBtn.disabled = false;
         startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
-        statusEl.textContent = "Could not access microphone — use self-report below.";
+        statusEl.textContent = micErrorMessage(err);
         return false;
       }
     }
@@ -374,6 +408,7 @@
           hasSang = false;
           silenceCount = 0;
           listening = true;
+          armWatchdog();
           startBtn.textContent = "🎤 Sing now!";
           startBtn.classList.add("mic-singing");
           statusEl.textContent = "Sing the phrase — stop when done.";
@@ -381,6 +416,7 @@
       } else {
         if (!(await beginListening())) return;
         listening = true;
+        armWatchdog();
         statusEl.textContent = "Sing the whole phrase, then pause — it will score automatically.";
       }
     });
@@ -607,8 +643,12 @@
         const diag = !correct ? safeDiagnose(q, pickedBtn ? pickedBtn._choice : null) : null;
         const why = q.explanation ? `<div class="why-line">${q.explanation}</div>` : "";
         const diagLine = diag ? `<div class="why-line diag-line">${diag}</div>` : "";
+        // Echo/memory tasks hide the notation during the test (it's an ear test);
+        // reveal it now so the learner can see what they were meant to sing.
+        const micStaff = (q.micTask && q.micTask.revealStaffHtml)
+          ? `<div class="why-line">Here's what it was:${q.micTask.revealStaffHtml}</div>` : "";
         const cls = correct ? "good" : kind === "wrong" ? "bad" : "idk";
-        const revealEl = C.el(`<div class="reveal ${cls}" role="status">${verdict}${diagLine}${why}</div>`);
+        const revealEl = C.el(`<div class="reveal ${cls}" role="status">${verdict}${diagLine}${why}${micStaff}</div>`);
         // Dig deeper: thread into the matching "Why" explainer when one exists.
         if (topic.explainer) {
           const ex = (ctx.content.explainers || []).find((e) => e.id === topic.explainer);
