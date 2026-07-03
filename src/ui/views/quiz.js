@@ -409,9 +409,10 @@
     const rng = ctx.rng.create(seed);
     const now = ctx.now();
 
+    const sessionLength = settings.sessionLength || ctx.session.SESSION_LEN;
     const session = single
-      ? ctx.session.buildSingle(Object.assign({}, single), rng, ctx.session.SESSION_LEN)
-      : ctx.session.build({ content: ctx.content, settings, srsMap: ctx.store.srsMap(), rng, now });
+      ? ctx.session.buildSingle(Object.assign({}, single), rng, sessionLength)
+      : ctx.session.build({ content: ctx.content, settings, srsMap: ctx.store.srsMap(), rng, now, length: sessionLength });
 
     if (!session.length) {
       main.appendChild(C.el(`
@@ -482,7 +483,7 @@
           if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail);
         });
         const selfReport = C.el(`<div class="mic-self-report"></div>`);
-        selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable):</span>`));
+        selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable) - your answer affects which topics the app revisits, so be honest:</span>`));
         q.choices.forEach((choice) => {
           const sb = C.button(choice, () => {
             if (!answered) reveal(choice === q.answer ? "correct" : "wrong", null);

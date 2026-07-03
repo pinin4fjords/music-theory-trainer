@@ -124,6 +124,15 @@
       });
     }
 
+    // Session length selector.
+    const sessionLengthSelect = doc.getElementById("session-length-select");
+    if (sessionLengthSelect) {
+      sessionLengthSelect.value = String(store.settings().sessionLength || 10);
+      sessionLengthSelect.addEventListener("change", () => {
+        store.setSetting("sessionLength", parseInt(sessionLengthSelect.value, 10));
+      });
+    }
+
     // Theme toggle (cycles light -> dark -> system; system follows the OS).
     const themeToggle = doc.getElementById("theme-toggle");
     const THEME_ICON = { light: "☀️", dark: "🌙", system: "🌗" };
@@ -189,6 +198,7 @@
     function syncHeader() {
       if (gradeSelect) gradeSelect.value = String(store.settings().grade);
       if (soundToggle) soundToggle.checked = store.settings().sound;
+      if (sessionLengthSelect) sessionLengthSelect.value = String(store.settings().sessionLength || 10);
       if (streakChip) streakChip.textContent = "🔥 " + store.get().streak;
       if (levelChip) {
         const est = global.MTT.analytics.estimatedLevel(store.srsMap(), allTopics);

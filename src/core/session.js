@@ -40,6 +40,16 @@
     return allTopics(content).filter((t) => typeof t.questions === "function");
   }
 
+  // Aural topics live outside content.grades (content.auralGrades), so they
+  // need their own accessor - analytics/progress code that wants a combined
+  // view of "everything with SRS data" should concatenate this with
+  // quizableTopics(content).
+  function auralTopics(content) {
+    return (content.auralGrades || []).flatMap((ag) =>
+      ag.topics.filter((t) => typeof t.questions === "function")
+        .map((t) => Object.assign({}, t, { grade: ag.grade })));
+  }
+
   // Topics eligible for a given grade: that grade and everything below it.
   function gradeTopics(content, grade) {
     return quizableTopics(content).filter((t) => t.grade <= (grade || 4));
@@ -162,7 +172,7 @@
 
   const api = {
     SESSION_LEN,
-    allTopics, quizableTopics, gradeTopics, orderPool, assemble, build, buildSingle, qSig, setWarn,
+    allTopics, quizableTopics, auralTopics, gradeTopics, orderPool, assemble, build, buildSingle, qSig, setWarn,
   };
 
   global.MTT = global.MTT || {};

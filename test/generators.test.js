@@ -54,6 +54,64 @@ describe("content generators - property/smoke tests", () => {
     }
   });
 
+  it("aural cadence/chord/modulation questions are transposed across several keys, not just C", () => {
+    const ids = ["g7-aural-cadence", "g7-aural-chords", "g7-aural-modulation"];
+    for (const id of ids) {
+      const topic = auralTopics.find((t) => t.id === id);
+      expect(topic).toBeTruthy();
+      const r = rng.create("keys-" + id);
+      const keysSeen = new Set();
+      for (let i = 0; i < 40; i++) {
+        const q = topic.questions(r);
+        const m = q.prompt.match(/in <b>(\w+) major/);
+        expect(m).toBeTruthy();
+        keysSeen.add(m[1]);
+      }
+      expect(keysSeen.size).toBeGreaterThan(1);
+    }
+  });
+
+  it("modulation accidental notes are musically correct across keys", () => {
+    const topic = auralTopics.find((t) => t.id === "g7-aural-modulation");
+    // dominant -> raised 4th, subdominant -> lowered 7th, relative minor -> raised 5th + its name.
+    const expected = {
+      C: { "Modulates to the dominant": "F♯", "Modulates to the subdominant": "B♭", "Modulates to the relative minor": "G♯ (leading note of A minor)" },
+      G: { "Modulates to the dominant": "C♯", "Modulates to the subdominant": "F", "Modulates to the relative minor": "D♯ (leading note of E minor)" },
+      F: { "Modulates to the dominant": "B", "Modulates to the subdominant": "E♭", "Modulates to the relative minor": "C♯ (leading note of D minor)" },
+      D: { "Modulates to the dominant": "G♯", "Modulates to the subdominant": "C", "Modulates to the relative minor": "A♯ (leading note of B minor)" },
+    };
+    const r = rng.create("mod-accidentals");
+    const seenByKey = {};
+    for (let i = 0; i < 200 && Object.keys(seenByKey).length < 4; i++) {
+      const q = topic.questions(r);
+      const key = q.prompt.match(/starts in <b>(\w+) major/)[1];
+      const note = q.explanation.match(/listen for <b>([^<]+)<\/b>/)[1];
+      seenByKey[key] = seenByKey[key] || {};
+      seenByKey[key][q.answer] = note;
+    }
+    for (const key of Object.keys(expected)) {
+      for (const answer of Object.keys(expected[key])) {
+        if (seenByKey[key] && seenByKey[key][answer]) {
+          expect(seenByKey[key][answer]).toBe(expected[key][answer]);
+        }
+      }
+    }
+  });
+
+  it("melodic minor descending is quizzed as equivalent to natural minor", () => {
+    const topic = topics.find((t) => t.id === "g3-melodic");
+    const r = rng.create("mm-desc");
+    let found = false;
+    for (let i = 0; i < 60; i++) {
+      const q = topic.questions(r);
+      if (/descending/i.test(q.prompt)) {
+        found = true;
+        expect(q.answer).toMatch(/Natural minor/);
+      }
+    }
+    expect(found).toBe(true);
+  });
+
   it("interval-quality topics always carry diagnostic meta", () => {
     // Topics that name interval *quality* (not just number) drive the diagnostic
     // feedback, so every question they emit must carry interval meta.

@@ -18,6 +18,11 @@ function scaffold() {
       <span id="streak">🔥 0</span>
       <input type="checkbox" id="sound-toggle" checked>
       <button id="theme-toggle" type="button">🌗</button>
+      <select id="session-length-select">
+        <option value="5">5</option>
+        <option value="10">10</option>
+        <option value="20">20</option>
+      </select>
     </header>
     <main id="main" tabindex="-1"></main>`;
 }
@@ -58,6 +63,14 @@ describe("DOM - boot & navigation", () => {
     expect(document.querySelector("#main h1").textContent).toMatch(/Playground/);
     document.querySelector('[data-tab="learn"]').click();
     expect(document.querySelector("#main h1").textContent).toMatch(/Learn/);
+  });
+
+  it("the home screen has a quick link into Aural training", () => {
+    const cards = [...document.querySelectorAll("#home-cards button")];
+    const auralCard = cards.find((c) => /Aural/.test(c.textContent));
+    expect(auralCard).toBeTruthy();
+    auralCard.click();
+    expect(document.querySelector("#main h1").textContent).toMatch(/Aural/);
   });
 });
 
@@ -136,6 +149,15 @@ describe("DOM - settings", () => {
     document.querySelector(".choice").click();
     expect(level.textContent).not.toBe("New"); // reflects that some practice happened
   });
+
+  it("changing session length persists and changes the built session size", () => {
+    const sel = document.getElementById("session-length-select");
+    sel.value = "20";
+    sel.dispatchEvent(new window.Event("change"));
+    expect(instance.store.settings().sessionLength).toBe(20);
+    instance.router.navigate("quiz");
+    expect(document.querySelector(".progress-count").textContent).toBe("1 / 20");
+  });
 });
 
 describe("DOM - first-run onboarding", () => {
@@ -208,6 +230,17 @@ describe("DOM - progress view", () => {
     const inst = app.boot({ document, storage: fakeStore(SEEDED), now: () => NOW, seed: "p2" });
     document.getElementById("level").click();
     expect(inst.router.getCurrent()).toBe("progress");
+  });
+
+  it("surfaces aural practice in its own mastery section, separate from theory", () => {
+    scaffold();
+    const auralSeeded = Object.assign({}, SEEDED, {
+      srs: Object.assign({}, SEEDED.srs, { "g1-aural-time": card(3, 5, 4) }),
+    });
+    const inst = app.boot({ document, storage: fakeStore(auralSeeded), now: () => NOW, seed: "p4" });
+    inst.router.navigate("progress");
+    const text = document.querySelector("#main").textContent;
+    expect(text).toMatch(/Aural, by grade/);
   });
 
   it("shows an empty state before any practice", () => {

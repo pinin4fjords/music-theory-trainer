@@ -17,6 +17,7 @@
     const store = ctx.store;
     const A = ctx.analytics;
     const topics = ctx.session.quizableTopics(ctx.content);
+    const auralTopics = ctx.session.auralTopics(ctx.content);
     const srsMap = store.srsMap();
     const st = store.get();
 
@@ -32,6 +33,7 @@
 
     const est = A.estimatedLevel(srsMap, topics);
     const gm = A.gradeMastery(srsMap, topics);
+    const auralGm = A.gradeMastery(srsMap, auralTopics);
     const acc = overall.accuracy == null ? "—" : pct(overall.accuracy) + "%";
 
     view.appendChild(C.el(`
@@ -64,13 +66,39 @@
     }
     view.appendChild(card);
 
+    // Aural mastery, by grade - kept separate from the written-theory bars
+    // above since aural (listening/singing) is a distinct exam component with
+    // its own pace, not gated behind the chosen theory grade.
+    const auralSeen = Object.values(auralGm).some((m) => m.seen > 0);
+    if (auralSeen) {
+      const auralCard = C.el(`<div class="card"><h3 style="margin-top:0">Aural, by grade</h3></div>`);
+      for (let g = 1; g <= 8; g++) {
+        const m = auralGm[g];
+        if (!m) continue;
+        const seen = m.seen > 0;
+        const mastery = seen ? pct(m.mastery) : 0;
+        const detail = seen ? `${m.seen}/${m.total} topics · ${mastery}% mastery` : "not started";
+        const row = C.el(`
+          <div class="grade-row">
+            <div class="grade-row-head">
+              <span class="grade-row-name">Grade ${g}</span>
+              <span class="muted grade-row-detail">${detail}</span>
+            </div>
+            <div class="bar" role="img" aria-label="Grade ${g} aural mastery ${mastery}%"><div class="bar-fill" style="width:${mastery}%"></div></div>
+          </div>`);
+        auralCard.appendChild(row);
+      }
+      view.appendChild(auralCard);
+    }
+
     // Weakest topics, with one-tap practice.
-    const weak = A.weakAreas(srsMap, topics, 5);
+    const allTopics = topics.concat(auralTopics);
+    const weak = A.weakAreas(srsMap, allTopics, 5);
     if (weak.length) {
       const fc = C.el(`<div class="card focus-card"><h3 style="margin-top:0">Focus areas</h3><p class="muted" style="margin-top:0">Your weakest topics - tap to practise one.</p></div>`);
       const row = C.el(`<div class="focus-chips"></div>`);
       weak.forEach((w) => {
-        const topic = topics.find((t) => t.id === w.id);
+        const topic = allTopics.find((t) => t.id === w.id);
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "focus-chip";

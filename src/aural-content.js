@@ -15,7 +15,7 @@
  *
  * Aural test topics by grade:
  *   Grade 1: pulse & time sig, echo sing, spot change, dynamics/articulation
- *   Grade 2: time sig inc. 6/8, echo sing, pitch or rhythm change, dynamics/tempo/articulation
+ *   Grade 2: 2 or 3 time, echo sing, pitch or rhythm change, dynamics/tempo/articulation
  *   Grade 3: 2/3/4 time, echo sing, spot change longer phrase, tonality/dynamics/tempo
  *   Grade 4: echo 4-bar, sight-sing 5 notes, features + time sig
  *   Grade 5: echo 4-bar, sight-sing 6 notes, features + style/period
@@ -696,9 +696,15 @@
   // Grade 6-8 shared harmony helpers
   // =========================================================================
   // Grades 6-8 add cadences, chord progressions, modulation and two/three-part
-  // textures. All of it is built in C major so a small, fixed set of chords and
-  // a diatonic-scale lookup (for "a third below") can cover every generator
-  // below without a full harmony engine.
+  // textures. The two/three-part echo tasks stay in C major (a diatonic-scale
+  // lookup below finds "a third below" for harmonizing a given line). Cadences,
+  // chord progressions and modulation are transposed to a different major key
+  // per question, so students don't only ever hear C major.
+
+  function music() { return global.MTT.music; }
+
+  // Semitone offset from C for each key the harmony tasks can appear in.
+  const CHORD_KEYS = { C: 0, G: 7, F: 5, D: 2 };
 
   // Every C-major diatonic note from C2 to C7, ascending — used to find "the
   // diatonic note two scale-steps below X" (i.e. a 3rd below) for harmonizing
@@ -715,24 +721,34 @@
     return C_MAJOR_SCALE[idx - 2];
   }
 
-  const CHORDS_C = {
-    I: [MIDI.C4, MIDI.E4, MIDI.G4],
-    ii: [MIDI.D4, MIDI.F4, MIDI.A4],
-    IV: [65, MIDI.A4, 72],
-    V: [MIDI.G4, MIDI.B4, MIDI.D5],
-    vi: [MIDI.A4, MIDI.C5, MIDI.E5],
-  };
+  // Diatonic triads (root position) transposed to any of CHORD_KEYS by shifting
+  // the C-major voicing wholesale — the voicing (spacing/register) stays fixed,
+  // only the absolute pitch moves, which is all that matters for audio-only
+  // (no notation) listening questions.
+  function chordsForKey(key) {
+    const shift = CHORD_KEYS[key];
+    const t = (notes) => notes.map((m) => m + shift);
+    return {
+      I: t([MIDI.C4, MIDI.E4, MIDI.G4]),
+      ii: t([MIDI.D4, MIDI.F4, MIDI.A4]),
+      IV: t([65, MIDI.A4, 72]),
+      V: t([MIDI.G4, MIDI.B4, MIDI.D5]),
+      vi: t([MIDI.A4, MIDI.C5, MIDI.E5]),
+    };
+  }
 
-  const CADENCES = [
-    { type: "perfect", label: "Perfect cadence (V-I)", chords: [CHORDS_C.V, CHORDS_C.I],
-      explanation: `A <b>perfect cadence</b> (V-I) — the dominant resolving to the tonic. It's the strongest, most final-sounding close in tonal music.` },
-    { type: "imperfect", label: "Imperfect cadence (ending on V)", chords: [CHORDS_C.I, CHORDS_C.V],
-      explanation: `An <b>imperfect cadence</b> (ending on V) — it sounds unfinished, like a question rather than an answer.` },
-    { type: "interrupted", label: "Interrupted cadence (V-vi)", chords: [CHORDS_C.V, CHORDS_C.vi],
-      explanation: `An <b>interrupted cadence</b> (V-vi) — the ear expects the tonic after V, but gets vi instead. A "surprise" resolution.` },
-    { type: "plagal", label: "Plagal cadence (IV-I)", chords: [CHORDS_C.IV, CHORDS_C.I],
-      explanation: `A <b>plagal cadence</b> (IV-I) — sometimes called the "Amen" cadence from its use at the end of hymns.` },
-  ];
+  function cadencesForKey(chords) {
+    return [
+      { type: "perfect", label: "Perfect cadence (V-I)", chords: [chords.V, chords.I],
+        explanation: `A <b>perfect cadence</b> (V-I) — the dominant resolving to the tonic. It's the strongest, most final-sounding close in tonal music.` },
+      { type: "imperfect", label: "Imperfect cadence (ending on V)", chords: [chords.I, chords.V],
+        explanation: `An <b>imperfect cadence</b> (ending on V) — it sounds unfinished, like a question rather than an answer.` },
+      { type: "interrupted", label: "Interrupted cadence (V-vi)", chords: [chords.V, chords.vi],
+        explanation: `An <b>interrupted cadence</b> (V-vi) — the ear expects the tonic after V, but gets vi instead. A "surprise" resolution.` },
+      { type: "plagal", label: "Plagal cadence (IV-I)", chords: [chords.IV, chords.I],
+        explanation: `A <b>plagal cadence</b> (IV-I) — sometimes called the "Amen" cadence from its use at the end of hymns.` },
+    ];
+  }
 
   function playCadence(chordPair) {
     return function () {
@@ -743,12 +759,14 @@
   }
 
   // Shared cadence-ID generator: pick from the first `count` cadence types
-  // (perfect/imperfect at Grade 6, +interrupted at 7, +plagal at 8).
-  function cadenceQuestion(rng, count) {
-    const pool = CADENCES.slice(0, count);
+  // (perfect/imperfect at Grade 6, +interrupted at 7, +plagal at 8), in a
+  // randomly-chosen key so students don't only ever hear C major.
+  function auralCadenceQuestion(rng, count) {
+    const key = pick(rng, Object.keys(CHORD_KEYS));
+    const pool = cadencesForKey(chordsForKey(key)).slice(0, count);
     const c = pick(rng, pool);
     return {
-      prompt: `Listen to this two-chord cadence. Which type is it?`,
+      prompt: `Listen to this two-chord cadence in <b>${key} major</b>. Which type is it?`,
       audio: playCadence(c.chords),
       choices: choices(rng, c.label, pool.map((x) => x.label), count),
       answer: c.label,
@@ -756,13 +774,15 @@
     };
   }
 
-  const CHORD_PROGRESSIONS = [
-    { label: "I - IV - V", chords: [CHORDS_C.I, CHORDS_C.IV, CHORDS_C.V] },
-    { label: "I - V - vi", chords: [CHORDS_C.I, CHORDS_C.V, CHORDS_C.vi] },
-    { label: "I - ii - V", chords: [CHORDS_C.I, CHORDS_C.ii, CHORDS_C.V] },
-    { label: "vi - IV - V", chords: [CHORDS_C.vi, CHORDS_C.IV, CHORDS_C.V] },
-    { label: "I - IV - I", chords: [CHORDS_C.I, CHORDS_C.IV, CHORDS_C.I] },
-  ];
+  function progressionsForKey(chords) {
+    return [
+      { label: "I - IV - V", chords: [chords.I, chords.IV, chords.V] },
+      { label: "I - V - vi", chords: [chords.I, chords.V, chords.vi] },
+      { label: "I - ii - V", chords: [chords.I, chords.ii, chords.V] },
+      { label: "vi - IV - V", chords: [chords.vi, chords.IV, chords.V] },
+      { label: "I - IV - I", chords: [chords.I, chords.IV, chords.I] },
+    ];
+  }
 
   function playChordSequence(chordSeq) {
     return function () {
@@ -771,12 +791,14 @@
     };
   }
 
-  // Shared chord-progression-ID generator: pick from the first `count` progressions.
+  // Shared chord-progression-ID generator: pick from the first `count`
+  // progressions, in a randomly-chosen key.
   function chordProgressionQuestion(rng, count) {
-    const pool = CHORD_PROGRESSIONS.slice(0, count);
+    const key = pick(rng, Object.keys(CHORD_KEYS));
+    const pool = progressionsForKey(chordsForKey(key)).slice(0, count);
     const p = pick(rng, pool);
     return {
-      prompt: `Listen to this chord progression. Which chords are they, in order?`,
+      prompt: `Listen to this chord progression in <b>${key} major</b>. Which chords are they, in order?`,
       audio: playChordSequence(p.chords),
       choices: choices(rng, p.label, pool.map((x) => x.label), Math.min(4, count)),
       answer: p.label,
@@ -784,30 +806,47 @@
     };
   }
 
-  const MODULATIONS = [
-    { label: "Modulates to the dominant", accidentalNote: "F♯", play: function () {
-      const a = audio();
-      a.sequence([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5], 0.42, 0.4);
-      setTimeout(function () { a.sequence([66, MIDI.G4, MIDI.B4, MIDI.D5, MIDI.G4], 0.42, 0.4); }, 1900);
-    } },
-    { label: "Modulates to the subdominant", accidentalNote: "B♭", play: function () {
-      const a = audio();
-      a.sequence([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5], 0.42, 0.4);
-      setTimeout(function () { a.sequence([70, 69, 65, 69, 72], 0.42, 0.4); }, 1900);
-    } },
-    { label: "Modulates to the relative minor", accidentalNote: "G♯ (leading note of A minor)", play: function () {
-      const a = audio();
-      a.sequence([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5], 0.42, 0.4);
-      setTimeout(function () { a.sequence([68, MIDI.A4, MIDI.E4, MIDI.A4, MIDI.C5], 0.42, 0.4); }, 1900);
-    } },
-  ];
+  // The note that signals each modulation is always the same *scale-degree*
+  // relative to the starting key: a raised 4th announces the dominant's
+  // leading note, a lowered 7th announces the subdominant's flat 7th, and a
+  // raised 5th announces the relative minor's leading note — true in any key.
+  function modulationsForKey(key) {
+    const shift = CHORD_KEYS[key];
+    const t = (notes) => notes.map((m) => m + shift);
+    const M = music();
+    const sc = M.scale(key, "major");
+    const alter = (n, delta) => M.spelled(n.letter, n.accidental + delta, n.octave);
+    const dominantNote = M.spelledName(alter(sc[3], 1));
+    const subdominantNote = M.spelledName(alter(sc[6], -1));
+    const relativeMinorNote = M.spelledName(alter(sc[4], 1));
+    const relativeMinorName = M.relativeMinorOf(key);
+    return [
+      { label: "Modulates to the dominant", accidentalNote: dominantNote, play: function () {
+        const a = audio();
+        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
+        setTimeout(function () { a.sequence(t([66, MIDI.G4, MIDI.B4, MIDI.D5, MIDI.G4]), 0.42, 0.4); }, 1900);
+      } },
+      { label: "Modulates to the subdominant", accidentalNote: subdominantNote, play: function () {
+        const a = audio();
+        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
+        setTimeout(function () { a.sequence(t([70, 69, 65, 69, 72]), 0.42, 0.4); }, 1900);
+      } },
+      { label: "Modulates to the relative minor", accidentalNote: `${relativeMinorNote} (leading note of ${relativeMinorName} minor)`, play: function () {
+        const a = audio();
+        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
+        setTimeout(function () { a.sequence(t([68, MIDI.A4, MIDI.E4, MIDI.A4, MIDI.C5]), 0.42, 0.4); }, 1900);
+      } },
+    ];
+  }
 
   function modulationQuestion(rng) {
-    const m = pick(rng, MODULATIONS);
+    const key = pick(rng, Object.keys(CHORD_KEYS));
+    const pool = modulationsForKey(key);
+    const m = pick(rng, pool);
     return {
-      prompt: `Listen — this passage starts in C major, then <strong>modulates</strong> (changes key). Where does it move to?`,
+      prompt: `Listen — this passage starts in <b>${key} major</b>, then <strong>modulates</strong> (changes key). Where does it move to?`,
       audio: m.play,
-      choices: choices(rng, m.label, MODULATIONS.map((x) => x.label), 3),
+      choices: choices(rng, m.label, pool.map((x) => x.label), 3),
       answer: m.label,
       explanation: `${m.label} — listen for <b>${m.accidentalNote}</b>, the note that signals the new key has arrived. Modulation to the dominant, subdominant, or relative minor are the three most common moves from a major key.`,
     };
@@ -848,7 +887,7 @@
         type: "sequence",
         targets: makeSequenceTargets(target),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
-        toleranceSemitones: 1.0,
+        toleranceSemitones: gradeLabel === "Grade 7" ? 0.5 : 1.0,
       },
       choices: ["I sang the " + which + " line", "I couldn't match it"],
       answer: "I sang the " + which + " line",
@@ -878,7 +917,7 @@
         type: "sequence",
         targets: makeSequenceTargets(set.bottom),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
-        toleranceSemitones: 1.0,
+        toleranceSemitones: 0.5,
       },
       choices: ["I sang the lowest line", "I couldn't match it"],
       answer: "I sang the lowest line",
@@ -918,7 +957,7 @@
   // Grade 6 generators
   // =========================================================================
 
-  function g6CadenceQuestion(rng) { return cadenceQuestion(rng, 2); }
+  function g6CadenceQuestion(rng) { return auralCadenceQuestion(rng, 2); }
 
   function g6FeaturesQuestion(rng) {
     if (rng.bool()) return textureQuestion(rng);
@@ -979,7 +1018,7 @@
     };
   }
 
-  function g7CadenceQuestion(rng) { return cadenceQuestion(rng, 3); }
+  function g7CadenceQuestion(rng) { return auralCadenceQuestion(rng, 3); }
   function g7ChordProgressionQuestion(rng) { return chordProgressionQuestion(rng, 3); }
   function g7ModulationQuestion(rng) { return modulationQuestion(rng); }
   function g7EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "bottom", "Grade 7"); }
@@ -1013,7 +1052,7 @@
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
-        toleranceSemitones: 1.0,
+        toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
@@ -1026,7 +1065,7 @@
   // Grade 8 generators
   // =========================================================================
 
-  function g8CadenceQuestion(rng) { return cadenceQuestion(rng, 4); }
+  function g8CadenceQuestion(rng) { return auralCadenceQuestion(rng, 4); }
   function g8ChordProgressionQuestion(rng) { return chordProgressionQuestion(rng, 5); }
   function g8ModulationQuestion(rng) { return modulationQuestion(rng); }
   function g8EchoThreePartQuestion(rng) { return threePartEchoQuestion(rng); }
@@ -1051,7 +1090,7 @@
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(phrase),
-        toleranceSemitones: 1.0,
+        toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
@@ -1220,7 +1259,7 @@
           id: "g5-aural-style",
           title: "Aural: musical style & period",
           why: "Grade 5 Test C introduces style and period identification: Baroque, Classical, Romantic, or 20th century. Each period has characteristic textures, rhythms, and expressive devices.",
-          what: "<p><b>Baroque</b>: steady rhythms, ornamental melodic lines (Bach, Handel). <b>Classical</b>: balanced phrases, clear dynamics (Haydn, Mozart). <b>Romantic</b>: expressive, wide dynamics, rubato (Chopin, Schumann). <b>20th century</b>: chromatic or dissonant, irregular rhythms (Bartók, Shostakovich).</p>",
+          what: "<p><b>Baroque</b>: steady rhythms, ornamental melodic lines (Bach, Handel). <b>Classical</b>: balanced phrases, clear dynamics (Haydn, Mozart). <b>Romantic</b>: expressive, wide dynamics, rubato (Chopin, Schumann). <b>20th century</b>: chromatic or dissonant, irregular rhythms (Bartók, Shostakovich). This app's audio examples are short, simplified mnemonics for each label, not real excerpts - the actual exam plays a full piano recording, so also listen to real repertoire from each period to train your ear properly.</p>",
           questions: g5StyleQuestion,
           tags: ["aural"],
         },

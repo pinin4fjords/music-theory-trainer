@@ -1,9 +1,9 @@
 /* ui/views/aural.js - dedicated aural training area.
  *
- * Shows aural topics by grade (Grades 1-5) as practisable cards,
+ * Shows aural topics by grade (Grades 1-8) as practisable cards,
  * separate from the main theory quiz sessions. Topics include time-signature
  * identification, spot-the-change, dynamics, articulation, tonality, singing
- * back, and style/period recognition.
+ * back, cadences, modulation, and style/period recognition.
  *
  * Public surface: global `MTT.ui.views.aural`.
  */
@@ -18,7 +18,7 @@
     const view = C.el(
       `<div class="view">` +
         `<h1 tabindex="-1">Aural Training</h1>` +
-        `<p>Practice grade aural tests independently. These listening and singing tasks are a separate part of the exam — distinct from written theory.</p>` +
+        `<p>These listening and singing tasks are the aural component of a <b>performance exam</b> (piano, violin, and other instruments), Grades 1-8 - a separate assessment from the written theory tests practised elsewhere in this app.</p>` +
       `</div>`
     );
     main.appendChild(view);

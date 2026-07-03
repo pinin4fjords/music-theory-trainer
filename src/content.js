@@ -194,6 +194,21 @@
   }
 
   const MINOR_FORMS = [["naturalMinor", "natural minor"], ["harmonicMinor", "harmonic minor"], ["melodicMinorAsc", "melodic (ascending) minor"]];
+  function melodicMinorDescendingQuestion(rng) {
+    const root = pick(rng, ["A", "D", "E", "G", "C", "B"]);
+    const notes = M.scale(root, "naturalMinor").slice().reverse();
+    const spec = { clef: "treble", notes };
+    const correct = "Natural minor (6th and 7th both lowered)";
+    const distractors = ["Harmonic minor (7th raised, 6th lowered)", "Melodic minor ascending (6th and 7th both raised)"];
+    return {
+      prompt: `<b>${root} melodic minor, descending</b> - which notes does it use?` + staffBlock(spec),
+      a11yText: a11y(`${root} melodic minor descending - which notes does it use?`, spec),
+      choices: choices(rng, correct, [correct, ...distractors]),
+      answer: correct,
+      explanation: `Descending, melodic minor drops the raised 6th and 7th used going up - that raised leading note only serves to pull <i>upward</i> into the tonic, so it isn't needed coming down. ${root} melodic minor descending is spelled identically to <b>${root} natural minor</b>.`,
+      audio: () => audio().sequence(notes),
+    };
+  }
   function minorFormQuestion(rng) {
     const root = pick(rng, ["A", "D", "E", "G", "C", "B"]);
     const [type, label] = pick(rng, MINOR_FORMS);
@@ -227,7 +242,7 @@
       subdominant: "a 5th <i>below</i> the tonic - the dominant's mirror image (Latin <i>sub</i> = below/beneath). The naming scheme pairs each upper degree with a lower one: dominant ↔ subdominant, mediant ↔ submediant.",
       dominant: "a 5th above the tonic - the most powerful pull back home",
       submediant: "midpoint between tonic (1) and subdominant going down - degree 6 sits midway in the lower tetrachord, just as the mediant sits midway in the upper (Latin <i>sub</i> = below)",
-      "leading note": "a semitone below the tonic, leaning up into it - the 'leader' toward home",
+      "leading note": "a semitone below the tonic, leaning up into it - the 'leader' toward home. This name only applies in major and harmonic/melodic (ascending) minor, where the 7th is raised; in natural minor the 7th sits a whole tone below the tonic and is called the <i>subtonic</i> instead.",
     };
     const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: [sc[degree - 1]] };
     return {
@@ -720,7 +735,7 @@
 
   // Cadence identification from the two chords given.
   const CADENCES = [
-    { name: "perfect", prog: [5, 1], why: "V to I - the strongest, most final close", nameNote: "Called 'perfect' because it ends on root-position I after root-position V - landing on the most stable, conclusive point possible." },
+    { name: "perfect", prog: [5, 1], why: "V to I - the strongest, most final close", nameNote: "Called 'perfect' because it ends on the tonic (I) approached from the dominant (V) - the most conclusive close available. Textbook examples usually show both chords in root position, but it's the V-I motion that makes it perfect; an inverted V still counts." },
     { name: "plagal", prog: [4, 1], why: "IV to I - the gentle 'Amen' close", nameNote: "Called 'plagal' from Greek <i>plagios</i> (oblique) - it was the standard 'Amen' cadence in church music, approaching the tonic from the subdominant below rather than the dominant above, so it feels quieter and less forceful." },
     { name: "imperfect", prog: [1, 5], why: "ends ON chord V - it sounds unfinished, expecting more", nameNote: "Called 'imperfect' because ending on V is the opposite of landing on the tonic - it leaves the music hanging, waiting for a reply." },
     { name: "interrupted", prog: [5, 6], why: "V leads not to I but to vi - the expected resolution is 'interrupted'", nameNote: "Called 'interrupted' because the ear expects V to resolve to I, but instead it goes to vi - the expected cadence is cut short." },
@@ -743,7 +758,7 @@
       choices: choices(rng, c.name, CADENCES.map((x) => x.name)),
       answer: c.name,
       explanation: `${r1} - ${r2} is a <b>${c.name} cadence</b>: ${c.why}. ${c.nameNote}`,
-      audio: () => { audio().chord(chord1); },
+      audio: () => { audio().chord(chord1); setTimeout(() => audio().chord(chord2), 950); },
     };
   }
 
@@ -1192,7 +1207,7 @@
           id: "g3-melodic", title: "The three minor scales",
           why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap. The three forms exist to solve one problem: natural minor has no leading note (its 7th sits a whole tone below the tonic), so it lacks the semitone pull that makes a cadence feel final. Harmonic minor raises the 7th to recover that pull - but that leaves an awkward augmented 2nd to the 6th. Melodic minor smooths the gap by raising the 6th too when ascending, then relaxes back to the natural form coming down, where the leading note isn't needed.",
           what: "<p><b>Natural</b> minor uses the key signature as-is; <b>harmonic</b> minor raises the 7th (making an augmented 2nd); <b>melodic</b> minor raises the 6th and 7th ascending, reverting descending.</p>",
-          questions: (rng) => minorFormQuestion(rng),
+          questions: (rng) => (rng.int(0, 3) === 0 ? melodicMinorDescendingQuestion(rng) : minorFormQuestion(rng)),
         },
         {
           id: "g3-compound", title: "Simple & compound time",
@@ -1226,7 +1241,7 @@
         {
           id: "g4-degree-names", title: "Technical names of scale degrees",
           why: "Every note in a key has a <i>job</i>, not just a letter. The 'dominant' pulls toward the tonic; the 'leading note' leans up into it by a semitone. Naming the role explains why melodies feel like they're going somewhere.",
-          what: "<p>The seven degrees, in order: <b>tonic, supertonic, mediant, subdominant, dominant, submediant, leading note</b>. The subdominant sits a 5th <i>below</i> the tonic (mirroring the dominant a 5th above), and the leading note is only a semitone below the tonic in major and harmonic minor.</p>",
+          what: "<p>The seven degrees, in order: <b>tonic, supertonic, mediant, subdominant, dominant, submediant, leading note</b>. The subdominant sits a 5th <i>below</i> the tonic (mirroring the dominant a 5th above), and the leading note is only a semitone below the tonic in major and harmonic/melodic (ascending) minor. In natural minor the unraised 7th is a whole tone below the tonic and is called the <i>subtonic</i> instead - it doesn't lean into the tonic the way a true leading note does.</p>",
           questions: (rng) => degreeNameQuestion(rng),
         },
         {
@@ -1600,7 +1615,7 @@
       note: "The mode names are Greek - Dorian, Phrygian, Lydian, Mixolydian - but they are a medieval mislabelling: theorists from around the 9th century borrowed the ancient names and pinned them to the wrong scales. Major and minor are simply two modes (Ionian and Aeolian) that won out as tonal harmony took hold after about 1600.",
       columns: ["Scale", "Pattern (T/S)", "Character"], rows: SCALE_REF },
     { id: "degrees", group: "Pitch & keys", title: "Scale-degree names", type: "table",
-      note: "The names describe each note's <i>pull</i>, not its letter. <b>Dominant</b> (a 5th above) and <b>subdominant</b> (a 5th below) mirror the tonic; <b>mediant</b> and <b>submediant</b> sit midway between them; the <b>leading note</b> leans up a semitone into the tonic. <i>Super-</i> means 'above', <i>sub-</i> 'below'.",
+      note: "The names describe each note's <i>pull</i>, not its letter. <b>Dominant</b> (a 5th above) and <b>subdominant</b> (a 5th below) mirror the tonic; <b>mediant</b> and <b>submediant</b> sit midway between them; the <b>leading note</b> leans up a semitone into the tonic. <i>Super-</i> means 'above', <i>sub-</i> 'below'. In natural minor the 7th isn't raised, so it sits a whole tone below the tonic and is called the <b>subtonic</b> rather than the leading note.",
       columns: ["Degree", "Name", "Role"], rows: DEGREE_REF },
     // Acoustics & physics
     { id: "ratios", group: "Acoustics & physics", title: "Interval ratios: just vs equal", type: "table",
