@@ -190,7 +190,7 @@
       spiralCard.appendChild(C.el(`<h3 style="margin-top:0">The Pythagorean comma: why the circle won't close</h3>`));
       spiralCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Walk twelve steps of a <b>pure perfect 5th</b> (3:2 ratio) clockwise around the circle. You should land back on C - but you overshoot by about a quarter of a semitone. That gap is the <b>Pythagorean comma</b>.</p>`));
       spiralCard.appendChild(C.el(commaSpiral()));
-      spiralCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem;margin-top:6px">The gap is shown here at 20° for visibility. The real comma is ≈ 0.84° (23.46 cents).</p>`));
+      spiralCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem;margin-top:6px">The gap is shown here at 20° for visibility. The real comma is ≈ 1.0° (23.46 cents) on this diagram's scale, where each 30° step stands for one perfect 5th.</p>`));
       host.appendChild(spiralCard);
       const card = C.el(`<div class="card"></div>`);
       card.appendChild(C.el(`<h3 style="margin-top:0">Hear a major 3rd, two ways</h3>`));
@@ -613,7 +613,7 @@
       host.appendChild(originCard);
 
       host.appendChild(lessonCard(`
-        <p><b>Which instruments use which clef?</b> Treble: violin, flute, right-hand piano, high voices (soprano, alto). Bass: cello, tuba, left-hand piano, low voices (tenor, bass). Alto (C clef on 3rd line): viola. Tenor (C clef on 4th line): upper range of cello, bassoon, trombone, tenor trombone.</p>
+        <p><b>Which instruments use which clef?</b> Treble: violin, flute, right-hand piano, high voices (soprano, alto). Modern choral tenor also reads treble clef, transposed an octave down. Bass: cello, bassoon, trombone, tuba, left-hand piano, bass voice. Alto (C clef on 3rd line): viola. Tenor (C clef on 4th line): upper range of cello, bassoon, trombone.</p>
         <p><b>The trick.</b> For each clef, find middle C first. Once you know where C4 is, every other note is just counting up or down by letter - the same as treble or bass, just starting from a different anchor.</p>`));
     }
 
