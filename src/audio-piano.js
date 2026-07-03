@@ -66,13 +66,13 @@
     queueNote(ctx, toMidi(n), ctx.currentTime + 0.04, dur, 1.0);
   }
 
-  function sequence(notes, step, dur) {
+  function sequence(notes, step, dur, velocities) {
     step = step === undefined ? 0.42 : step;
     dur = dur === undefined ? 0.46 : dur;
     const ctx = ensure();
     if (!ctx) return;
     const t0 = ctx.currentTime + 0.04;
-    notes.forEach(function (n, i) { queueNote(ctx, toMidi(n), t0 + i * step, dur, 1.0); });
+    notes.forEach(function (n, i) { queueNote(ctx, toMidi(n), t0 + i * step, dur, velocities ? velocities[i] : 1.0); });
   }
 
   // Play two phrases back-to-back with a one-beat gap (used by spot-the-change).
@@ -101,14 +101,14 @@
 
   // Play notes with per-note durations (in beats; 1 = crotchet) rather than a
   // fixed step — see audio.js sequenceRhythm for the synth-fallback twin.
-  function sequenceRhythm(notes, durations, beatSec) {
+  function sequenceRhythm(notes, durations, beatSec, velocities) {
     beatSec = beatSec === undefined ? 0.5 : beatSec;
     const ctx = ensure();
     if (!ctx) return;
     let t = ctx.currentTime + 0.04;
     notes.forEach(function (n, i) {
       const noteDur = (durations[i] || 1) * beatSec;
-      if (n !== null) queueNote(ctx, toMidi(n), t, noteDur * 0.88, 1.0);
+      if (n !== null) queueNote(ctx, toMidi(n), t, noteDur * 0.88, velocities ? velocities[i] : 1.0);
       t += noteDur;
     });
   }

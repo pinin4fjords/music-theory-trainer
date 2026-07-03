@@ -21,6 +21,7 @@
   let master = null;
   let enabled = true;
   let lastPlay = null; // a thunk replaying the previous sound
+  let scheduled = []; // pending setTimeout ids for multi-phase playback
 
   function AudioCtor() {
     return global.AudioContext || global.webkitAudioContext || null;
@@ -119,12 +120,14 @@
     play((c) => tone(freqList([n])[0], c.currentTime, dur));
   }
 
-  function sequence(notes, step = 0.42, dur = 0.46) {
+  // `velocities`, when given, is a per-note loudness multiplier (0-1) used for
+  // metric accents (strong/medium/weak beats). Omitted → uniform default gain.
+  function sequence(notes, step = 0.42, dur = 0.46, velocities) {
     const p = getPiano();
-    if (p) { lastPlay = () => p.sequence(notes, step, dur); lastPlay(); return; }
+    if (p) { lastPlay = () => p.sequence(notes, step, dur, velocities); lastPlay(); return; }
     play((c) => {
       const t0 = c.currentTime + 0.04;
-      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur));
+      freqList(notes).forEach((f, i) => tone(f, t0 + i * step, dur, velocities ? 0.32 * velocities[i] : 0.25));
     });
   }
 
@@ -132,14 +135,14 @@
   // fixed step — needed for genuine rhythm patterns (mixed note values), as
   // opposed to sequence()'s isochronous pulse. A `null` entry in notes is a
   // rest: silent, but still advances the clock by its duration.
-  function sequenceRhythm(notes, durations, beatSec = 0.5) {
+  function sequenceRhythm(notes, durations, beatSec = 0.5, velocities) {
     const p = getPiano();
-    if (p) { lastPlay = () => p.sequenceRhythm(notes, durations, beatSec); lastPlay(); return; }
+    if (p) { lastPlay = () => p.sequenceRhythm(notes, durations, beatSec, velocities); lastPlay(); return; }
     play((c) => {
       let t = c.currentTime + 0.04;
       notes.forEach((n, i) => {
         const noteDur = (durations[i] || 1) * beatSec;
-        if (n !== null) tone(freqList([n])[0], t, noteDur * 0.88);
+        if (n !== null) tone(freqList([n])[0], t, noteDur * 0.88, velocities ? 0.32 * velocities[i] : 0.25);
         t += noteDur;
       });
     });
@@ -210,9 +213,31 @@
   function setEnabled(on) { enabled = !!on; }
   function isEnabled() { return enabled; }
 
+  // Schedule the second (or later) phase of a multi-part stimulus. Unlike a bare
+  // setTimeout, these fire only while audio is enabled and are all cancellable via
+  // cancel(), so navigating away mid-phrase can't leak a delayed phrase into the
+  // next view. Signature mirrors setTimeout: (fn, ms).
+  function after(fn, ms) {
+    const id = global.setTimeout(function () {
+      scheduled = scheduled.filter((x) => x !== id);
+      if (enabled) { try { fn(); } catch { /* never throw out of scheduled audio */ } }
+    }, ms);
+    scheduled.push(id);
+    return id;
+  }
+
+  // Silence everything: clear pending scheduled phases and cancel any notes the
+  // sampled-piano engine has queued on the audio clock. Called on navigation.
+  function cancel() {
+    scheduled.forEach((id) => global.clearTimeout(id));
+    scheduled = [];
+    const p = global.MTT && global.MTT.audioPiano;
+    if (p && p.cancel) { try { p.cancel(); } catch { /* ok */ } }
+  }
+
   const api = {
     note, sequence, sequenceRhythm, sequencePair, sequenceAt, chord, freqSequence, freqChord, replay,
-    setEnabled, isEnabled, ensure, unlock, isAvailable,
+    after, cancel, setEnabled, isEnabled, ensure, unlock, isAvailable,
   };
 
   global.MTT = global.MTT || {};
