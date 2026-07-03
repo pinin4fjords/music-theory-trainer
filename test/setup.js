@@ -28,6 +28,7 @@ src("core/analytics.js");
 src("core/storage.js");
 src("core/persist.js");
 src("content.js");
+src("aural-generators.js");
 src("aural-content.js");
 src("core/session.js");
 src("core/state.js");
