@@ -130,7 +130,7 @@
     wrap.setAttribute("aria-label", "Pitch meter");
     wrap.innerHTML =
       `<div class="pitch-meter-labels"><span class="pitch-low">♭ too low</span><span class="pitch-target-label">${targetName || "?"}</span><span class="pitch-high">too high ♯</span></div>`
-      + `<div class="pitch-bar" role="meter" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">`
+      + `<div class="pitch-bar" role="meter" aria-label="Pitch accuracy in cents" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">`
       + `  <div class="pitch-zone good"></div>`
       + `  <div class="pitch-needle" aria-hidden="true"></div>`
       + `</div>`
