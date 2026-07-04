@@ -787,15 +787,36 @@
     return `${roman} (${CHORD_TECHNICAL[roman]})`;
   }
 
+  // The Grade 8 chord vocabulary adds inversions, labelled a (root
+  // position), b (first inversion, 3rd in the bass) and c (second inversion,
+  // 5th in the bass). Only I and V are tested in all three positions; ii adds
+  // first inversion; IV, V7 and vi stay root position only.
+  const G8_CHORD_POSITIONS = { I: ["a", "b", "c"], ii: ["a", "b"], IV: ["a"], V: ["a", "b", "c"], V7: ["a"], vi: ["a"] };
+  const POSITION_NAME = { a: "root position", b: "first inversion", c: "second inversion" };
+
+  // Build a chord inversion by rotating a root-position voicing: each
+  // rotation moves the lowest note up an octave, so the bass becomes the
+  // 3rd (b), then the 5th (c), then the 7th for a 7th chord.
+  function chordAtPosition(chordsBase, roman, position) {
+    const idx = ["a", "b", "c", "d"].indexOf(position);
+    let notes = chordsBase[roman].slice();
+    for (let i = 0; i < idx; i++) notes = notes.slice(1).concat([notes[0] + 12]);
+    return notes;
+  }
+
+  function positionedChordLabel(roman, position) {
+    return `${roman}${position} (${CHORD_TECHNICAL[roman]}, ${POSITION_NAME[position]})`;
+  }
+
   function cadencesForKey(chords) {
     return [
-      { type: "perfect", label: "Perfect cadence (V-I)", chords: [chords.V, chords.I],
+      { type: "perfect", label: "Perfect cadence (V-I)", romans: ["V", "I"], chords: [chords.V, chords.I],
         explanation: `A <b>perfect cadence</b> (V-I) — the dominant resolving to the tonic. It's the strongest, most final-sounding close in tonal music.` },
-      { type: "imperfect", label: "Imperfect cadence (ending on V)", chords: [chords.I, chords.V],
+      { type: "imperfect", label: "Imperfect cadence (ending on V)", romans: ["I", "V"], chords: [chords.I, chords.V],
         explanation: `An <b>imperfect cadence</b> (ending on V) — it sounds unfinished, like a question rather than an answer.` },
-      { type: "interrupted", label: "Interrupted cadence (V-vi)", chords: [chords.V, chords.vi],
+      { type: "interrupted", label: "Interrupted cadence (V-vi)", romans: ["V", "vi"], chords: [chords.V, chords.vi],
         explanation: `An <b>interrupted cadence</b> (V-vi) — the ear expects the tonic after V, but gets vi instead. A "surprise" resolution.` },
-      { type: "plagal", label: "Plagal cadence (IV-I)", chords: [chords.IV, chords.I],
+      { type: "plagal", label: "Plagal cadence (IV-I)", romans: ["IV", "I"], chords: [chords.IV, chords.I],
         explanation: `A <b>plagal cadence</b> (IV-I) — sometimes called the "Amen" cadence from its use at the end of hymns.` },
     ];
   }
@@ -848,10 +869,13 @@
   // Shared cadence-ID generator: pick from the first `count` cadence types
   // (perfect/imperfect at Grade 6, +interrupted at 7, +plagal at 8), in a
   // randomly-chosen key — major or minor — so students hear cadences in both
-  // modes, as required by the exam-board Grade 6–7 syllabus.
+  // modes, as required by the exam-board Grade 6–7 syllabus. At Grade 8 (count 4)
+  // the major-key cadence chords may appear in inversion, per the official
+  // chord vocabulary — the cadence label to identify doesn't change, but
+  // recognising it now has to survive an inverted bass.
   function auralCadenceQuestion(rng, count) {
     const minor = rng.bool();
-    let tonicChord, keyLabel, pool;
+    let tonicChord, keyLabel, pool, majorChords;
     if (minor) {
       const key = pick(rng, Object.keys(MINOR_CHORD_KEYS));
       const chords = chordsForKeyMinor(key);
@@ -860,12 +884,17 @@
       pool = cadencesForKeyMinor(chords).slice(0, count);
     } else {
       const key = pick(rng, Object.keys(CHORD_KEYS));
-      const chords = chordsForKey(key);
-      tonicChord = chords.I;
+      majorChords = chordsForKey(key);
+      tonicChord = majorChords.I;
       keyLabel = `${key} major`;
-      pool = cadencesForKey(chords).slice(0, count);
+      pool = cadencesForKey(majorChords).slice(0, count);
     }
-    const c = pick(rng, pool);
+    let c = pick(rng, pool);
+    if (!minor && count === 4) {
+      c = Object.assign({}, c, {
+        chords: c.romans.map((r) => chordAtPosition(majorChords, r, pick(rng, G8_CHORD_POSITIONS[r]))),
+      });
+    }
     return {
       prompt: `Listen: the key chord of <b>${keyLabel}</b> sounds first, then a two-chord cadence. Which cadence is it?`,
       audio: playCadence(c.chords, tonicChord),
@@ -1236,19 +1265,29 @@
     { seq: ["I", "ii", "V"], gloss: "ending on an imperfect cadence" },
     { seq: ["I", "V", "vi"], gloss: "ending on an interrupted cadence" },
   ];
+  // Assign each chord in a progression a position from the Grade 8 vocabulary
+  // (IV, V7 and vi only ever offer "a", so they stay in root position).
+  function positionsFor(rng, seq) {
+    return seq.map((r) => pick(rng, G8_CHORD_POSITIONS[r]));
+  }
+  function positionedProgressionLabel(seq, positions) {
+    return seq.map((r, i) => positionedChordLabel(r, positions[i])).join(" - ");
+  }
   function g8ChordProgressionQuestion(rng) {
     const key = pick(rng, Object.keys(CHORD_KEYS));
     const chords = chordsForKey(key);
     const chosen = pick(rng, G8_CADENTIAL_PROGRESSIONS);
-    const label = (seq) => seq.map(chordNameLabel).join(" - ");
-    const ans = label(chosen.seq);
-    const distractors = G8_CADENTIAL_PROGRESSIONS.filter((p) => p !== chosen).map((p) => label(p.seq));
+    const positions = positionsFor(rng, chosen.seq);
+    const ans = positionedProgressionLabel(chosen.seq, positions);
+    const distractors = G8_CADENTIAL_PROGRESSIONS.filter((p) => p !== chosen)
+      .map((p) => positionedProgressionLabel(p.seq, positionsFor(rng, p.seq)));
+    const audioChords = chosen.seq.map((r, i) => chordAtPosition(chords, r, positions[i]));
     return {
-      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a three-chord progression ending with a cadence. Name the three chords in order.`,
-      audio: playChordSequence(chosen.seq.map((r) => chords[r]), chords.I),
+      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a three-chord progression ending with a cadence. Name the three chords in order, including each chord's position (root position, or first/second inversion).`,
+      audio: playChordSequence(audioChords, chords.I),
       choices: choices(rng, ans, distractors, 4),
       answer: ans,
-      explanation: `That was <b>${ans}</b> - ${chosen.gloss}. Follow the bass to find each chord's root, then confirm the cadence formed by the last two chords.`,
+      explanation: `That was <b>${ans}</b> - ${chosen.gloss}. Follow the bass note of each chord: if it's the chord's root that's root position (a); the 3rd above the root is first inversion (b); the 5th above is second inversion (c). You may answer with Roman numeral + position letter (e.g. "Vb"), technical name + position (e.g. "dominant, first inversion"), or the letter-name chord + position - all are accepted.`,
     };
   }
   // exam-board 8C presents two passages, one starting major and one starting minor,
@@ -1610,17 +1649,17 @@
         },
         {
           id: "g8-aural-cadence",
-          title: "Aural: cadences (+ plagal)",
-          why: "Grade 8 completes the cadence ladder with the plagal cadence (IV-I) — sometimes called the 'Amen' cadence — alongside perfect, imperfect, and interrupted.",
-          what: "<p>A <b>plagal cadence</b> also lands on the tonic like a perfect cadence, but arrives from IV rather than V, giving a softer, more devotional close (think of the 'Amen' at the end of a hymn) rather than the strong pull of V-I.</p>",
+          title: "Aural: cadences (+ plagal, with inversions)",
+          why: "Grade 8 completes the cadence ladder with the plagal cadence (IV-I) — sometimes called the 'Amen' cadence — alongside perfect, imperfect, and interrupted. The chords forming the cadence may now be in an inversion rather than always root position.",
+          what: "<p>A <b>plagal cadence</b> also lands on the tonic like a perfect cadence, but arrives from IV rather than V, giving a softer, more devotional close (think of the 'Amen' at the end of a hymn) rather than the strong pull of V-I. A cadence keeps its identity — perfect, imperfect, interrupted or plagal — however its chords are voiced: what matters is which chord roots move, not which note sits in the bass.</p>",
           questions: g8CadenceQuestion,
           tags: ["aural"],
         },
         {
           id: "g8-aural-chords",
-          title: "Aural: name the cadential chords",
-          why: "Grade 8 plays a three-chord cadential progression - an approach chord plus the two cadence chords - and asks you to name all three, drawn from the tonic, supertonic, subdominant, dominant and submediant.",
-          what: "<p>Answer with Roman numerals, technical names or letter-name chords. Hear the bass to fix each root, then identify the cadence at the end (the last two chords) and work back to the approach chord.</p>",
+          title: "Aural: name the cadential chords & positions",
+          why: "Grade 8 plays a three-chord cadential progression - an approach chord plus the two cadence chords - and asks you to name all three, including whether each is in root position or an inversion.",
+          what: "<p>The chord vocabulary is I (root position, first or second inversion), ii (root position or first inversion), IV, V7 and vi (root position only), and V (root position, first or second inversion). Answer with Roman numerals plus a position letter (e.g. Vb), technical names plus position (e.g. dominant, first inversion), or letter-name chords plus position - all are accepted. Hear the bass note of each chord: root position when it's the chord's root, first inversion when it's the 3rd, second inversion when it's the 5th.</p>",
           questions: g8ChordProgressionQuestion,
           tags: ["aural"],
         },

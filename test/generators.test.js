@@ -115,6 +115,57 @@ describe("content generators - property/smoke tests", () => {
     expect(found).toBe(true);
   });
 
+  it("g8 cadence chords may appear in inversion but the cadence label never changes", () => {
+    const topic = auralTopics.find((t) => t.id === "g8-aural-cadence");
+    const majorLabels = [
+      "Perfect cadence (V-I)",
+      "Imperfect cadence (ending on V)",
+      "Interrupted cadence (V-vi)",
+      "Plagal cadence (IV-I)",
+    ];
+    const minorLabels = [
+      "Perfect cadence (V-i)",
+      "Imperfect cadence (ending on V)",
+      "Interrupted cadence (V-VI)",
+      "Plagal cadence (iv-i)",
+    ];
+    const r = rng.create("g8-cadence-inversions");
+    for (let i = 0; i < 100; i++) {
+      const q = topic.questions(r);
+      const sortedChoices = q.choices.slice().sort();
+      const isMajorPool = sortedChoices.every((c) => majorLabels.includes(c));
+      const pool = isMajorPool ? majorLabels : minorLabels;
+      expect(pool).toContain(q.answer);
+      expect(sortedChoices).toEqual(pool.slice().sort());
+    }
+  });
+
+  it("g8 chord-naming answers include a position letter for every chord, and only I/V/ii ever vary from root position", () => {
+    const topic = auralTopics.find((t) => t.id === "g8-aural-chords");
+    const r = rng.create("g8-chord-positions");
+    const seenNonRoot = new Set();
+    for (let i = 0; i < 100; i++) {
+      const q = topic.questions(r);
+      const chordTokens = q.answer.split(" - ");
+      expect(chordTokens.length).toBe(3);
+      for (const token of chordTokens) {
+        const m = token.match(/^(ii|IV|V7|vi|I|V)([abc])\s\(([^,]+), (root position|first inversion|second inversion)\)$/);
+        expect(m, `unexpected chord token: "${token}"`).toBeTruthy();
+        const [, roman, letter] = m;
+        if (letter !== "a") {
+          expect(["I", "ii", "V"]).toContain(roman);
+          seenNonRoot.add(roman + letter);
+        } else {
+          expect(m[4]).toBe("root position");
+        }
+      }
+    }
+    // Every documented non-root position for I, ii and V should show up over 100 draws.
+    for (const combo of ["Ib", "Ic", "iib", "Vb", "Vc"]) {
+      expect(seenNonRoot.has(combo), `never saw ${combo}`).toBe(true);
+    }
+  });
+
   it("interval-quality topics always carry diagnostic meta", () => {
     // Topics that name interval *quality* (not just number) drive the diagnostic
     // feedback, so every question they emit must carry interval meta.
