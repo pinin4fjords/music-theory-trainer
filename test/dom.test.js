@@ -65,6 +65,13 @@ describe("DOM - boot & navigation", () => {
     expect(document.querySelector("#main h1").textContent).toMatch(/Learn/);
   });
 
+  it("ignores clicks on the already-active top-level tab", () => {
+    document.querySelector('[data-tab="learn"]').click();
+    const firstCard = document.querySelector("#main .grid button");
+    document.querySelector('[data-tab="learn"]').click();
+    expect(document.querySelector("#main .grid button")).toBe(firstCard);
+  });
+
   it("the home screen has a quick link into Aural training", () => {
     const cards = [...document.querySelectorAll("#home-cards button")];
     const auralCard = cards.find((c) => /Aural/.test(c.textContent));
@@ -123,6 +130,49 @@ describe("DOM - quiz flow & feedback", () => {
     // A Next/Finish control appears and receives focus.
     const next = [...document.querySelectorAll("#main .btn")].pop();
     expect(next.textContent).toMatch(/Next|Finish/);
+  });
+
+  it("surfaces the current session length in the quiz header", () => {
+    const sel = document.getElementById("session-length-select");
+    sel.value = "20";
+    sel.dispatchEvent(new window.Event("change"));
+    instance.router.navigate("quiz");
+    expect(document.querySelector(".progress-meta").textContent).toBe("20-question session");
+  });
+
+  it("cancels in-flight question audio before replaying it", () => {
+    const baseTopic = instance.ctx.content.grades[0].topics[0];
+    const events = [];
+    const fixedTopic = Object.assign({}, baseTopic, {
+      questions: () => ({
+        prompt: "Listen",
+        choices: ["A", "B"],
+        answer: "A",
+        audio: () => { events.push("play"); },
+      }),
+    });
+    const realCancel = instance.ctx.audio.cancel;
+    instance.ctx.audio.cancel = () => { events.push("cancel"); };
+
+    try {
+      instance.router.navigate("quiz", { single: fixedTopic });
+      expect(events.slice(-2)).toEqual(["cancel", "play"]);
+      document.querySelector(".audio-btn").click();
+      expect(events.slice(-2)).toEqual(["cancel", "play"]);
+    } finally {
+      instance.ctx.audio.cancel = realCancel;
+    }
+  });
+
+  it("falls back to the Learn page when no explainer is available", () => {
+    const lessonTopic = instance.ctx.content.grades[0].topics.find((t) => t.id === "g1-triad");
+    instance.router.navigate("quiz", { single: lessonTopic });
+    document.querySelector(".choice").click();
+    const dig = document.querySelector(".dig-deeper");
+    expect(dig).toBeTruthy();
+    dig.click();
+    expect(instance.router.getCurrent()).toBe("learn");
+    expect(document.querySelector("#main h1").textContent).toMatch(/tonic triad/i);
   });
 
   it("plays through a whole session and records the day's streak", () => {
@@ -186,6 +236,7 @@ describe("DOM - settings", () => {
     expect(instance.store.settings().sessionLength).toBe(20);
     instance.router.navigate("quiz");
     expect(document.querySelector(".progress-count").textContent).toBe("1 / 20");
+    expect(document.querySelector(".progress-meta").textContent).toBe("20-question session");
   });
 });
 
@@ -388,7 +439,7 @@ describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
       for (let i = 0; i < 18; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
 
       const acceptBtn = [...document.querySelectorAll(".seq-btn-row button")]
-        .find((b) => /Accept & continue/.test(b.textContent));
+        .find((b) => /Score it/.test(b.textContent));
       expect(acceptBtn).toBeTruthy();
       acceptBtn.click();
 

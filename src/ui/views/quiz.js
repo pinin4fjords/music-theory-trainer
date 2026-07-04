@@ -319,7 +319,7 @@
         startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Sing again";
         statusEl.textContent = hasAutoPlay ? "" : "Press start, then sing the full phrase.";
       }));
-      actRow.appendChild(C.button(allGood ? "Next →" : "Accept & continue", function () {
+      actRow.appendChild(C.button("Score it", function () {
         stopMic();
         // Report the actual match result, not an automatic "correct" — the reveal
         // step compares this against q.answer to grade the question. On a wrong
@@ -450,6 +450,23 @@
       ? ctx.session.buildSingle(Object.assign({}, single), rng, sessionLength)
       : ctx.session.build({ content: ctx.content, settings, srsMap: ctx.store.srsMap(), rng, now, length: sessionLength });
 
+    function playQuestionAudio(q) {
+      if (ctx.audio && ctx.audio.cancel) {
+        // Best-effort only: replay should still continue if a stale audio graph
+        // can't be cancelled cleanly during rapid replays or view switches.
+        try { ctx.audio.cancel(); } catch { /* ok */ }
+      }
+      safe(q.audio);
+    }
+
+    function findLearnTopic(topicId) {
+      for (const grade of ctx.content.grades || []) {
+        const lesson = grade.topics && grade.topics.find((t) => t.id === topicId);
+        if (lesson) return lesson;
+      }
+      return null;
+    }
+
     if (!session.length) {
       main.appendChild(C.el(`
         <div class="view center card">
@@ -496,9 +513,10 @@
       const dots = session.map((_, i) =>
         `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("");
       view.appendChild(C.el(
-        `<div class="progress-row" role="img" aria-label="Question ${idx + 1} of ${session.length}">`
+        `<div class="progress-row">`
         + `<div class="progress-dots" aria-hidden="true">${dots}</div>`
-        + `<span class="progress-count">${idx + 1} / ${session.length}</span></div>`));
+        + `<span class="progress-count" aria-label="Question ${idx + 1} of ${session.length}">${idx + 1} / ${session.length}</span>`
+        + `<span class="progress-meta">${session.length}-question session</span></div>`));
       view.appendChild(C.el(`<div class="topic-label">Grade ${topic.grade} · ${topic.title}</div>`));
 
       const prompt = C.el(`<div class="quiz-prompt"></div>`);
@@ -517,11 +535,11 @@
       view.appendChild(prompt);
 
       if (q.audio) {
-        const ab = C.playButton("Hear it", () => safe(q.audio));
+        const ab = C.playButton("Hear it", () => playQuestionAudio(q));
         ab.setAttribute("aria-label", "Replay the sound for this question");
         view.appendChild(ab);
         if (ctx.audio.isEnabled()) {
-          safe(q.audio);
+          playQuestionAudio(q);
         } else {
           // Sound is off — this is a listening task, so say so and offer one-tap
           // enable rather than leaving a silent, unusable question.
@@ -532,7 +550,7 @@
             ctx.store.setSetting("sound", true);
             ctx.audio.unlock();
             notice.remove();
-            safe(q.audio);
+            playQuestionAudio(q);
           }, { className: "ghost" }));
           view.appendChild(notice);
         }
@@ -649,11 +667,13 @@
           ? `<div class="why-line">Here's what it was:${q.micTask.revealStaffHtml}</div>` : "";
         const cls = correct ? "good" : kind === "wrong" ? "bad" : "idk";
         const revealEl = C.el(`<div class="reveal ${cls}" role="status">${verdict}${diagLine}${why}${micStaff}</div>`);
-        // Dig deeper: thread into the matching "Why" explainer when one exists.
+        // Dig deeper: prefer the matching "Why" explainer, otherwise fall back to
+        // the topic's Learn page when this is a drillable theory topic.
+        let dig = null;
         if (topic.explainer) {
           const ex = (ctx.content.explainers || []).find((e) => e.id === topic.explainer);
           if (ex) {
-            const dig = document.createElement("button");
+            dig = document.createElement("button");
             dig.type = "button";
             dig.className = "dig-deeper";
             dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
@@ -669,9 +689,19 @@
               });
               global.MTT.ui.views.explainer.render(m.body, modalCtx, topic.explainer);
             });
-            revealEl.appendChild(dig);
           }
         }
+        if (!dig) {
+          const lesson = findLearnTopic(topic.id);
+          if (lesson) {
+            dig = document.createElement("button");
+            dig.type = "button";
+            dig.className = "dig-deeper";
+            dig.innerHTML = `Dig deeper: ${lesson.title} <span aria-hidden="true">→</span>`;
+            dig.addEventListener("click", () => ctx.router.navigate("learn", lesson.id));
+          }
+        }
+        if (dig) revealEl.appendChild(dig);
         view.appendChild(revealEl);
 
         C.announce(

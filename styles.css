@@ -536,6 +536,7 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .quiz-prompt { font-size: clamp(1.4rem, 3.2vw, 1.65rem); font-weight: 650; line-height: 1.3; margin: 6px 0 14px; }
 .progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
 .progress-count { font-size: .8rem; font-weight: 600; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.progress-meta { font-size: .78rem; color: var(--ink-faint); }
 .topic-label { font-size: .76rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
 
 .idk-btn {
