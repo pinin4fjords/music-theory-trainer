@@ -639,41 +639,55 @@
   // =========================================================================
 
   // Test 5C: Style and period identification.
+  //
+  // Each option plays one genuine, textbook device of its period (a Baroque
+  // ornamented sequence, a Classical Alberti bass, Romantic rubato +
+  // chromaticism, a 20th-century whole-tone scale) rather than an arbitrary
+  // scale run with a period label attached. These aren't quotations from real
+  // pieces, but the technique itself is authentically diagnostic of the era,
+  // so what's heard genuinely supports the answer instead of just asserting it.
   function g5StyleQuestion(rng) {
     const periods = [
       {
         name: "Baroque",
         label: "Baroque (c.1600-1750)",
-        features: "regular rhythms, ornamental detail, no dynamic swells",
+        device: "a melodic <b>sequence</b> built from a <b>turn</b> ornament (upper neighbour - main note - lower neighbour - main note), repeated a step lower each time, at a strict unwavering tempo",
         audio: function () {
-          // Ornate stepwise line in steady rhythm.
-          audio().sequence([MIDI.C5, MIDI.B4, MIDI.A4, MIDI.G4, MIDI.F4, MIDI.E4, MIDI.D4, MIDI.C4], 0.28, 0.26);
+          audio().sequence([76, 77, 76, 74, 76, 74, 76, 74, 72, 74, 72, 74, 72, 71, 72], 0.22, 0.2);
         },
       },
       {
         name: "Classical",
         label: "Classical (c.1750-1820)",
-        features: "balanced phrases, clear dynamics, neat cadences",
+        device: "an <b>Alberti bass</b> - the broken-chord low-high-middle-high accompaniment pattern named for and typical of the Classical era - moving through a clean I-IV-V-I cadence",
         audio: function () {
-          audio().sequence([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5, MIDI.G4, MIDI.E4, MIDI.C4], 0.38, 0.36);
+          audio().sequence([60, 67, 64, 67, 65, 72, 69, 72, 67, 74, 71, 74, 60, 67, 64, 67], 0.22, 0.2);
         },
       },
       {
         name: "Romantic",
         label: "Romantic (c.1820-1900)",
-        features: "expressive melody, wide dynamic range, rubato",
+        device: "a wide-ranging melody with a chromatic passing note, played with <b>rubato</b> (the tempo stretches and pulls rather than staying even) and a broad dynamic swell",
         audio: function () {
-          // Longer, more lyrical phrase.
-          audio().sequence([MIDI.C4, MIDI.D4, MIDI.F4, MIDI.E4, MIDI.C4, MIDI.A3, MIDI.B3, MIDI.C4], 0.55, 0.52);
+          audio().sequenceRhythm(
+            [60, 64, 67, 72, 71, 69, 66, 67, 64, 62, 60],
+            [1.5, 0.5, 1, 2, 0.5, 1.5, 0.5, 1, 1, 1, 2],
+            0.5,
+            [0.3, 0.45, 0.65, 1.0, 0.85, 0.6, 0.5, 0.45, 0.5, 0.6, 0.35]
+          );
         },
       },
       {
         name: "20th century",
         label: "20th century (after 1900)",
-        features: "unexpected harmonies, irregular rhythms, modern sounds",
+        device: "a <b>whole-tone scale</b> (six equal whole-steps, the signature scale of early-20th-century composers) played with deliberately irregular note lengths and accents",
         audio: function () {
-          // Chromatic, irregular pattern.
-          audio().sequence([MIDI.C4, 61, 63, MIDI.D4, 66, MIDI.E4, 64, MIDI.C4], 0.32, 0.28);
+          audio().sequenceRhythm(
+            [60, 62, 64, 66, 68, 70, 72, 70, 66, 62, 60],
+            [0.5, 0.5, 0.5, 0.75, 0.25, 1, 0.75, 0.25, 0.5, 1, 1.5],
+            0.45,
+            [0.5, 0.4, 0.5, 0.4, 0.9, 0.5, 0.6, 0.9, 0.5, 0.4, 0.6]
+          );
         },
       },
     ];
@@ -683,7 +697,7 @@
       audio: p.audio,
       choices: choices(rng, p.label, periods.map((x) => x.label), 4),
       answer: p.label,
-      explanation: `That passage has features typical of the <b>${p.name}</b> period: ${p.features}. Grade 5 Test C asks you to identify whether a piece is Baroque, Classical, Romantic, or 20th-century based on its style.`,
+      explanation: `That passage demonstrates ${p.device} - a genuine hallmark of the <b>${p.name}</b> period, not just an arbitrary tune with a label attached. Grade 5 Test C asks you to identify whether a piece is Baroque, Classical, Romantic, or 20th-century based on its style.`,
     };
   }
 
@@ -1442,7 +1456,7 @@
           id: "g5-aural-style",
           title: "Aural: musical style & period",
           why: "Grade 5 Test C introduces style and period identification: Baroque, Classical, Romantic, or 20th century. Each period has characteristic textures, rhythms, and expressive devices.",
-          what: "<p><b>Baroque</b>: steady rhythms, ornamental melodic lines (Bach, Handel). <b>Classical</b>: balanced phrases, clear dynamics (Haydn, Mozart). <b>Romantic</b>: expressive, wide dynamics, rubato (Chopin, Schumann). <b>20th century</b>: chromatic or dissonant, irregular rhythms (Bartók, Shostakovich). This app's audio examples are short, simplified mnemonics for each label, not real excerpts - the actual exam plays a full piano recording, so also listen to real repertoire from each period to train your ear properly.</p>",
+          what: "<p><b>Baroque</b>: steady rhythms, ornamental melodic lines (Bach, Handel). <b>Classical</b>: balanced phrases, clear dynamics (Haydn, Mozart). <b>Romantic</b>: expressive, wide dynamics, rubato (Chopin, Schumann). <b>20th century</b>: chromatic or dissonant, irregular rhythms (Bartók, Shostakovich). This app's audio for each option plays one genuine textbook device of that period (a Baroque ornamented sequence, a Classical Alberti bass, Romantic rubato, a 20th-century whole-tone scale) rather than a full piece - the actual exam plays a real piano recording, so also listen to real repertoire from each period to train your ear properly.</p>",
           questions: g5StyleQuestion,
           tags: ["aural"],
         },
