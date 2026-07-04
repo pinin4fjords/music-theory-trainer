@@ -56,8 +56,14 @@
       if (loc.hash !== target) loc.hash = target;
     }
 
-    function navigate(name, arg) {
+    function isRedundantTopLevelTabNav(name, arg, opts) {
+      return !opts.force && arg === undefined && current === name && currentParam === null;
+    }
+
+    function navigate(name, arg, opts) {
+      opts = opts || {};
       if (!views[name]) return;
+      if (isRedundantTopLevelTabNav(name, arg, opts)) return;
       if (currentCleanup) { try { currentCleanup(); } catch { /* ok */ } currentCleanup = null; }
       releaseMedia();
       current = name;
@@ -77,7 +83,7 @@
     }
 
     function refresh() {
-      if (current) navigate(current, currentParam);
+      if (current) navigate(current, currentParam, { force: true });
     }
 
     // Parse the current hash and navigate to it (defaults to home).
