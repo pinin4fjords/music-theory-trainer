@@ -278,8 +278,11 @@
     };
   }
 
+  // Grade 4 caps at five sharps/flats; M.MAJOR_SIGNATURES goes further (to
+  // support Grade 5's g5-key-id), so filter down to this topic's own scope.
+  const GRADE4_MAJOR_KEYS = Object.keys(M.MAJOR_SIGNATURES).filter((k) => Math.abs(M.MAJOR_SIGNATURES[k]) <= 5);
   function keySignatureQuestion(rng) {
-    const keys = Object.keys(M.MAJOR_SIGNATURES);
+    const keys = GRADE4_MAJOR_KEYS;
     const key = pick(rng, keys);
     const sig = M.keySignature(key, "major");
     const n = Math.abs(sig.count);
@@ -477,37 +480,14 @@
       audio: () => audio().chord(notes),
     };
   }
-  const INV_NAMES = ["root position", "first inversion", "second inversion"];
-  function triadInversionQuestion(rng) {
-    const key = pick(rng, TRIAD_KEYS);
-    const degree = pick(rng, [1, 4, 5]);
-    const inv = pick(rng, [0, 1, 2]);
-    const notes = M.triad(key, "major", degree, inv);
-    const root = M.triad(key, "major", degree, 0);
-    const bass = M.spelledName(notes[0]);
-    const reason = inv === 0 ? "the root is in the bass, so it is in <b>root position</b>"
-      : inv === 1 ? "the 3rd is in the bass, so it is in <b>first inversion</b>"
-        : "the 5th is in the bass, so it is in <b>second inversion</b>";
-    const spec = { clef: "treble", notes: [notes] };
-    return {
-      prompt: `Which position is this triad in?` + staffBlock(spec),
-      a11yText: a11y("Which inversion is this triad in?", spec),
-      choices: choices(rng, INV_NAMES[inv], INV_NAMES),
-      answer: INV_NAMES[inv],
-      explanation: `The lowest note is <b>${bass}</b> - ${reason}. The bass note decides: ${M.spelledName(root[0])} = root position, ${M.spelledName(root[1])} = first inversion, ${M.spelledName(root[2])} = second inversion. Inversions exist for voice-leading: keeping a chord tone other than the root in the bass lets the bass line move smoothly by step rather than leaping. First inversion feels lighter and less conclusive than root position; second inversion is unstable and usually resolves with the bass staying put while the upper notes move.`,
-      audio: () => audio().chord(notes),
-      meta: { type: "inversion" },
-    };
-  }
-  function triadQuestion(rng) {
-    return rng.bool(0.6) ? triadFunctionQuestion(rng) : triadInversionQuestion(rng);
-  }
 
   // Grades 1-2: the tonic triad - the chord built on the key note. Asked from
   // the key name alone (no staff), so it tests construction, not note-reading.
-  function tonicTriadQuestion(rng, keys, modes) {
-    const key = pick(rng, keys);
-    const mode = modes ? pick(rng, modes) : "major";
+  // minorKeys is its own list (not every major key here has a syllabus-legal
+  // minor counterpart yet), so mode and key are picked together, not crossed.
+  function tonicTriadQuestion(rng, majorKeys, minorKeys) {
+    const mode = minorKeys && minorKeys.length && rng.bool() ? "minor" : "major";
+    const key = pick(rng, mode === "minor" ? minorKeys : majorKeys);
     const t = M.triad(key, mode, 1, 0);
     const correct = t.map((n) => M.spelledName(n)).join("-");
     const distractors = [2, 4, 5].map((d) => M.triad(key, mode, d, 0).map((n) => M.spelledName(n)).join("-"));
@@ -606,13 +586,12 @@
 
   // === Grade 5 generators ================================================
 
-  const ALL_MAJOR_KEYS = Object.keys(M.MAJOR_SIGNATURES); // C..C# and F..Cb (to 7)
-  const ALL_MINOR_KEYS = Object.keys({
-    A: 1, E: 1, B: 1, "F#": 1, "C#": 1, "G#": 1, "D#": 1, "A#": 1,
-    D: 1, G: 1, C: 1, F: 1, Bb: 1, Eb: 1, Ab: 1,
-  });
+  // Grade 5 caps at six sharps/flats, so both key pools exclude the 7-accidental
+  // extremes (C#/Cb major, A#/Ab minor) that M.MAJOR_SIGNATURES also carries.
+  const ALL_MAJOR_KEYS = Object.keys(M.MAJOR_SIGNATURES).filter((k) => Math.abs(M.MAJOR_SIGNATURES[k]) <= 6);
+  const ALL_MINOR_KEYS = ["A", "E", "B", "F#", "C#", "G#", "D#", "D", "G", "C", "F", "Bb", "Eb"];
 
-  // Key identification, both directions, all keys to 7 sharps/flats.
+  // Key identification, both directions, all keys to 6 sharps/flats.
   function keyIdQuestion(rng) {
     const mode = rng.bool() ? "major" : "minor";
     const keys = mode === "major" ? ALL_MAJOR_KEYS : ALL_MINOR_KEYS;
@@ -624,7 +603,7 @@
     if (rng.bool()) {
       // key -> signature
       const correct = n === 0 ? "none" : `${n} ${sig.type}${n > 1 ? "s" : ""}`;
-      const distract = ["none", "1 sharp", "2 sharps", "5 sharps", "6 sharps", "7 sharps", "1 flat", "2 flats", "5 flats", "6 flats", "7 flats"];
+      const distract = ["none", "1 sharp", "2 sharps", "3 sharps", "4 sharps", "5 sharps", "6 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 flats", "6 flats"];
       return {
         prompt: `What is the key signature of <b>${key} ${mode}</b>?`,
         choices: choices(rng, correct, distract),
@@ -1195,7 +1174,7 @@
           id: "g2-triad", title: "Tonic triads, major & minor",
           why: "A minor key has its own tonic triad, and the single note that separates it from the major's is the 3rd - lower it a semitone and bright turns dark.",
           what: "<p>The tonic triad is still root + 3rd + 5th on the key note. In a <b>minor</b> key the 3rd is a semitone lower than in major (A-C-E, not A-C♯-E), which is the whole difference in colour. The 5th is unchanged.</p>",
-          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "E"], ["major", "minor"]),
+          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "Eb"], ["A", "E", "D"]),
         },
         {
           id: "g2-terms", title: "More terms & signs",
@@ -1282,8 +1261,8 @@
         {
           id: "g4-triads", title: "Tonic, subdominant & dominant triads",
           why: "I, IV and V between them contain all seven notes of the scale - which is why so much music is built from just these three chords.",
-          what: "<p>A <b>triad</b> stacks two 3rds: a root, a 3rd and a 5th. The three primary triads are built on the <b>tonic (I)</b>, <b>subdominant (IV)</b> and <b>dominant (V)</b>. Putting the 3rd in the bass gives <b>first inversion</b>; the 5th in the bass gives <b>second inversion</b>.</p>",
-          questions: (rng) => triadQuestion(rng),
+          what: "<p>A <b>triad</b> stacks two 3rds: a root, a 3rd and a 5th, all in <b>root position</b>. The three primary triads are built on the <b>tonic (I)</b>, <b>subdominant (IV)</b> and <b>dominant (V)</b>. Inversions of these chords are a Grade 5 topic.</p>",
+          questions: (rng) => triadFunctionQuestion(rng),
         },
         {
           id: "g4-ornaments", title: "Ornaments",
@@ -1311,7 +1290,7 @@
         {
           id: "g5-key-id", title: "All keys & key identification",
           why: "Grade 5 completes the circle of fifths. Once you can name any key from its signature - in either direction - every later analysis question starts from solid ground.",
-          what: "<p>All major and minor keys up to <b>seven</b> sharps and flats. Recognise a key from its signature, and give the signature of any named key. A minor key borrows the signature of its relative major (a minor 3rd above).</p>",
+          what: "<p>All major and minor keys up to <b>six</b> sharps and flats. Recognise a key from its signature, and give the signature of any named key. A minor key borrows the signature of its relative major (a minor 3rd above).</p>",
           questions: (rng) => keyIdQuestion(rng),
         },
         {
