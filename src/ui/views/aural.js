@@ -10,10 +10,21 @@
 (function (global) {
   "use strict";
 
+  function topicAccuracyChip(srsMap, topicId) {
+    const card = srsMap[topicId];
+    if (!card || card.seen <= 0) {
+      return `<span class="pill outline aural-acc-chip" aria-label="Not practised yet">New</span>`;
+    } else {
+      const pct = Math.round((card.correct / card.seen) * 100);
+      return `<span class="pill aural-acc-chip" aria-label="Accuracy ${pct}%">${pct}%</span>`;
+    }
+  }
+
   function render(main, ctx) {
     const C = ctx.C;
     const auralGrades = (ctx.content && ctx.content.auralGrades) || [];
     const currentGrade = ctx.store.settings().grade;
+    const srsMap = ctx.store.srsMap();
 
     const view = C.el(
       `<div class="view">` +
@@ -28,7 +39,17 @@
       return;
     }
 
-    auralGrades.forEach(function (ag) {
+    const orderedGrades = auralGrades
+      .map((auralGrade, originalIndex) => ({ auralGrade, originalIndex }))
+      .sort((a, b) => {
+        const aCurrent = a.auralGrade.grade === currentGrade;
+        const bCurrent = b.auralGrade.grade === currentGrade;
+        if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
+        return a.originalIndex - b.originalIndex;
+      })
+      .map((x) => x.auralGrade);
+
+    orderedGrades.forEach(function (ag) {
       const isCurrentGrade = ag.grade === currentGrade;
       const gradeLabel = isCurrentGrade
         ? `Grade ${ag.grade} <span class="pill" style="font-size:.8em;vertical-align:middle">your grade</span>`
@@ -40,8 +61,9 @@
         // Strip leading "Aural: " from the title for display.
         const shortTitle = t.title.replace(/^Aural:\s*/i, "");
         const icon = global.MTT.ui.icons.iconHtml(t.id);
+        const accuracyChip = topicAccuracyChip(srsMap, t.id);
         const card = C.cardButton(
-          `<div class="topic-head">${icon}<h3>${shortTitle}</h3></div>` +
+          `<div class="topic-head">${icon}<h3>${shortTitle}</h3>${accuracyChip}</div>` +
           `<div class="why">${t.why || ""}</div>`,
           function () { ctx.router.navigate("quiz", { single: Object.assign({}, t, { grade: ag.grade }) }); }
         );
