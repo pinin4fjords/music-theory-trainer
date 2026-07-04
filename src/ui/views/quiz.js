@@ -511,9 +511,9 @@
       const dots = session.map((_, i) =>
         `<span class="${i < idx ? "done" : i === idx ? "now" : ""}"></span>`).join("");
       view.appendChild(C.el(
-        `<div class="progress-row" role="img" aria-label="Question ${idx + 1} of ${session.length}. ${session.length}-question session.">`
+        `<div class="progress-row">`
         + `<div class="progress-dots" aria-hidden="true">${dots}</div>`
-        + `<span class="progress-count">${idx + 1} / ${session.length}</span>`
+        + `<span class="progress-count" aria-label="Question ${idx + 1} of ${session.length}">${idx + 1} / ${session.length}</span>`
         + `<span class="progress-meta">${session.length}-question session</span></div>`));
       view.appendChild(C.el(`<div class="topic-label">Grade ${topic.grade} · ${topic.title}</div>`));
 
