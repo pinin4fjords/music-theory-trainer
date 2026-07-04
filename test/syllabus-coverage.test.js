@@ -1,9 +1,9 @@
 /**
  * Per-grade syllabus coverage audit (issue #13 / IMPROVEMENT-PLAN.md B4).
  *
- * SYLLABUS below is a checklist transcribed from the two official ABRSM sheets:
- *   - "THE ABRSM MUSIC THEORY SYLLABUS FROM 2020: GRADES 1 TO 5"
- *   - "THE ABRSM MUSIC THEORY SYLLABUS FROM 2020: GRADES 6 TO 8"
+ * SYLLABUS below is a checklist transcribed from the two official graded-exam
+ * theory syllabus sheets this app targets (Grades 1-5 and Grades 6-8 - see
+ * IMPROVEMENT-PLAN.md's ground-truth section for the source documents).
  * Each entry is one syllabus requirement, tagged with the grade it is FIRST
  * introduced at (grades are cumulative in both the exam and this app's
  * `gradeTopics(grade)`, so a requirement need not be re-listed at every later
