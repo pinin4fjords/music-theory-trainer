@@ -12,12 +12,12 @@
 
   function topicAccuracyChip(srsMap, topicId) {
     const card = srsMap[topicId];
-    if (!card || !card.seen) {
+    if (!card || card.seen <= 0) {
       return `<span class="pill outline aural-acc-chip" aria-label="Not practised yet">New</span>`;
+    } else {
+      const pct = Math.round((card.correct / card.seen) * 100);
+      return `<span class="pill aural-acc-chip" aria-label="Accuracy ${pct}%">${pct}%</span>`;
     }
-    const correct = card.correct || 0;
-    const pct = Math.round((correct / card.seen) * 100);
-    return `<span class="pill aural-acc-chip" aria-label="Accuracy ${pct}%">${pct}%</span>`;
   }
 
   function render(main, ctx) {
@@ -40,14 +40,14 @@
     }
 
     const orderedGrades = auralGrades
-      .map((ag, i) => ({ ag, i }))
+      .map((auralGrade, originalIndex) => ({ auralGrade, originalIndex }))
       .sort((a, b) => {
-        const aCurrent = a.ag.grade === currentGrade;
-        const bCurrent = b.ag.grade === currentGrade;
+        const aCurrent = a.auralGrade.grade === currentGrade;
+        const bCurrent = b.auralGrade.grade === currentGrade;
         if (aCurrent !== bCurrent) return aCurrent ? -1 : 1;
-        return a.i - b.i;
+        return a.originalIndex - b.originalIndex;
       })
-      .map((x) => x.ag);
+      .map((x) => x.auralGrade);
 
     orderedGrades.forEach(function (ag) {
       const isCurrentGrade = ag.grade === currentGrade;
