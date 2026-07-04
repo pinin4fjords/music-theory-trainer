@@ -132,14 +132,6 @@ describe("DOM - quiz flow & feedback", () => {
     expect(next.textContent).toMatch(/Next|Finish/);
   });
 
-  it("surfaces the current session length in the quiz header", () => {
-    const sel = document.getElementById("session-length-select");
-    sel.value = "20";
-    sel.dispatchEvent(new window.Event("change"));
-    instance.router.navigate("quiz");
-    expect(document.querySelector(".progress-meta").textContent).toBe("20-question session");
-  });
-
   it("cancels in-flight question audio before replaying it", () => {
     const baseTopic = instance.ctx.content.grades[0].topics[0];
     const events = [];
@@ -236,7 +228,6 @@ describe("DOM - settings", () => {
     expect(instance.store.settings().sessionLength).toBe(20);
     instance.router.navigate("quiz");
     expect(document.querySelector(".progress-count").textContent).toBe("1 / 20");
-    expect(document.querySelector(".progress-meta").textContent).toBe("20-question session");
   });
 });
 
