@@ -77,7 +77,7 @@ describe("DOM - boot & navigation", () => {
     instance.router.navigate("aural");
     const headings = [...document.querySelectorAll("#main h2")]
       .map((h) => h.textContent.replace(/\s+/g, " ").trim());
-    expect(headings[0]).toMatch(/^Grade 4/);
+    expect(headings[0]).toMatch(new RegExp(`^Grade ${RETURNING.settings.grade}`));
   });
 
   it("shows per-topic aural accuracy chips from SRS data", () => {
@@ -86,6 +86,7 @@ describe("DOM - boot & navigation", () => {
       totalAnswered: 4,
       settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
       srs: {
+        // 3 correct answers from 4 attempts => 75% accuracy chip for this topic.
         "g4-aural-time": { box: 3, seen: 4, correct: 3, streak: 1, lapses: 1, avgMs: 1200, lastSeen: 0, dueAt: 0 },
       },
     };
@@ -93,8 +94,12 @@ describe("DOM - boot & navigation", () => {
     const inst = app.boot({ document, storage: fakeStore(auralSeeded), now: () => NOW, seed: "aural-chip" });
     inst.router.navigate("aural");
     const chips = [...document.querySelectorAll("#main .aural-acc-chip")].map((c) => c.textContent.trim());
+    const timeSigCard = [...document.querySelectorAll("#main .card.topic")]
+      .find((c) => /time signature & rhythm/i.test(c.textContent));
     expect(chips).toContain("75%");
     expect(chips).toContain("New");
+    expect(timeSigCard).toBeTruthy();
+    expect(timeSigCard.querySelector(".aural-acc-chip").textContent.trim()).toBe("75%");
   });
 });
 
