@@ -87,7 +87,9 @@
     }
 
     // Parse the current hash and navigate to it (defaults to home).
-    // "quiz" is not restored on refresh — quiz sessions don't survive a page reload.
+    // "quiz" in the hash navigates to home rather than trying to replay a full
+    // session from URL alone; the quiz view itself uses sessionStorage to offer
+    // a resume prompt when the learner comes back mid-session.
     function fromHash() {
       const raw = (win.location && win.location.hash || "").replace(/^#/, "");
       if (!raw) { navigate("home"); return; }

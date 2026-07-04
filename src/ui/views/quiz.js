@@ -532,20 +532,100 @@
     return renderMicPitch(view, q, C, ctx, onResult);
   }
 
+  // --- Session resume helpers -----------------------------------------------
+  // Persist the in-progress quiz state to sessionStorage so the learner can
+  // pick up exactly where they left off after a refresh or an in-app navigation.
+  // sessionStorage is per-tab and survives page reloads within the tab, which is
+  // exactly the right scope: closing the tab clears it intentionally.
+
+  const RESUME_KEY = "mtt.session";
+
+  function getSessionStorage() {
+    try { return (typeof sessionStorage !== "undefined" && sessionStorage) || null; } catch { return null; }
+  }
+
+  function saveResume(data) {
+    const ss = getSessionStorage();
+    if (!ss) return;
+    try { ss.setItem(RESUME_KEY, JSON.stringify(data)); } catch { /* storage full – silently skip */ }
+  }
+
+  function clearResume() {
+    const ss = getSessionStorage();
+    if (!ss) return;
+    try { ss.removeItem(RESUME_KEY); } catch { /* ok */ }
+  }
+
+  function loadResume() {
+    const ss = getSessionStorage();
+    if (!ss) return null;
+    try {
+      const raw = ss.getItem(RESUME_KEY);
+      if (!raw) return null;
+      const d = JSON.parse(raw);
+      if (!d || typeof d.seed !== "number" || typeof d.idx !== "number" || typeof d.score !== "number") return null;
+      return d;
+    } catch { return null; }
+  }
+
   // --- Main render ----------------------------------------------------------
 
   function render(main, ctx, arg) {
     const C = ctx.C;
     const single = arg && arg.single;
+    // `resume` is passed internally when the learner chooses "Continue" from the
+    // resume prompt. It carries the session parameters needed to rebuild the same
+    // question list deterministically (seed + srsMap snapshot + build timestamp).
+    const resume = arg && arg.resume;
     const settings = ctx.store.settings();
-    const seed = (ctx.seed != null ? ctx.seed : undefined);
-    const rng = ctx.rng.create(seed);
-    const now = ctx.now();
-
     const sessionLength = settings.sessionLength || ctx.session.SESSION_LEN;
+
+    // --- Resume check (skipped for single-topic sessions) -------------------
+    // If sessionStorage holds a matching in-progress session, offer to continue
+    // it rather than silently starting a new one.
+    if (!single && !resume) {
+      const saved = loadResume();
+      if (saved && saved.idx > 0
+          && saved.grade === settings.grade
+          && saved.mode === (settings.mode || "daily")
+          && saved.sessionLength === sessionLength) {
+        const view = C.el(`<div class="view center card"></div>`);
+        view.appendChild(C.el(`<div style="font-size:2rem" aria-hidden="true">📖</div>`));
+        view.appendChild(C.el(`<h1>Resume session?</h1>`));
+        view.appendChild(C.el(`<p class="muted">You were on question ${saved.idx + 1} of ${saved.sessionLength} — pick up where you left off?</p>`));
+        const row = C.el(`<div style="display:flex;gap:10px;flex-wrap:wrap"></div>`);
+        row.appendChild(C.button("Continue", () => {
+          C.clear(main);
+          render(main, ctx, Object.assign({}, arg, { resume: saved }));
+        }));
+        row.appendChild(C.button("Start fresh", () => {
+          clearResume();
+          C.clear(main);
+          render(main, ctx, arg);
+        }, { className: "ghost" }));
+        view.appendChild(row);
+        main.appendChild(view);
+        return;
+      }
+    }
+
+    // -------------------------------------------------------------------------
+
+    const seed = resume ? resume.seed : (ctx.seed != null ? ctx.seed : undefined);
+    const rng = ctx.rng.create(seed);
+    // When resuming, replay the original srsMap snapshot + timestamp so the
+    // session.build() call produces the same topic ordering and question list.
+    const snapshotSrs = resume ? resume.snapshotSrs
+      : JSON.parse(JSON.stringify(ctx.store.srsMap()));
+    const snapshotNow = resume ? resume.snapshotNow : ctx.now();
+
+    const sessionLength2 = sessionLength; // alias used in saveResume calls below
+    const sessionGrade = settings.grade;
+    const sessionMode = settings.mode || "daily";
+
     const session = single
       ? ctx.session.buildSingle(Object.assign({}, single), rng, sessionLength)
-      : ctx.session.build({ content: ctx.content, settings, srsMap: ctx.store.srsMap(), rng, now, length: sessionLength });
+      : ctx.session.build({ content: ctx.content, settings, srsMap: snapshotSrs, rng, now: snapshotNow, length: sessionLength });
 
     function playQuestionAudio(q) {
       if (ctx.audio && ctx.audio.cancel) {
@@ -576,9 +656,16 @@
       return;
     }
 
-    let idx = 0;
-    let score = 0;
+    let idx = resume ? resume.idx : 0;
+    let score = resume ? resume.score : 0;
     let questionStart = ctx.now();
+
+    // Persist resume state now so a refresh immediately after starting is safe.
+    // For the resume path the state is already in sessionStorage; we just update
+    // it to normalise any clock drift.
+    if (!single) {
+      saveResume({ seed: rng.seed, snapshotSrs, snapshotNow, grade: sessionGrade, mode: sessionMode, sessionLength: sessionLength2, idx, score });
+    }
     let activeStopMic = null; // teardown for the current question's mic, if any
     let activeKeyHandler = null; // document keydown listener for number-key answers
     const tally = {}; // topicId -> { title, grade, correct, total } for the finish summary
@@ -598,6 +685,10 @@
 
     function nextQuestion() {
       if (idx >= session.length) return finish();
+      // Persist the current position so a refresh mid-session can resume here.
+      if (!single) {
+        saveResume({ seed: rng.seed, snapshotSrs, snapshotNow, grade: sessionGrade, mode: sessionMode, sessionLength: sessionLength2, idx, score });
+      }
       detachKeyHandler();
       C.clear(main);
       const { topic, q } = session[idx];
@@ -818,6 +909,8 @@
     }
 
     function finish() {
+      // A completed session clears any resume state — nothing left to continue.
+      clearResume();
       // Any completed session of a few questions counts toward the daily streak,
       // aural and single-topic ones included — recordSessionDay is idempotent per
       // day, so it can't be farmed by replaying.

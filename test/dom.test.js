@@ -393,8 +393,121 @@ describe("DOM - linkable pages (hash routing)", () => {
   });
 });
 
+describe("DOM - session resume", () => {
+  beforeEach(() => {
+    // Ensure each test starts with a clean sessionStorage.
+    window.sessionStorage.clear();
+  });
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
+  it("saves progress to sessionStorage when a session starts", () => {
+    instance.router.navigate("quiz");
+    const saved = JSON.parse(window.sessionStorage.getItem("mtt.session"));
+    expect(saved).toBeTruthy();
+    expect(typeof saved.seed).toBe("number");
+    expect(saved.idx).toBe(0);
+    expect(saved.score).toBe(0);
+    expect(saved.grade).toBe(4);
+  });
+
+  it("updates sessionStorage idx and score after answering questions", () => {
+    instance.router.navigate("quiz");
+
+    // Answer two questions.
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+
+    const saved = JSON.parse(window.sessionStorage.getItem("mtt.session"));
+    expect(saved.idx).toBe(2);
+  });
+
+  it("offers a resume prompt after navigating away mid-session", () => {
+    instance.router.navigate("quiz");
+    // Answer one question to advance idx.
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+
+    // Navigate away, then back to quiz.
+    instance.router.navigate("home");
+    instance.router.navigate("quiz");
+
+    expect(document.querySelector("#main h1").textContent).toMatch(/Resume session/i);
+    expect(document.querySelector("#main").textContent).toMatch(/question 2 of/i);
+  });
+
+  it("resuming continues from the saved question index", () => {
+    instance.router.navigate("quiz");
+    // Answer one question.
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+
+    // Navigate away, then return and resume.
+    instance.router.navigate("home");
+    instance.router.navigate("quiz");
+    const continueBtn = [...document.querySelectorAll("#main button")]
+      .find((b) => /continue/i.test(b.textContent));
+    expect(continueBtn).toBeTruthy();
+    continueBtn.click();
+
+    // The progress counter should show we are on question 2.
+    const counter = document.querySelector(".progress-count");
+    expect(counter.textContent).toMatch(/^2\s*\/\s*/);
+  });
+
+  it("'Start fresh' clears sessionStorage and begins a new session", () => {
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+
+    instance.router.navigate("home");
+    instance.router.navigate("quiz");
+
+    const freshBtn = [...document.querySelectorAll("#main button")]
+      .find((b) => /start fresh/i.test(b.textContent));
+    expect(freshBtn).toBeTruthy();
+    freshBtn.click();
+
+    // A new session starts from question 1.
+    expect(document.querySelector(".progress-count").textContent).toMatch(/^1\s*\/\s*/);
+    expect(JSON.parse(window.sessionStorage.getItem("mtt.session")).idx).toBe(0);
+  });
+
+  it("completing a session clears the resume state", () => {
+    instance.router.navigate("quiz");
+    let guard = 0;
+    while (guard++ < 40) {
+      const choice = document.querySelector(".choice:not(:disabled)");
+      if (choice) {
+        choice.click();
+        const next = [...document.querySelectorAll("#main .btn")].pop();
+        next.click();
+      }
+      if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+    }
+    expect(document.querySelector("#main").textContent).toMatch(/Nice work/);
+    expect(window.sessionStorage.getItem("mtt.session")).toBeNull();
+  });
+
+  it("does not offer resume for single-topic sessions", () => {
+    // Seed a fake resume entry for grade 4.
+    window.sessionStorage.setItem("mtt.session", JSON.stringify({
+      seed: 42, snapshotSrs: {}, snapshotNow: NOW,
+      grade: 4, mode: "daily", sessionLength: 10, idx: 3, score: 2,
+    }));
+
+    // Single-topic sessions bypass the resume logic entirely.
+    const topic = instance.ctx.content.grades[0].topics[0];
+    instance.router.navigate("quiz", { single: topic });
+    expect(document.querySelector(".quiz-prompt")).toBeTruthy();
+    expect(document.querySelector("#main h1")).toBeFalsy();
+  });
+});
+
 describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
-  afterEach(() => { vi.useRealTimers(); });
 
   it("shows the actual note/interval score, not the self-report sentinel as 'the answer'", async () => {
     const ai = globalThis.MTT.audioInput;
