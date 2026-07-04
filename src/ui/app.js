@@ -103,6 +103,10 @@
       const setOpen = (open) => {
         settingsMenu.hidden = !open;
         settingsToggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          const first = settingsMenu.querySelector("input, button, select, [tabindex]");
+          if (first) first.focus();
+        }
       };
       settingsToggle.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -111,7 +115,23 @@
       doc.addEventListener("click", (e) => {
         if (!settingsMenu.hidden && !settingsMenu.contains(e.target) && e.target !== settingsToggle) setOpen(false);
       });
-      doc.addEventListener("keydown", (e) => { if (e.key === "Escape") setOpen(false); });
+      doc.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !settingsMenu.hidden) {
+          setOpen(false);
+          settingsToggle.focus();
+        }
+      });
+    }
+
+    // Progress view: also reachable from the settings menu (the level chip that
+    // links to it in the header is hidden on narrow/mobile layouts).
+    const progressMenuLink = doc.getElementById("progress-menu-link");
+    if (progressMenuLink) {
+      progressMenuLink.addEventListener("click", () => {
+        if (settingsMenu) settingsMenu.hidden = true;
+        if (settingsToggle) settingsToggle.setAttribute("aria-expanded", "false");
+        router.navigate("progress");
+      });
     }
 
     // Sound toggle.

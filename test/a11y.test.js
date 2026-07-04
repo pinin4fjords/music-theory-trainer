@@ -15,7 +15,20 @@ function scaffold() {
       </nav>
       <select id="grade-select" aria-label="grade"></select>
       <span id="streak">🔥 0</span>
-      <input type="checkbox" id="sound-toggle" checked>
+      <div class="settings">
+        <button type="button" class="icon-btn" id="settings-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu" aria-label="Settings">⚙</button>
+        <div class="settings-menu" id="settings-menu" role="group" aria-label="Settings" hidden>
+          <button type="button" class="menu-row menu-link" id="progress-menu-link">📈 Progress</button>
+          <label class="menu-row sound-label">
+            <span>Sound</span>
+            <input type="checkbox" id="sound-toggle" checked>
+          </label>
+          <div class="menu-row">
+            <span>Theme</span>
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Switch colour theme">🌗</button>
+          </div>
+        </div>
+      </div>
     </header>
     <main id="main" tabindex="-1"></main>`;
 }
@@ -52,6 +65,30 @@ describe("a11y - live region & landmarks", () => {
 
   it("a skip link is present", () => {
     expect(document.querySelector(".skip-link")).toBeTruthy();
+  });
+});
+
+describe("a11y - settings menu focus management", () => {
+  it("opening the menu moves focus to its first control", () => {
+    document.getElementById("settings-toggle").click();
+    expect(document.getElementById("settings-menu").hidden).toBe(false);
+    expect(document.activeElement).toBe(document.getElementById("progress-menu-link"));
+  });
+
+  it("Escape closes the menu and returns focus to the toggle", () => {
+    const toggle = document.getElementById("settings-toggle");
+    toggle.click();
+    expect(document.getElementById("settings-menu").hidden).toBe(false);
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.getElementById("settings-menu").hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("the Progress link in the menu navigates to the progress view and closes the menu", () => {
+    document.getElementById("settings-toggle").click();
+    document.getElementById("progress-menu-link").click();
+    expect(document.getElementById("settings-menu").hidden).toBe(true);
+    expect(instance.router.getCurrent()).toBe("progress");
   });
 });
 

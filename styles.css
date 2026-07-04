@@ -21,7 +21,7 @@
   --muted: var(--ink-soft);
   --ink: #0e1116;         /* near-black, faintly cool */
   --ink-soft: #565d68;
-  --ink-faint: #8a909b;
+  --ink-faint: #63697a;   /* >= 4.5:1 on --paper and --bg (WCAG AA) */
   --line: #e6e8ec;        /* hairlines */
   --line-strong: #d3d7dd;
   --accent: #4f46e5;      /* indigo - the only chromatic note */
@@ -52,7 +52,7 @@
   --surface-2: #1a1f29;
   --ink: #eef1f5;
   --ink-soft: #9aa2af;
-  --ink-faint: #6b7280;
+  --ink-faint: #8890a0;   /* >= 4.5:1 on --paper and --bg (WCAG AA) */
   --line: #232936;
   --line-strong: #313947;
   --accent: #818cf8;
@@ -147,7 +147,7 @@ nav.tabs button.active { color: var(--ink); font-weight: 600; box-shadow: inset 
 .sound-label input { accent-color: var(--accent); }
 .theme-toggle {
   border: 1px solid var(--line); background: var(--paper); cursor: pointer;
-  width: 34px; height: 34px; border-radius: var(--radius-sm); font-size: .95rem; line-height: 1;
+  width: 40px; height: 40px; border-radius: var(--radius-sm); font-size: .95rem; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center;
   transition: background .14s, border-color .14s, transform .08s;
 }
@@ -498,7 +498,7 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .settings { position: relative; display: inline-flex; }
 .icon-btn {
   border: 1px solid var(--line); background: var(--paper); cursor: pointer;
-  width: 34px; height: 34px; border-radius: var(--radius-sm); font-size: .95rem; line-height: 1;
+  width: 40px; height: 40px; border-radius: var(--radius-sm); font-size: .95rem; line-height: 1;
   display: inline-flex; align-items: center; justify-content: center; color: var(--ink);
   transition: background .14s, border-color .14s;
 }
@@ -514,7 +514,11 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 }
 .settings-menu .menu-row:hover { background: var(--hover); }
 .settings-menu input { accent-color: var(--accent); }
-.settings-menu .theme-toggle { width: 30px; height: 30px; }
+.settings-menu .menu-link {
+  width: 100%; border: 0; background: transparent; font: inherit; text-align: left;
+  cursor: pointer; border-bottom: 1px solid var(--line); border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  margin-bottom: 4px;
+}
 
 /* --- First-run onboarding ----------------------------------------------- */
 .onboard-card { display: flex; flex-direction: column; align-items: center; gap: 6px; }

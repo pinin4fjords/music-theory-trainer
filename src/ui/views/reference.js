@@ -42,7 +42,7 @@
         <input type="search" id="ref-search" class="ref-search" placeholder="Search - e.g. dolce, 6/8, dominant, E major" aria-label="Search the reference">
         <div class="ref-layout">
           <nav class="ref-menu" id="ref-menu" aria-label="Reference topics"></nav>
-          <div class="ref-content" id="ref-content" aria-live="polite"></div>
+          <div class="ref-content" id="ref-content"></div>
         </div>
       </div>`);
     main.appendChild(view);
@@ -104,10 +104,13 @@
       const shown = sections.map((s) => matches(s, q)).filter(Boolean);
       if (!shown.length) {
         content.appendChild(C.el(`<p class="muted">No matches for "${esc(q)}".</p>`));
+        C.announce(`No matches for "${q}".`);
         return;
       }
-      content.appendChild(C.el(`<p class="muted ref-result-count">${shown.length} section${shown.length === 1 ? "" : "s"} match "${esc(q)}".</p>`));
+      const countMsg = `${shown.length} section${shown.length === 1 ? "" : "s"} match "${q}".`;
+      content.appendChild(C.el(`<p class="muted ref-result-count">${esc(countMsg)}</p>`));
       shown.forEach((s) => content.appendChild(sectionEl(s)));
+      C.announce(countMsg);
     }
 
     input.addEventListener("input", () => {
