@@ -1,8 +1,11 @@
 /* audio-piano.js - sampled piano audio for the aural trainer.
  *
  * Wraps the WebAudioFont player + JCLive piano soundfont to provide the same
- * surface as MTT.audio (note, sequence, sequencePair, sequenceAt). Only
- * activates when both vendor scripts are loaded; gracefully absent otherwise.
+ * surface as MTT.audio (note, sequence, sequencePair, sequenceAt). The two
+ * vendor scripts (~1MB combined) are not part of index.html's static load
+ * chain - they are lazy-injected on first use so they never block first
+ * paint. Until they finish loading, isReady() is false and callers fall back
+ * to the oscillator synth in MTT.audio.
  *
  * Exposed as MTT.audioPiano. aural-content.js prefers this when isReady()
  * returns true, falling back to the oscillator synth in MTT.audio.
@@ -12,17 +15,41 @@
 (function (global) {
   "use strict";
 
+  const VENDOR_SCRIPTS = [
+    "src/vendor/webaudiofont-player.js",
+    "src/vendor/piano-jclive.js",
+  ];
+
   let _ctx = null;
   let _masterGain = null;
   let _player = null;
   let _instrument = null;
+  let _vendorRequested = false;
 
   function isReady() {
     return typeof global.WebAudioFontPlayer === "function" &&
            typeof global._tone_0000_JCLive_sf2_file !== "undefined";
   }
 
+  // Inject the vendor <script> tags on first use instead of loading them
+  // eagerly. Idempotent - safe to call from every playback entry point.
+  // async=false on dynamically-created scripts preserves execution order
+  // without blocking the parser (unlike a plain synchronous <script> tag).
+  function loadVendor() {
+    if (_vendorRequested || isReady()) return;
+    const doc = global.document;
+    if (!doc || !doc.body) return;
+    _vendorRequested = true;
+    VENDOR_SCRIPTS.forEach(function (src) {
+      const el = doc.createElement("script");
+      el.src = src;
+      el.async = false;
+      doc.body.appendChild(el);
+    });
+  }
+
   function ensure() {
+    loadVendor();
     if (!isReady()) return null;
     const AC = global.AudioContext || global.webkitAudioContext;
     if (!AC) return null;
@@ -145,6 +172,7 @@
     cancel: cancel,
     unlock: unlock,
     isReady: isReady,
+    preload: loadVendor,
   };
 
   global.MTT = global.MTT || {};
