@@ -56,10 +56,14 @@
       if (loc.hash !== target) loc.hash = target;
     }
 
+    function isRedundantTopLevelTabNav(name, arg, opts) {
+      return !opts.force && arg === undefined && current === name && currentParam === null;
+    }
+
     function navigate(name, arg, opts) {
       opts = opts || {};
       if (!views[name]) return;
-      if (!opts.force && arg === undefined && current === name && currentParam === null) return;
+      if (isRedundantTopLevelTabNav(name, arg, opts)) return;
       if (currentCleanup) { try { currentCleanup(); } catch { /* ok */ } currentCleanup = null; }
       releaseMedia();
       current = name;

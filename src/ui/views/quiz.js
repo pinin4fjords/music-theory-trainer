@@ -452,7 +452,9 @@
 
     function playQuestionAudio(q) {
       if (ctx.audio && ctx.audio.cancel) {
-        try { ctx.audio.cancel(); } catch { /* best-effort: replay should still continue if cancellation fails */ }
+        // Best-effort only: replay should still continue if a stale audio graph
+        // can't be cancelled cleanly during rapid replays or view switches.
+        try { ctx.audio.cancel(); } catch { /* ok */ }
       }
       safe(q.audio);
     }
