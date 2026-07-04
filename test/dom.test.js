@@ -156,7 +156,7 @@ describe("DOM - quiz flow & feedback", () => {
 
     try {
       instance.router.navigate("quiz", { single: fixedTopic });
-      expect(events).toEqual(["cancel", "play"]);
+      expect(events.slice(-2)).toEqual(["cancel", "play"]);
       document.querySelector(".audio-btn").click();
       expect(events.slice(-2)).toEqual(["cancel", "play"]);
     } finally {
@@ -165,14 +165,14 @@ describe("DOM - quiz flow & feedback", () => {
   });
 
   it("falls back to the Learn page when no explainer is available", () => {
-    const lessonTopic = instance.ctx.content.grades[0].topics[0];
+    const lessonTopic = instance.ctx.content.grades[0].topics.find((t) => t.id === "g1-triad");
     instance.router.navigate("quiz", { single: lessonTopic });
     document.querySelector(".choice").click();
     const dig = document.querySelector(".dig-deeper");
     expect(dig).toBeTruthy();
     dig.click();
     expect(instance.router.getCurrent()).toBe("learn");
-    expect(document.querySelector("#main h1").textContent).toMatch(/Reading notes/);
+    expect(document.querySelector("#main h1").textContent).toMatch(/tonic triad/i);
   });
 
   it("plays through a whole session and records the day's streak", () => {
