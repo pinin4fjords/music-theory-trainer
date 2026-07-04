@@ -57,7 +57,11 @@
       const p = c.resume();
       if (p && typeof p.catch === "function") p.catch(() => {});
     }
-    // Also unlock the piano context if it's been initialised.
+    // Also unlock the piano context if it's been initialised. Gated on
+    // `enabled` so a muted user's first click/keydown - which fires this
+    // regardless of what they interacted with - doesn't trigger the piano's
+    // lazy vendor-script download for sound they've opted out of.
+    if (!enabled) return;
     const piano = global.MTT && global.MTT.audioPiano;
     if (piano && piano.unlock) piano.unlock();
   }
@@ -83,10 +87,13 @@
   }
 
   // Returns the piano engine when loaded and ready; null otherwise.
-  // Checked at call time so audio.js can load before audio-piano.js.
+  // Checked at call time so audio.js can load before audio-piano.js. Also
+  // triggers the (idempotent) lazy-load of the piano's vendor scripts on
+  // first use, so playback never waits on them up front.
   function getPiano() {
     if (!enabled) return null;
     const p = global.MTT && global.MTT.audioPiano;
+    if (p && p.preload) p.preload();
     return (p && p.isReady()) ? p : null;
   }
 
