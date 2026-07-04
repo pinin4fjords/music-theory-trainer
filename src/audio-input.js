@@ -167,11 +167,15 @@
   // --- MIDI / note utilities ----------------------------------------------
 
   // Note name for a MIDI number (e.g. 60 → "C4").
-  const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
-  function midiToName(midi) {
+  // Pass useFlats=true for flat keys (F, Bb, Eb, …) so accidentals are spelled
+  // correctly (e.g. Bb4 instead of A♯4) in "You sang" feedback.
+  const NOTE_NAMES_SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const NOTE_NAMES_FLAT  = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
+  function midiToName(midi, useFlats) {
     if (midi == null) return "–";
+    const names = useFlats ? NOTE_NAMES_FLAT : NOTE_NAMES_SHARP;
     const octave = Math.floor(midi / 12) - 1;
-    return NOTE_NAMES[((midi % 12) + 12) % 12] + octave;
+    return names[((midi % 12) + 12) % 12] + octave;
   }
 
   const api = {

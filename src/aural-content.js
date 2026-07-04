@@ -101,9 +101,11 @@
   // Build a targets array for a sequence micTask.
   // Each entry: { midi, name, staffHtml } — quiz.js uses staffHtml to show the
   // current note to sing and midi/name for pitch comparison and meter label.
-  function makeSequenceTargets(midiNotes) {
+  // useFlats should be true for flat keys so note names spell correctly
+  // (e.g. "B♭4" not "A♯4") in the Expected and You-sang feedback rows.
+  function makeSequenceTargets(midiNotes, useFlats) {
     return midiNotes.map(function (midi) {
-      return { midi: midi, name: midiName(midi), staffHtml: noteStaff(midi) };
+      return { midi: midi, name: midiName(midi, useFlats), staffHtml: noteStaff(midi) };
     });
   }
 
@@ -115,11 +117,21 @@
     C5: 72, D5: 74, E5: 76, F5: 77, G5: 79, A5: 81, B5: 83,
   };
 
-  // NOTE_NAMES indexed by semitone 0-11.
-  const NOTE_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
-  function midiName(midi) {
+  // NOTE_NAMES indexed by semitone 0-11 (sharp and flat variants).
+  const NOTE_NAMES_SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  const NOTE_NAMES_FLAT  = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B♭", "B"];
+  function midiName(midi, useFlats) {
+    const names = useFlats ? NOTE_NAMES_FLAT : NOTE_NAMES_SHARP;
     const octave = Math.floor(midi / 12) - 1;
-    return NOTE_NAMES[((midi % 12) + 12) % 12] + octave;
+    return names[((midi % 12) + 12) % 12] + octave;
+  }
+
+  // Flat keys: F major and all keys whose names use the ♭ or lowercase-b
+  // notation (Bb, Eb, Ab, Db, Gb and their enharmonic equivalents).
+  // Used to pick the correct accidental spelling for note names in feedback.
+  const FLAT_KEY_RE = /^F(?:\s|$)|[A-G]b|♭/;
+  function keyUsesFlats(key) {
+    return key != null && FLAT_KEY_RE.test(key);
   }
 
   // Build a major scale starting at rootMidi (one octave).
@@ -345,12 +357,14 @@
   function echoMelodyQuestion(rng, specKey, copy) {
     const m = auralGen().generateMelody(rng, MELODY_SPECS[specKey]);
     const beatSec = 0.55;
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: copy.prompt,
       audio: function () { audio().sequenceRhythm(m.notes, m.durations, beatSec); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(m.notes),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(m.notes, useFlats),
         autoPlayAndRespondMs: echoRespondMs(m.durations, beatSec),
         toleranceSemitones: copy.tolerance != null ? copy.tolerance : 1.0,
         revealStaffHtml: sequenceStaff(m.notes),
@@ -507,6 +521,7 @@
     const gapMs = 900;
     // The mic opens after BOTH playings finish.
     const autoPlayAndRespondMs = Math.round(onePlayMs + gapMs + onePlayMs + 350);
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to this ${MODE_LABEL[m.mode]}-key melody, played <strong>twice</strong>. Then <strong>sing it back from memory</strong> - there is no score to read.`,
       audio: function () {
@@ -516,7 +531,8 @@
       },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(m.notes),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(m.notes, useFlats),
         autoPlayAndRespondMs: autoPlayAndRespondMs,
         toleranceSemitones: 1.0,
         revealStaffHtml: sequenceStaff(m.notes),
@@ -533,12 +549,14 @@
   // Only tonic is played (for pitch reference). Student reads and sings in sequence.
   function g4SightSingQuestion(rng) {
     const m = auralGen().generateMelody(rng, MELODY_SPECS.g4SightSing);
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order. Start when you\'re ready.${sequenceStaff(m.notes)}`,
       audio: function () { audio().note(m.tonicMidi, 1.2); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(m.notes),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(m.notes, useFlats),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
@@ -659,12 +677,14 @@
   // dominant-to-tonic 4th.
   function g5SightSingQuestion(rng) {
     const m = auralGen().generateMelody(rng, MELODY_SPECS.g5SightSing);
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order. Take a moment to look before starting.${sequenceStaff(m.notes)}`,
       audio: function () { audio().note(m.tonicMidi, 1.2); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(m.notes),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(m.notes, useFlats),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
@@ -974,12 +994,14 @@
     const bottom = auralGen().generateCompanion(rng, m, { direction: "below" });
     const target = voice === "top" ? m.notes : bottom;
     const which = voice === "top" ? "upper" : "lower";
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to this two-part phrase, then sing back <strong>just the ${which} line</strong>. Your line stays hidden until afterwards - isolate it by ear.`,
       audio: playParts([m.notes, bottom], m.durations),
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(target),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(target, useFlats),
         autoPlayAndRespondMs: echoRespondMs(m.durations, MULTI_BEAT),
         toleranceSemitones: gradeLabel === "Grade 7" ? 0.5 : 1.0,
         revealStaffHtml: sequenceStaff(target),
@@ -994,12 +1016,14 @@
     const m = auralGen().generateMelody(rng, MULTI_PART_SPEC);
     const mid = auralGen().generateCompanion(rng, m, { direction: "below" });
     const bottom = auralGen().generateCompanion(rng, { notes: mid, key: m.key, mode: m.mode }, { direction: "below" });
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to this three-part phrase, then sing back <strong>just the lowest line</strong>. It stays hidden until afterwards - track it by ear.`,
       audio: playParts([m.notes, mid, bottom], m.durations),
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(bottom),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(bottom, useFlats),
         autoPlayAndRespondMs: echoRespondMs(m.durations, MULTI_BEAT),
         toleranceSemitones: 0.5,
         revealStaffHtml: sequenceStaff(bottom),
@@ -1057,6 +1081,7 @@
     const beatSec = 0.6;
     const tonicDurSec = 1.2;
     const accompDelayMs = tonicDurSec * 1000 + 100;
+    const useFlats = keyUsesFlats(m.key);
     return {
       prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown while the accompaniment plays underneath.${sequenceStaff(m.notes)}`,
       audio: function () {
@@ -1066,7 +1091,8 @@
       },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(m.notes),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(m.notes, useFlats),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
@@ -1145,6 +1171,7 @@
     const keyDef = pick(rng, G7_SIGHT_PHRASES);
     const phrase = pick(rng, keyDef.phrases);
     const bass = phrase.map(function (m) { return diatonicThirdBelow(m, keyDef.root); });
+    const useFlats = keyUsesFlats(keyDef.name);
     return {
       prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.${sequenceStaff(phrase)}`,
       audio: function () {
@@ -1154,7 +1181,8 @@
       },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(phrase, useFlats),
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
@@ -1210,6 +1238,7 @@
     // A line a 6th above each target note (an octave up, then a diatonic 3rd
     // back down), kept in the phrase's own key.
     const upper = phrase.map(function (m) { return diatonicThirdBelow(m + 12, keyDef.root); });
+    const useFlats = keyUsesFlats(keyDef.name);
     return {
       prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(phrase)}`,
       audio: function () {
@@ -1219,7 +1248,8 @@
       },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        useFlats: useFlats,
+        targets: makeSequenceTargets(phrase, useFlats),
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },

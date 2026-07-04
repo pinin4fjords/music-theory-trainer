@@ -124,13 +124,19 @@
   // tracks detected pitch, and colour feedback (on/off pitch).
   // Call meter.update({ midi, cents, clarity }) on each detector frame.
   // Call meter.setTarget(noteName) to label what the user should sing.
-  function pitchMeter(targetName) {
+  // Pass options.levelOnly=true for sequence mode where no single target exists:
+  // the ♭/♯ labels are hidden and the meter acts as a plain recording-level bar.
+  function pitchMeter(targetName, options) {
+    const levelOnly = options && options.levelOnly;
     const wrap = document.createElement("div");
-    wrap.className = "pitch-meter";
-    wrap.setAttribute("aria-label", "Pitch meter");
+    wrap.className = "pitch-meter" + (levelOnly ? " pitch-meter-level" : "");
+    wrap.setAttribute("aria-label", levelOnly ? "Recording level" : "Pitch meter");
+    const lowLabel  = levelOnly ? "" : "♭ too low";
+    const highLabel = levelOnly ? "" : "too high ♯";
+    const centerLabel = levelOnly ? "Level" : (targetName || "?");
     wrap.innerHTML =
-      `<div class="pitch-meter-labels"><span class="pitch-low">♭ too low</span><span class="pitch-target-label">${targetName || "?"}</span><span class="pitch-high">too high ♯</span></div>`
-      + `<div class="pitch-bar" role="meter" aria-label="Pitch accuracy in cents" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">`
+      `<div class="pitch-meter-labels"><span class="pitch-low">${lowLabel}</span><span class="pitch-target-label">${centerLabel}</span><span class="pitch-high">${highLabel}</span></div>`
+      + `<div class="pitch-bar" role="meter" aria-label="${levelOnly ? "Recording level" : "Pitch accuracy in cents"}" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0">`
       + `  <div class="pitch-zone good"></div>`
       + `  <div class="pitch-needle" aria-hidden="true"></div>`
       + `</div>`
