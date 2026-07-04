@@ -1002,9 +1002,15 @@
 
   function g6SightSingQuestion(rng) {
     const m = auralGen().generateMelody(rng, MELODY_SPECS.g6SightSing);
+    const companion = auralGen().generateCompanion(rng, m, { direction: "below" });
+    const beatSec = 0.6;
     return {
-      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order.${sequenceStaff(m.notes)}`,
-      audio: function () { audio().note(m.tonicMidi, 1.2); },
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown while the accompaniment plays underneath.${sequenceStaff(m.notes)}`,
+      audio: function () {
+        const a = audio();
+        a.note(m.tonicMidi, 1.2);
+        later(function () { a.sequenceRhythm(companion, m.durations, beatSec); }, 1300);
+      },
       micTask: {
         type: "sequence",
         targets: makeSequenceTargets(m.notes),
@@ -1013,7 +1019,7 @@
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 6 sight-singing: a longer phrase within an octave, in a major key with up to 2 sharps or flats, starting and ending on the tonic. The only leap allowed is the same rising dominant-to-tonic 4th as Grade 5. In the real exam an accompaniment plays under you — here you get the tonic as a reference before starting.`,
+      explanation: `Grade 6 sight-singing: a longer phrase within an octave, in a major key with up to 2 sharps or flats, starting and ending on the tonic. The only leap allowed is the same rising dominant-to-tonic 4th as Grade 5. A generated accompaniment plays underneath — listen to the tonic as your reference, then sing as the accompaniment begins.`,
     };
   }
 
