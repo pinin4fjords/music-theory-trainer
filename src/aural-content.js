@@ -948,6 +948,11 @@
   // leading note, a lowered 7th (the flat 7th of the home key, which is the 4th
   // of the new key) announces the subdominant, and a raised 5th announces the
   // relative minor's leading note — true in any key.
+  //
+  // Each stimulus establishes the home key with a tonic arpeggio, then pivots
+  // into a genuine cadence in the destination key (not just a scale run that
+  // happens to contain the accidental), so the signal note is heard as a
+  // chord tone resolving home, the way it would in real modulating music.
   function modulationsForKey(key) {
     const shift = CHORD_KEYS[key];
     const t = (notes) => notes.map((m) => m + shift);
@@ -958,21 +963,31 @@
     const subdominantNote = M.spelledName(alter(sc[6], -1));
     const relativeMinorNote = M.spelledName(alter(sc[4], 1));
     const relativeMinorName = M.relativeMinorOf(key);
+    const home = MIDI.C4 + shift;
+    const establish = t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]);
+    const majorTriad = (root) => [root, root + 4, root + 7];
+    const minorTriad = (root) => [root, root + 3, root + 7];
+    const dominantRoot = home + 7;
+    const subdominantRoot = home + 5;
+    const relativeMinorRoot = home - 3;
     return [
       { label: "Modulates to the dominant", accidentalNote: dominantNote, play: function () {
         const a = audio();
-        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        later(function () { a.sequence(t([66, MIDI.G4, MIDI.B4, MIDI.D5, MIDI.G4]), 0.42, 0.4); }, 1900);
+        a.sequence(establish, 0.42, 0.4);
+        later(function () { a.chord(majorTriad(dominantRoot + 7), 0.9); }, 1900);
+        later(function () { a.chord(majorTriad(dominantRoot), 1.1); }, 2850);
       } },
       { label: "Modulates to the subdominant", accidentalNote: subdominantNote, play: function () {
         const a = audio();
-        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        later(function () { a.sequence(t([70, 69, 65, 69, 72]), 0.42, 0.4); }, 1900);
+        a.sequence(establish, 0.42, 0.4);
+        later(function () { a.chord([home, home + 4, home + 7, home + 10], 0.9); }, 1900);
+        later(function () { a.chord(majorTriad(subdominantRoot), 1.1); }, 2850);
       } },
       { label: "Modulates to the relative minor", accidentalNote: `${relativeMinorNote} (leading note of ${relativeMinorName} minor)`, play: function () {
         const a = audio();
-        a.sequence(t([MIDI.C4, MIDI.E4, MIDI.G4, MIDI.C5]), 0.42, 0.4);
-        later(function () { a.sequence(t([68, MIDI.A4, MIDI.E4, MIDI.A4, MIDI.C5]), 0.42, 0.4); }, 1900);
+        a.sequence(establish, 0.42, 0.4);
+        later(function () { a.chord(majorTriad(relativeMinorRoot + 7), 0.9); }, 1900);
+        later(function () { a.chord(minorTriad(relativeMinorRoot), 1.1); }, 2850);
       } },
     ];
   }
