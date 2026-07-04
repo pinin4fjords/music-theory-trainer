@@ -59,7 +59,8 @@
     function navigate(name, arg, opts) {
       opts = opts || {};
       if (!views[name]) return;
-      if (!opts.force && arg === undefined && current === name && currentParam == null) return;
+      const argProvided = arguments.length >= 2;
+      if (!opts.force && !argProvided && current === name && currentParam == null) return;
       if (currentCleanup) { try { currentCleanup(); } catch { /* ok */ } currentCleanup = null; }
       releaseMedia();
       current = name;
