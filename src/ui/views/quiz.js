@@ -148,7 +148,8 @@
     const ai = global.MTT && global.MTT.audioInput;
     const hasAutoPlay = !!(task.autoPlayAndRespondMs && q.audio);
 
-    const SILENCE_READINGS = 15; // ~1.2 s at 80 ms/poll — a breath mid-phrase no longer ends the take
+    const SILENCE_READINGS = 15; // ~1.2 s at POLL_MS/poll — a breath mid-phrase no longer ends the take
+    const POLL_MS = 80;          // pitch detector polling interval in milliseconds (matches audio-input.js)
     const MIN_CLARITY = 0.78;
     const MAX_LISTEN_MS = 20000; // hard stop so an open mic can't stay live forever
 
@@ -161,7 +162,7 @@
     let readings = [];
 
     const panel = C.el(`<div class="mic-panel mic-sequence-panel"></div>`);
-    const meter = C.pitchMeter("–");
+    const meter = C.pitchMeter("–", { levelOnly: true });
     const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
     const resultEl = C.el(`<div class="mic-seq-result"></div>`);
     resultEl.hidden = true;
@@ -235,7 +236,7 @@
 
     function noteLabel(midi) {
       const inp = global.MTT.audioInput;
-      return inp ? inp.midiToName(midi) : String(midi);
+      return inp ? inp.midiToName(midi, task.useFlats) : String(midi);
     }
 
     // Compare two MIDI notes ignoring octave. Uses circular pitch-class distance
@@ -357,7 +358,10 @@
         statusEl.textContent = "Singing…";
       } else if (hasSang) {
         silenceCount++;
-        statusEl.textContent = "Pause detected — scoring when you stop…";
+        const secLeft = Math.ceil((SILENCE_READINGS - silenceCount) * POLL_MS / 1000);
+        statusEl.textContent = secLeft > 0
+          ? `Pause detected — scoring in ${secLeft}s…`
+          : "Scoring…";
         if (silenceCount >= SILENCE_READINGS) finishAttempt();
       }
     }
