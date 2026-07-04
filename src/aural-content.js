@@ -1004,12 +1004,14 @@
     const m = auralGen().generateMelody(rng, MELODY_SPECS.g6SightSing);
     const companion = auralGen().generateCompanion(rng, m, { direction: "below" });
     const beatSec = 0.6;
+    const tonicDurSec = 1.2;
+    const accompDelayMs = tonicDurSec * 1000 + 100;
     return {
       prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown while the accompaniment plays underneath.${sequenceStaff(m.notes)}`,
       audio: function () {
         const a = audio();
-        a.note(m.tonicMidi, 1.2);
-        later(function () { a.sequenceRhythm(companion, m.durations, beatSec); }, 1300);
+        a.note(m.tonicMidi, tonicDurSec);
+        later(function () { a.sequenceRhythm(companion, m.durations, beatSec); }, accompDelayMs);
       },
       micTask: {
         type: "sequence",
