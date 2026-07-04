@@ -401,43 +401,70 @@ describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
     const realIsAvailable = ai.isAvailable;
     const realStart = ai.startPitchDetection;
 
-    // Fix the generated question (rather than letting the topic's own random
-    // phrase pick vary the target count) so the test knows exactly how many
-    // notes to "sing".
+    // Fix the generated question so the test knows exactly how many notes to
+    // "sing" per phrase. The echo task now generates three phrases.
     const topic = instance.ctx.content.auralGrades[0].topics.find((t) => t.id === "g1-aural-sing");
     const fixedQuestion = topic.questions(globalThis.MTT.rng.create("fixed-echo"));
-    const targetCount = fixedQuestion.micTask.targets.length;
+    // Multi-echo: each phrase descriptor lives in micTask.phrases[i].
+    const targetCount = fixedQuestion.micTask.phrases[0].targets.length;
     const fixedTopic = Object.assign({}, topic, { questions: () => fixedQuestion });
 
     let capturedCallback = null;
     ai.isAvailable = () => true;
     ai.startPitchDetection = async (cb) => { capturedCallback = cb; return () => {}; };
 
-    try {
-      instance.router.navigate("quiz", { single: fixedTopic });
-
+    // Simulate singing one wrong phrase: click start, advance the auto-play
+    // delay, feed wrong notes then trailing silence, then click "Score it".
+    // Returns the per-phrase score button text so the caller can advance.
+    async function singPhrase() {
       vi.useFakeTimers();
       document.querySelector(".mic-start-btn").click();
-      await vi.advanceTimersByTimeAsync(5000); // past the auto-play-then-open-mic delay
+      await vi.advanceTimersByTimeAsync(5000); // past auto-play-then-open-mic delay
       vi.useRealTimers();
 
       expect(capturedCallback).toBeTruthy();
-      // Sing F#4 (pitch class 6) - the phrases only ever use C/D/E (0/2/4), all
-      // more than a semitone away, so every note is a guaranteed mismatch (the
-      // pcMatch tolerance is ±1 semitone). Then go quiet to end the attempt.
+      // F#4 (pitch class 6) — G1 phrases only ever use C/D/E (0/2/4), all
+      // more than a semitone away, so every note is a guaranteed mismatch.
       for (let i = 0; i < targetCount + 3; i++) capturedCallback({ midi: 66, cents: 0, clarity: 0.9 });
-      // Trailing silence past the ~1.2 s window (15 readings) ends the take.
+      // Trailing silence past the ~1.2 s window ends the take.
       for (let i = 0; i < 18; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
 
-      const acceptBtn = [...document.querySelectorAll(".seq-btn-row button")]
+      // Click the phrase-level "Score it" button.
+      const phraseScoreBtn = [...document.querySelectorAll(".seq-btn-row button")]
         .find((b) => /Score it/.test(b.textContent));
-      expect(acceptBtn).toBeTruthy();
-      acceptBtn.click();
+      expect(phraseScoreBtn).toBeTruthy();
+      phraseScoreBtn.click();
+    }
+
+    try {
+      instance.router.navigate("quiz", { single: fixedTopic });
+
+      // Phrase 1 — sing wrong, score, then advance to phrase 2.
+      await singPhrase();
+      const toPhrase2 = [...document.querySelectorAll(".seq-btn-row button")]
+        .find((b) => /Phrase 2/.test(b.textContent));
+      expect(toPhrase2).toBeTruthy();
+      toPhrase2.click();
+
+      // Phrase 2 — sing wrong, score, then advance to phrase 3.
+      await singPhrase();
+      const toPhrase3 = [...document.querySelectorAll(".seq-btn-row button")]
+        .find((b) => /Phrase 3/.test(b.textContent));
+      expect(toPhrase3).toBeTruthy();
+      toPhrase3.click();
+
+      // Phrase 3 — sing wrong, score, then click the final "Score it".
+      await singPhrase();
+      const finalScoreBtn = [...document.querySelectorAll(".seq-btn-row button")]
+        .find((b) => /Score it/.test(b.textContent));
+      expect(finalScoreBtn).toBeTruthy();
+      finalScoreBtn.click();
 
       const revealText = document.querySelector(".reveal").textContent;
       expect(revealText).toMatch(/Not quite/);
-      expect(revealText).toMatch(new RegExp(`0 of ${targetCount} notes matched`));
-      expect(revealText).not.toMatch(/I sang the phrase/);
+      // The score detail string includes per-phrase note counts; check that the
+      // self-report sentinel answer never leaks into the reveal feedback.
+      expect(revealText).not.toMatch(/I sang all three phrases/);
     } finally {
       ai.isAvailable = realIsAvailable;
       ai.startPitchDetection = realStart;
