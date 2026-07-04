@@ -72,6 +72,30 @@ describe("DOM - boot & navigation", () => {
     auralCard.click();
     expect(document.querySelector("#main h1").textContent).toMatch(/Aural/);
   });
+
+  it("shows the current grade first on the Aural tab", () => {
+    instance.router.navigate("aural");
+    const headings = [...document.querySelectorAll("#main h2")]
+      .map((h) => h.textContent.replace(/\s+/g, " ").trim());
+    expect(headings[0]).toMatch(/^Grade 4/);
+  });
+
+  it("shows per-topic aural accuracy chips from SRS data", () => {
+    const auralSeeded = {
+      stateVersion: 2,
+      totalAnswered: 4,
+      settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
+      srs: {
+        "g4-aural-time": { box: 3, seen: 4, correct: 3, streak: 1, lapses: 1, avgMs: 1200, lastSeen: 0, dueAt: 0 },
+      },
+    };
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(auralSeeded), now: () => NOW, seed: "aural-chip" });
+    inst.router.navigate("aural");
+    const chips = [...document.querySelectorAll("#main .aural-acc-chip")].map((c) => c.textContent.trim());
+    expect(chips).toContain("75%");
+    expect(chips).toContain("New");
+  });
 });
 
 describe("DOM - quiz flow & feedback", () => {
