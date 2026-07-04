@@ -352,33 +352,48 @@
     return Math.round(total * beatSec * 1000 + 350);
   }
 
-  // Shared echo generator driven by the melodic engine. `specKey` selects the
-  // per-grade spec; `copy` supplies the prompt/choices/explanation text.
-  function echoMelodyQuestion(rng, specKey, copy) {
-    const m = auralGen().generateMelody(rng, MELODY_SPECS[specKey]);
+  // Multi-phrase echo generator: presents PHRASE_COUNT distinct phrases in
+  // sequence, matching the real ABRSM exam format where the examiner plays
+  // three different phrases and the candidate sings each one back immediately.
+  // quiz.js renders these one at a time via the "multiEcho" mic task type.
+  const ECHO_PHRASE_COUNT = 3;
+  function multiEchoMelodyQuestion(rng, specKey, copy) {
     const beatSec = 0.55;
-    const useFlats = keyUsesFlats(m.key);
+    const phrases = [];
+    for (let i = 0; i < ECHO_PHRASE_COUNT; i++) {
+      // Each melody is generated from the shared RNG so the sequence is
+      // deterministic for the same seed.
+      const m = auralGen().generateMelody(rng, MELODY_SPECS[specKey]);
+      const useFlats = keyUsesFlats(m.key);
+      // Capture m by value in the IIFE so each audioFn closes over its own notes.
+      phrases.push((function (notes, durations, uf) {
+        return {
+          targets: makeSequenceTargets(notes, uf),
+          audioFn: function () { audio().sequenceRhythm(notes, durations, beatSec); },
+          autoPlayAndRespondMs: echoRespondMs(durations, beatSec),
+          toleranceSemitones: copy.tolerance != null ? copy.tolerance : 1.0,
+          useFlats: uf,
+          revealStaffHtml: sequenceStaff(notes),
+        };
+      })(m.notes, m.durations, useFlats));
+    }
     return {
       prompt: copy.prompt,
-      audio: function () { audio().sequenceRhythm(m.notes, m.durations, beatSec); },
+      // No top-level audio: each phrase plays within its own mic panel.
       micTask: {
-        type: "sequence",
-        useFlats: useFlats,
-        targets: makeSequenceTargets(m.notes, useFlats),
-        autoPlayAndRespondMs: echoRespondMs(m.durations, beatSec),
-        toleranceSemitones: copy.tolerance != null ? copy.tolerance : 1.0,
-        revealStaffHtml: sequenceStaff(m.notes),
+        type: "multiEcho",
+        phrases: phrases,
       },
-      choices: copy.choices || ["I sang the phrase", "I couldn't match it"],
-      answer: (copy.choices || ["I sang the phrase"])[0],
+      choices: copy.choices || ["I sang all three phrases", "I couldn't match some"],
+      answer: (copy.choices || ["I sang all three phrases"])[0],
       explanation: copy.explanation,
     };
   }
 
   function g1EchoMelodyQuestion(rng) {
-    return echoMelodyQuestion(rng, "g1Echo", {
-      prompt: `Listen to this short phrase, then <strong>sing it back</strong>. It's an ear test, so the notes aren't shown - you'll see them when you're done.`,
-      explanation: `Grade 1 echo singing: the examiner plays a short phrase and you sing it back immediately. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
+    return multiEchoMelodyQuestion(rng, "g1Echo", {
+      prompt: `Listen to each short phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — the notes stay hidden until you\'re done.`,
+      explanation: `Grade 1 echo singing: the examiner plays three different short phrases and you sing each one back immediately after hearing it. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
     });
   }
 
@@ -437,17 +452,17 @@
 
   // Grade 2 echo melody: major only (tonic-to-dominant); minor enters at 3B.
   function g2EchoMelodyQuestion(rng) {
-    return echoMelodyQuestion(rng, "g2Echo", {
-      prompt: `Listen to this major-key phrase, then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
-      explanation: `Grade 2 echo singing: short major-key phrases spanning up to a 5th, tonic to dominant. Fix the tonic in your ear first, then follow the shape up and down from it.`,
+    return multiEchoMelodyQuestion(rng, "g2Echo", {
+      prompt: `Listen to each major-key phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you\'re done.`,
+      explanation: `Grade 2 echo singing: three short major-key phrases, each spanning up to a 5th from tonic to dominant. Fix the tonic in your ear first, then follow the shape up and down from it.`,
     });
   }
 
   // Grade 3 echo melody: major or minor, range within an octave.
   function g3EchoMelodyQuestion(rng) {
-    return echoMelodyQuestion(rng, "g3Echo", {
-      prompt: `Listen to this phrase (it may be major or minor), then <strong>sing it back</strong>. The notes stay hidden until you've had your go.`,
-      explanation: `Grade 3 echo singing: phrases stay within a single octave and can be in major or minor. Mostly stepwise motion with the occasional leap of a 3rd — hum the shape internally before you sing.`,
+    return multiEchoMelodyQuestion(rng, "g3Echo", {
+      prompt: `Listen to each phrase (it may be major or minor), then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you\'re done.`,
+      explanation: `Grade 3 echo singing: three phrases within a single octave, major or minor. Mostly stepwise motion with the occasional leap of a 3rd — hum the shape internally before you sing.`,
     });
   }
 
@@ -1294,8 +1309,8 @@
         {
           id: "g1-aural-sing",
           title: "Aural: echo singing",
-          why: "In the Grade 1 aural test the examiner plays a short two-bar melody three times and you sing it back each time. The melody is simple — 3 to 4 notes using steps in C major.",
-          what: "<p>Listen to the whole phrase first — notice its <b>shape</b> (going up? going down? a step or a skip?). Then sing it back note by note on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice.</p><p class=\"muted\" style=\"font-size:.9em\">Sing the whole phrase, then pause — the mic records your attempt and scores all the notes together once you stop.</p>",
+          why: "In the Grade 1 aural test the examiner plays three different short phrases in turn and you sing each one back immediately after hearing it. The melodies are simple — 3 to 4 notes using steps in C major.",
+          what: "<p>Listen for each phrase's <b>shape</b> (going up? going down? a step or a skip?) and sing it back on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice. There are three different phrases — sing each one straight back after you hear it.</p><p class=\"muted\" style=\"font-size:.9em\">Sing the whole phrase, then pause — the mic records your attempt and scores all the notes together once you stop.</p>",
           questions: g1EchoMelodyQuestion,
           tags: ["aural"],
         },
@@ -1331,7 +1346,7 @@
         {
           id: "g2-aural-sing",
           title: "Aural: echo singing (major & minor)",
-          why: "Grade 2 echo-singing (Test B) introduces minor-key phrases. The 4-note melodies extend up to the dominant (5th of the scale) and can be in major or minor.",
+          why: "Grade 2 echo-singing (Test B) introduces minor-key phrases. The examiner plays three different phrases in turn; each spans up to the dominant (5th of the scale) and can be in major or minor.",
           what: "<p>Listen for the <b>3rd note</b> — in minor phrases it will feel lower or darker than you might expect. Sing back on any syllable ('lah', 'dah') in any comfortable octave. Hold each note briefly before moving to the next.</p>",
           questions: g2EchoMelodyQuestion,
           tags: ["aural"],
@@ -1368,7 +1383,7 @@
         {
           id: "g3-aural-sing",
           title: "Aural: echo singing (within octave)",
-          why: "Grade 3 echo-singing (Test B) phrases stay within one octave. The phrases may be in major or minor and use mostly stepwise motion with occasional leaps no larger than a third.",
+          why: "Grade 3 echo-singing (Test B) presents three different phrases in turn, each within one octave. The phrases may be in major or minor and use mostly stepwise motion with occasional leaps no larger than a third.",
           what: "<p>Before singing, hum the first note internally. Stepwise phrases are easiest to echo — start on the first note and think through each step. If you miss a note, keep going rather than stopping.</p>",
           questions: g3EchoMelodyQuestion,
           tags: ["aural"],

@@ -433,8 +433,101 @@
     return stopMic;
   }
 
+  // Multi-echo variant: presents q.micTask.phrases (an array of phrase
+  // descriptors) one at a time, each played then sung back. After all phrases
+  // are scored the learner sees an overall result and a single "Score it" button
+  // that advances the quiz with the combined outcome.
+  //
+  // Each phrase descriptor: { targets, audioFn, autoPlayAndRespondMs,
+  //   toleranceSemitones, useFlats, revealStaffHtml }
+  function renderMultiEcho(view, q, C, ctx, onResult) {
+    const phrases = q.micTask.phrases;
+    const N = phrases.length;
+    const ai = global.MTT && global.MTT.audioInput;
+
+    const panel = C.el(`<div class="mic-panel mic-multi-echo-panel"></div>`);
+    view.appendChild(panel);
+
+    if (!ai || !ai.isAvailable()) {
+      panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available — use self-report below.</p>`));
+      return function () {};
+    }
+
+    let activeStop = null;
+    const phraseResults = []; // { correct: bool, scoreDetail: string|null }
+
+    function stopActive() {
+      if (activeStop) { try { activeStop(); } catch { /* ok */ } activeStop = null; }
+    }
+
+    function showPhrase(idx) {
+      stopActive();
+      panel.innerHTML = "";
+
+      const phrase = phrases[idx];
+      panel.appendChild(C.el(
+        `<p class="mic-echo-counter muted" style="font-size:.85em;margin:0 0 .4em">Phrase ${idx + 1} of ${N}</p>`
+      ));
+
+      // Sub-question for this phrase: wire audioFn as the question audio so that
+      // renderMicSequence's "Hear & respond" auto-play path works normally.
+      const subQ = Object.assign({}, q, {
+        audio: phrase.audioFn,
+        micTask: {
+          type: "sequence",
+          targets: phrase.targets,
+          autoPlayAndRespondMs: phrase.autoPlayAndRespondMs,
+          toleranceSemitones: phrase.toleranceSemitones,
+          useFlats: phrase.useFlats,
+          revealStaffHtml: phrase.revealStaffHtml,
+        },
+      });
+
+      activeStop = renderMicSequence(panel, subQ, C, ctx, function (phraseAnswer, scoreDetail) {
+        phraseResults.push({
+          correct: phraseAnswer === q.answer,
+          scoreDetail: scoreDetail || null,
+        });
+        stopActive();
+
+        // Replace the "Score it / Try again" row with a navigation button.
+        const actRow = panel.querySelector(".seq-btn-row");
+        if (actRow) actRow.innerHTML = "";
+        const row = actRow || C.el(`<div class="seq-btn-row"></div>`);
+
+        if (idx < N - 1) {
+          row.appendChild(C.button(`Phrase ${idx + 2} of ${N} →`, function () {
+            showPhrase(idx + 1);
+          }));
+        } else {
+          // All phrases done — show summary and final "Score it".
+          const correct = phraseResults.filter(function (r) { return r.correct; }).length;
+          const allGood = correct === N;
+          panel.appendChild(C.el(
+            `<p class="seq-score ${allGood ? "ok" : correct > 0 ? "part" : "bad"}">${correct} of ${N} phrases correct</p>`
+          ));
+          const details = phraseResults
+            .map(function (r, i) { return r.scoreDetail ? ("Phrase " + (i + 1) + ": " + r.scoreDetail) : null; })
+            .filter(Boolean).join("; ");
+          row.appendChild(C.button("Score it", function () {
+            onResult(
+              allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }),
+              details || null
+            );
+          }, { className: allGood ? "" : "ghost" }));
+        }
+
+        if (!actRow) panel.appendChild(row);
+      });
+    }
+
+    showPhrase(0);
+    return stopActive;
+  }
+
   // Dispatches to the appropriate mic handler based on task type.
   function renderMicTask(view, q, C, ctx, onResult) {
+    if (q.micTask.type === "multiEcho") return renderMultiEcho(view, q, C, ctx, onResult);
     if (q.micTask.type === "sequence") return renderMicSequence(view, q, C, ctx, onResult);
     return renderMicPitch(view, q, C, ctx, onResult);
   }
