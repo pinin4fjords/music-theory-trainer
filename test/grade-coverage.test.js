@@ -1,14 +1,12 @@
 /**
- * Per-grade syllabus coverage audit (issue #13 / IMPROVEMENT-PLAN.md B4).
+ * Per-grade content coverage audit (issue #13).
  *
- * SYLLABUS below is a checklist transcribed from the two official graded-exam
- * theory syllabus sheets this app targets (Grades 1-5 and Grades 6-8 - see
- * IMPROVEMENT-PLAN.md's ground-truth section for the source documents).
- * Each entry is one syllabus requirement, tagged with the grade it is FIRST
- * introduced at (grades are cumulative in both the exam and this app's
- * `gradeTopics(grade)`, so a requirement need not be re-listed at every later
- * grade). `topicIds` names the content.js topic(s) that drill it correctly -
- * left empty when nothing in the app currently drills it at that grade.
+ * CURRICULUM_CHECKLIST below enumerates what this app means to teach at each
+ * grade, one requirement per line, tagged with the grade it is FIRST
+ * introduced at (grades are cumulative in this app's `gradeTopics(grade)`, so
+ * a requirement need not be re-listed at every later grade). `topicIds` names
+ * the content.js topic(s) that drill it correctly - left empty when nothing
+ * in the app currently drills it at that grade.
  *
  * This turns grade alignment from a one-off review into a regression
  * guarantee, in the spirit of `facts.test.js`.
@@ -25,7 +23,7 @@ const findTopic = (id) => {
   return null;
 };
 
-const SYLLABUS = [
+const CURRICULUM_CHECKLIST = [
   // --- Grade 1 -----------------------------------------------------------
   { grade: 1, text: "Note values (semibreve/minim/crotchet/quaver/semiquaver) & rests; tied notes; single-dotted notes", topicIds: ["g1-rhythm"] },
   { grade: 1, text: "Simple time signatures 2/4, 3/4, 4/4; bar-lines; grouping of notes/rests", topicIds: ["g1-time"] },
@@ -103,8 +101,8 @@ const SYLLABUS = [
   { grade: 8, text: "Writing: continue a Baroque trio-sonata opening from a figured continuo part; complete a keyboard outline; continue a melody for a specified instrument", topicIds: ["g8-composition"] },
 ];
 
-describe("syllabus coverage - checklist encodes grade placement", () => {
-  it.each(SYLLABUS.filter((item) => item.topicIds.length).flatMap((item) => item.topicIds.map((id) => [item.grade, id, item.text])))(
+describe("grade coverage - checklist encodes grade placement", () => {
+  it.each(CURRICULUM_CHECKLIST.filter((item) => item.topicIds.length).flatMap((item) => item.topicIds.map((id) => [item.grade, id, item.text])))(
     "grade %i: %s is introduced by %s, not drilled earlier or later",
     (grade, id) => {
       const topic = findTopic(id);
@@ -114,17 +112,17 @@ describe("syllabus coverage - checklist encodes grade placement", () => {
   );
 
   it("every topic id referenced by the checklist actually exists in content.grades", () => {
-    const ids = new Set(SYLLABUS.flatMap((i) => i.topicIds));
+    const ids = new Set(CURRICULUM_CHECKLIST.flatMap((i) => i.topicIds));
     for (const id of ids) expect(findTopic(id), id).toBeTruthy();
   });
 });
 
-describe("syllabus coverage - uncovered items (report, not a hard failure)", () => {
-  it("lists syllabus items with no drill at their syllabus grade", () => {
-    const uncovered = SYLLABUS.filter((item) => item.topicIds.length === 0);
+describe("grade coverage - uncovered items (report, not a hard failure)", () => {
+  it("lists checklist items with no drill at their intended grade", () => {
+    const uncovered = CURRICULUM_CHECKLIST.filter((item) => item.topicIds.length === 0);
     if (uncovered.length) {
       const report = uncovered.map((i) => `  G${i.grade}: ${i.text}`).join("\n");
-      console.log(`Syllabus items with no drill at their introducing grade (${uncovered.length}):\n${report}`);
+      console.log(`Checklist items with no drill at their introducing grade (${uncovered.length}):\n${report}`);
     }
     // Informational: absence from the curriculum is not itself a bug (some of
     // these are open-ended composition/analysis tasks tracked on the README
@@ -134,7 +132,7 @@ describe("syllabus coverage - uncovered items (report, not a hard failure)", () 
   });
 });
 
-describe("syllabus coverage - every grade has at least one drilled topic", () => {
+describe("grade coverage - every grade has at least one drilled topic", () => {
   it.each([1, 2, 3, 4, 5, 6, 7, 8])("grade %i has at least one quizable topic", (grade) => {
     const g = content.grades.find((x) => x.grade === grade);
     expect(g, `no grade ${grade} in content.grades`).toBeTruthy();
