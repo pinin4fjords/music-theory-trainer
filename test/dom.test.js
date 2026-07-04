@@ -287,6 +287,11 @@ describe("DOM - reference", () => {
     expect(content).not.toMatch(/Allegro/); // unrelated entries filtered out
     expect(content).not.toMatch(/Relative minor/);
   });
+
+  it("the content pane is not itself a live region (search would otherwise re-announce whole tables on every keystroke)", () => {
+    instance.router.navigate("reference");
+    expect(document.getElementById("ref-content").hasAttribute("aria-live")).toBe(false);
+  });
 });
 
 describe("DOM - linkable pages (hash routing)", () => {
