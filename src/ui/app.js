@@ -60,6 +60,8 @@
       C: components,
       now: opts.now || (() => Date.now()),
       seed: opts.seed, // fixed seed in tests; undefined => time-seeded in production
+      quizResume: global.MTT.quizResume,
+      sessionStore: opts.sessionStorage || null, // injectable for tests; null => quizResume uses the global sessionStorage
       persistStatus: { supported: false, fileSupported: false, fileLinked: false },
       syncHeader,
       refreshPersistStatus,

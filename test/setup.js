@@ -26,6 +26,7 @@ src("audio-input.js");
 src("core/srs.js");
 src("core/analytics.js");
 src("core/storage.js");
+src("core/quiz-resume.js");
 src("core/persist.js");
 src("content.js");
 src("aural-generators.js");

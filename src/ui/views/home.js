@@ -74,6 +74,7 @@
         <div class="disclaimer-box" role="note">
           <p><b>⚠ Just a hobby project.</b> I built this for my own practice, in my spare time - it isn't affiliated with any exam board, hasn't been checked by a teacher, and isn't guaranteed correct. Don't rely on it in place of official syllabuses or published study materials. Use at your own risk.</p>
         </div>
+        <div id="resume-area"></div>
         ${warn}
         ${statsHtml}
         <div class="card center start-card">
@@ -114,6 +115,28 @@
         ctx.router.refresh();
       });
     });
+
+    // Resume banner: an interrupted quiz session left in sessionStorage - a
+    // refresh or back-navigation would otherwise silently discard it.
+    renderResumeBanner();
+    function renderResumeBanner() {
+      const area = view.querySelector("#resume-area");
+      const saved = ctx.quizResume.load(ctx.sessionStore);
+      if (!area || !saved || typeof saved.idx !== "number" || typeof saved.total !== "number") return;
+      const panel = C.el(`
+        <div class="why-box resume-box" role="note">
+          <p style="margin:0 0 8px"><strong>▶ Resume your session</strong></p>
+          <p style="margin:0 0 10px">${escapeHtml(saved.label || "Practice")} - question ${saved.idx + 1} of ${saved.total}, score ${saved.score}.</p>
+        </div>`);
+      const row = C.el(`<div style="display:flex;gap:10px;flex-wrap:wrap"></div>`);
+      row.appendChild(C.button("Resume", () => ctx.router.navigate("quiz", { resume: true })));
+      row.appendChild(C.button("Discard", () => {
+        ctx.quizResume.clear(ctx.sessionStore);
+        panel.remove();
+      }, { className: "ghost" }));
+      panel.appendChild(row);
+      area.appendChild(panel);
+    }
 
     // Focus areas (weak topics) - theory and aural topics both count, since
     // both feed the same SRS data.

@@ -532,20 +532,57 @@
     return renderMicPitch(view, q, C, ctx, onResult);
   }
 
+  // --- Resume support ---------------------------------------------------
+
+  // A resumable snapshot needs at least these to rebuild the session and pick
+  // up where the learner left off; anything else missing/malformed just means
+  // no lower-grade or single-topic context, which build()/buildSingle() handle.
+  function isValidSnapshot(s) {
+    return !!(s && typeof s === "object"
+      && typeof s.seed === "number"
+      && typeof s.idx === "number"
+      && typeof s.score === "number"
+      && s.settings && typeof s.settings === "object");
+  }
+
+  function findTopicById(ctx, id) {
+    const all = ctx.session.quizableTopics(ctx.content).concat(ctx.session.auralTopics(ctx.content));
+    return all.find((t) => t.id === id) || null;
+  }
+
   // --- Main render ----------------------------------------------------------
 
   function render(main, ctx, arg) {
     const C = ctx.C;
-    const single = arg && arg.single;
-    const settings = ctx.store.settings();
-    const seed = (ctx.seed != null ? ctx.seed : undefined);
+    const saved = (arg && arg.resume) ? ctx.quizResume.load(ctx.sessionStore) : null;
+    const resuming = isValidSnapshot(saved);
+
+    let single = null;
+    if (resuming && saved.singleId) {
+      single = findTopicById(ctx, saved.singleId);
+      if (!single) {
+        // The saved topic no longer exists (e.g. content changed) - the
+        // snapshot can't be honoured, so drop it and start a fresh session.
+        ctx.quizResume.clear(ctx.sessionStore);
+        return render(main, ctx, {});
+      }
+    } else if (!resuming) {
+      single = arg && arg.single;
+    }
+
+    const settings = resuming ? saved.settings : ctx.store.settings();
+    const seed = resuming ? saved.seed : (ctx.seed != null ? ctx.seed : undefined);
     const rng = ctx.rng.create(seed);
-    const now = ctx.now();
+    const now = resuming ? saved.now : ctx.now();
 
     const sessionLength = settings.sessionLength || ctx.session.SESSION_LEN;
+    // Frozen at session start (or restored from the snapshot) so answers
+    // recorded mid-session - which update the live SRS map immediately - can't
+    // change topic selection if the session is rebuilt here on resume.
+    const srsSnapshot = resuming ? (saved.srsMap || {}) : JSON.parse(JSON.stringify(ctx.store.srsMap()));
     const session = single
       ? ctx.session.buildSingle(Object.assign({}, single), rng, sessionLength)
-      : ctx.session.build({ content: ctx.content, settings, srsMap: ctx.store.srsMap(), rng, now, length: sessionLength });
+      : ctx.session.build({ content: ctx.content, settings, srsMap: srsSnapshot, rng, now, length: sessionLength });
 
     function playQuestionAudio(q) {
       if (ctx.audio && ctx.audio.cancel) {
@@ -565,6 +602,7 @@
     }
 
     if (!session.length) {
+      if (resuming) ctx.quizResume.clear(ctx.sessionStore);
       main.appendChild(C.el(`
         <div class="view center card">
           <div style="font-size:2rem" aria-hidden="true">🎼</div>
@@ -576,15 +614,35 @@
       return;
     }
 
-    let idx = 0;
-    let score = 0;
+    const sessionLabel = single ? single.title : `Grade ${settings.grade} ${settings.mode === "path" ? "learning path" : "daily mix"}`;
+
+    let idx = resuming ? Math.min(Math.max(0, saved.idx | 0), session.length) : 0;
+    let score = resuming ? Math.max(0, saved.score | 0) : 0;
     let questionStart = ctx.now();
     let activeStopMic = null; // teardown for the current question's mic, if any
     let activeKeyHandler = null; // document keydown listener for number-key answers
-    const tally = {}; // topicId -> { title, grade, correct, total } for the finish summary
+    const tally = (resuming && saved.tally && typeof saved.tally === "object") ? Object.assign({}, saved.tally) : {};
 
     function detachKeyHandler() {
       if (activeKeyHandler) { document.removeEventListener("keydown", activeKeyHandler); activeKeyHandler = null; }
+    }
+
+    // Persisted at the start of every question - never mid-reveal - so a
+    // refresh can never replay an already-scored question and double-count it.
+    function persistProgress() {
+      ctx.quizResume.save({
+        v: 1,
+        seed: rng.seed,
+        singleId: single ? single.id : null,
+        settings: { grade: settings.grade, mode: settings.mode, sessionLength },
+        srsMap: single ? null : srsSnapshot,
+        now,
+        idx,
+        score,
+        tally,
+        label: sessionLabel,
+        total: session.length,
+      }, ctx.sessionStore);
     }
 
     nextQuestion();
@@ -598,6 +656,7 @@
 
     function nextQuestion() {
       if (idx >= session.length) return finish();
+      persistProgress();
       detachKeyHandler();
       C.clear(main);
       const { topic, q } = session[idx];
@@ -818,6 +877,7 @@
     }
 
     function finish() {
+      ctx.quizResume.clear(ctx.sessionStore);
       // Any completed session of a few questions counts toward the daily streak,
       // aural and single-topic ones included — recordSessionDay is idempotent per
       // day, so it can't be farmed by replaying.
@@ -859,7 +919,7 @@
       }
 
       const row = C.el(`<div style="display:flex;gap:10px;flex-wrap:wrap"></div>`);
-      row.appendChild(C.button("Practise again", () => render(main, ctx, arg)));
+      row.appendChild(C.button("Practise again", () => render(main, ctx, single ? { single } : undefined)));
       row.appendChild(C.button("Back home", () => ctx.router.navigate("home"), { className: "ghost" }));
       view.appendChild(row);
       main.appendChild(view);

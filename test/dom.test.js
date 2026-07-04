@@ -188,6 +188,93 @@ describe("DOM - quiz flow & feedback", () => {
   });
 });
 
+describe("DOM - quiz session resume", () => {
+  beforeEach(() => { sessionStorage.clear(); });
+
+  it("persists progress across a simulated refresh and resumes into the exact same session", () => {
+    instance.router.navigate("quiz");
+    expect(document.querySelector(".progress-count").textContent).toBe("1 / 10");
+
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+    const q2PromptBeforeRefresh = document.querySelector(".quiz-prompt").innerHTML;
+
+    // Simulate a refresh: a fresh boot reusing the persisted localStorage state
+    // (as a real reload would) and the same sessionStorage, but a DIFFERENT app
+    // seed - proving resume replays the session's own saved seed, not this one.
+    scaffold();
+    const reloaded = app.boot({ document, storage: fakeStore(instance.store.get()), now: () => NOW, seed: "different-seed" });
+
+    expect(reloaded.router.getCurrent()).toBe("home"); // quiz is never restored directly on refresh
+    expect(document.querySelector("#main").textContent).toMatch(/Resume your session/);
+    expect(document.querySelector("#main").textContent).toMatch(/question 2 of 10/);
+
+    const resumeBtn = [...document.querySelectorAll("#main button")].find((b) => b.textContent === "Resume");
+    resumeBtn.click();
+
+    expect(reloaded.router.getCurrent()).toBe("quiz");
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+    expect(document.querySelector(".quiz-prompt").innerHTML).toBe(q2PromptBeforeRefresh);
+  });
+
+  it("resumes a single-topic session for the same topic, seed included", () => {
+    const topic = instance.ctx.content.grades[0].topics[0];
+    instance.router.navigate("quiz", { single: topic });
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+
+    scaffold();
+    app.boot({ document, storage: fakeStore(instance.store.get()), now: () => NOW, seed: "different-seed-2" });
+    const resumeBtn = [...document.querySelectorAll("#main button")].find((b) => b.textContent === "Resume");
+    expect(resumeBtn).toBeTruthy();
+    resumeBtn.click();
+    expect(document.querySelector(".topic-label").textContent).toMatch(topic.title);
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+  });
+
+  it("offers no resume banner, and back-navigation mid-session still shows one", () => {
+    instance.router.navigate("home");
+    expect(document.querySelector("#main").textContent).not.toMatch(/Resume your session/);
+
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+    instance.router.navigate("home"); // e.g. browser Back, mid-session
+    expect(document.querySelector("#main").textContent).toMatch(/Resume your session/);
+  });
+
+  it("discarding the banner clears the snapshot for good", () => {
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+    instance.router.navigate("home");
+
+    const discardBtn = [...document.querySelectorAll("#main button")].find((b) => b.textContent === "Discard");
+    discardBtn.click();
+    expect(document.querySelector("#main").textContent).not.toMatch(/Resume your session/);
+
+    instance.router.navigate("learn");
+    instance.router.navigate("home"); // re-render from scratch, not just the removed DOM node
+    expect(document.querySelector("#main").textContent).not.toMatch(/Resume your session/);
+  });
+
+  it("clears the resume snapshot once a session finishes normally", () => {
+    instance.router.navigate("quiz");
+    let guard = 0;
+    while (guard++ < 40) {
+      const choice = document.querySelector(".choice:not(:disabled)");
+      if (choice) {
+        choice.click();
+        [...document.querySelectorAll("#main .btn")].pop().click();
+      }
+      if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+    }
+    instance.router.navigate("home");
+    expect(document.querySelector("#main").textContent).not.toMatch(/Resume your session/);
+  });
+});
+
 describe("DOM - settings", () => {
   it("changing grade persists and re-renders", () => {
     const sel = document.getElementById("grade-select");
