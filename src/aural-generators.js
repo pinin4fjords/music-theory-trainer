@@ -21,6 +21,10 @@
  *     maxLeap: 2,                       // largest jump, in scale degrees
  *     startsOn: "tonic" | "mediant" | "dominant" | ["tonic","mediant"],
  *     endsOn: "tonic" | "free",
+ *     leap: { from: -3, to: 0, chance: 0.5 }, // optional: the ONE exception to
+ *                                        // maxLeap allowed - a jump straight
+ *                                        // from degree `from` to degree `to`
+ *                                        // whenever the walk lands on `from`.
  *   }
  *
  * generateMelody returns:
@@ -62,17 +66,38 @@
   // melodic tendency), bounded by the range, starting on the requested degree
   // and - when endsOn is "tonic" - steered so the phrase can still reach the
   // tonic in the notes that remain without ever exceeding maxLeap.
+  //
+  // spec.leap adds a single named exception to maxLeap: whenever the walk is
+  // sitting exactly on degree `leap.from`, the next note may jump straight to
+  // `leap.to` instead of moving by the usual step/leap rule (e.g. the rising
+  // dominant-to-tonic 4th permitted in exam-board grade 5+ sight-singing, where
+  // every other interval must be a step).
   function walkDegrees(rng, n, spec, mode) {
     const below = (spec.range && spec.range.below) || 0;
     const above = (spec.range && spec.range.above != null) ? spec.range.above : 2;
     const min = -below, max = above;
     const maxLeap = spec.maxLeap || 1;
     const endTonic = spec.endsOn !== "free";
+    const leap = spec.leap;
 
     const degs = [clamp(startDegree(spec.startsOn, rng), min, max)];
     for (let i = 1; i < n; i++) {
       if (endTonic && i === n - 1) { degs.push(0); break; } // land on the tonic
       const prev = degs[i - 1];
+      if (leap && prev === leap.from) {
+        // Once sitting on the leap's departure point, a stepwise move away
+        // from it is only safe if the tonic remains reachable afterwards
+        // (within maxLeap per remaining note); otherwise the leap - the only
+        // way left to close the distance - must fire now rather than being
+        // left to chance.
+        const remaining = (n - 1) - i;
+        const bestStep = prev + Math.sign(0 - prev);
+        const mustLeap = endTonic && Math.abs(bestStep) > remaining * maxLeap;
+        if (mustLeap || rng.bool(leap.chance != null ? leap.chance : 0.4)) {
+          degs.push(clamp(leap.to, min, max));
+          continue;
+        }
+      }
       const lastMove = i >= 2 ? degs[i - 1] - degs[i - 2] : 0;
       let move;
       if (Math.abs(lastMove) >= 2) {
@@ -86,8 +111,11 @@
       if (next === prev) next = clamp(prev + (rng.bool() ? 1 : -1), min, max);
       // Reachability: with R steps left to reach the tonic, the note must stay
       // within R*maxLeap of it, or the closing step would have to be a bigger
-      // leap than allowed. Pull it back toward the tonic when it strays too far.
-      if (endTonic) {
+      // leap than allowed. Pull it back toward the tonic when it strays too far
+      // - unless it has landed exactly on the leap exception's departure
+      // point, which is allowed to sit outside that bound since the named
+      // leap (not a stepwise close) can cover the remaining distance.
+      if (endTonic && !(leap && next === leap.from)) {
         const bound = ((n - 1) - i) * maxLeap;
         if (next > bound) next = bound;
         else if (next < -bound) next = -bound;

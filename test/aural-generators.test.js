@@ -71,6 +71,46 @@ describe("aural melody generator - spec conformance", () => {
   });
 });
 
+describe("aural sight-sing melody generator - spec conformance", () => {
+  // Mirrors src/aural-content.js's MELODY_SPECS.g4SightSing/g5SightSing/
+  // g6SightSing: sight-singing begins and ends on the tonic (exam-board 4B/5B/6B),
+  // and 5B/6B permit exactly one exception to stepwise motion - the rising
+  // dominant-below-to-tonic 4th.
+  const SIGHT_SPECS = {
+    "g4-sight": { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
+    "g5-sight": { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    "g6-sight": { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+  };
+
+  for (const [id, spec] of Object.entries(SIGHT_SPECS)) {
+    it(`${id}: 300 generated phrases begin and end on the tonic and only ever leap via the declared exception`, () => {
+      const r = rng.create("sight-" + id);
+      let sawLeap = false;
+      for (let i = 0; i < 300; i++) {
+        const m = auralGen.generateMelody(r, spec);
+
+        expect(spec.keys).toContain(m.key);
+        expect(m.degrees[0]).toBe(0);
+        expect(m.degrees[m.degrees.length - 1]).toBe(0);
+
+        const pcs = scalePcs(m.key, m.mode);
+        for (const midi of m.notes) expect(pcs.has(((midi % 12) + 12) % 12)).toBe(true);
+
+        for (let k = 1; k < m.degrees.length; k++) {
+          const delta = m.degrees[k] - m.degrees[k - 1];
+          if (Math.abs(delta) > spec.maxLeap) {
+            expect(spec.leap).toBeTruthy();
+            expect(m.degrees[k - 1]).toBe(spec.leap.from);
+            expect(m.degrees[k]).toBe(spec.leap.to);
+            sawLeap = true;
+          }
+        }
+      }
+      if (spec.leap) expect(sawLeap).toBe(true);
+    });
+  }
+});
+
 describe("aural companion-line (counterpoint) generator", () => {
   const spec = SPECS["g3-echo"];
   const CONSONANT = new Set([0, 3, 4, 7, 8, 9]); // semitones mod octave

@@ -60,6 +60,12 @@
     memory: { keys: ["C", "G", "D"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 3, rhythmPalette: [[1, 1, 1], [2, 1], [1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g1Change: { keys: ["C"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
     g3Change: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 4, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
+    // Sight-singing (exam-board 4B/5B/6B): begins and ends on the tonic, per the
+    // real syllabus. 5B/6B's only permitted leap is the rising dominant-below
+    // -to-tonic 4th (degree -3 -> 0); everything else moves by step.
+    g4SightSing: { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
+    g5SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    g6SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
   };
 
   // Notation helpers — render a treble-clef staff snippet inline in a prompt.
@@ -223,46 +229,8 @@
     return vel;
   }
 
-  // Grade 4 sight-sing phrases: 5 notes, starts on tonic, 3rd below/above, C/F/G major.
-  const G4_SIGHT_PHRASES = [
-    { root: MIDI.C4, name: "C major", phrases: [
-      [MIDI.C4, MIDI.D4, MIDI.E4, MIDI.D4, MIDI.C4],
-      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.B3, MIDI.C4],
-      [MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4],
-      [MIDI.C4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4],
-    ]},
-    { root: 65, name: "F major", phrases: [
-      [65, 67, MIDI.A4, 67, 65],           // F G A G F
-      [65, MIDI.E4, MIDI.D4, MIDI.E4, 65], // F E D E F
-      [MIDI.A4, 67, 65, MIDI.E4, 65],      // A G F E F
-      [65, 67, 65, MIDI.E4, 65],           // F G F E F
-    ]},
-    { root: MIDI.G4, name: "G major", phrases: [
-      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.A4, MIDI.G4],
-      [MIDI.G4, 66, MIDI.E4, 66, MIDI.G4],          // G F# E F# G
-      [MIDI.B4, MIDI.A4, MIDI.G4, 66, MIDI.G4],     // B A G F# G
-      [MIDI.G4, MIDI.A4, MIDI.G4, 66, MIDI.G4],     // G A G F# G
-    ]},
-  ];
-
-  // Grade 5 sight-sing phrases: 6 notes, wider range (5th above, 4th below), one 4th leap allowed.
-  const G5_SIGHT_PHRASES = [
-    { root: MIDI.C4, name: "C major", phrases: [
-      [MIDI.C4, MIDI.D4, 65, MIDI.E4, MIDI.D4, MIDI.C4],     // C D F E D C (4th leap C→F)
-      [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4], // G E D C B C (from 5th above)
-      [MIDI.C4, MIDI.E4, 65, MIDI.G4, MIDI.E4, MIDI.C4],      // C E F G E C (to 5th above)
-      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.G3, MIDI.A3, MIDI.C4], // C B A G A C (4th below)
-    ]},
-    { root: 65, name: "F major", phrases: [
-      [65, 67, MIDI.A4, 72, MIDI.A4, 65],                         // F G A C' A F (octave leap)
-      [65, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4, 65],               // F E D C D F
-      [72, MIDI.A4, 67, 65, 67, MIDI.A4],                         // C' A G F G A (from above)
-    ]},
-    { root: MIDI.G4, name: "G major", phrases: [
-      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],  // G A B D' B G (4th B→D)
-      [MIDI.G4, 66, MIDI.E4, MIDI.D4, MIDI.E4, MIDI.G4],        // G F# E D E G
-    ]},
-  ];
+  // Grades 4-6 sight-sing phrases are generated (see MELODY_SPECS.g4SightSing
+  // /g5SightSing/g6SightSing) rather than drawn from a fixed bank.
 
   // =========================================================================
   // Grade 1 generators
@@ -564,20 +532,19 @@
   // Test 4B: Sight-sing a 5-note phrase from a printed score.
   // Only tonic is played (for pitch reference). Student reads and sings in sequence.
   function g4SightSingQuestion(rng) {
-    const keyDef = pick(rng, G4_SIGHT_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g4SightSing);
     return {
-      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing each note</strong> shown in order. Start when you\'re ready.${sequenceStaff(phrase)}`,
-      audio: function () { audio().note(keyDef.root, 1.2); },
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order. Start when you\'re ready.${sequenceStaff(m.notes)}`,
+      audio: function () { audio().note(m.tonicMidi, 1.2); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        targets: makeSequenceTargets(m.notes),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 4 sight-singing: 5 notes in C, F, or G major, within a 3rd of the tonic. Steps and small skips only. Only the tonic is given — work out each note\'s position relative to the tonic you heard.`,
+      explanation: `Grade 4 sight-singing: 5 notes in C, F, or G major, starting and ending on the tonic and staying within a 3rd of it. Steps and small skips only — work out each note\'s position relative to the tonic you heard.`,
     };
   }
 
@@ -687,22 +654,23 @@
     };
   }
 
-  // Grade 5 sight-singing: 6-note phrase, wider range (5th above, 4th below), one 4th leap.
+  // Grade 5 sight-singing: 6-note phrase, wider range (5th above, 4th below),
+  // begins/ends on the tonic; the only leap it may contain is the rising
+  // dominant-to-tonic 4th.
   function g5SightSingQuestion(rng) {
-    const keyDef = pick(rng, G5_SIGHT_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g5SightSing);
     return {
-      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing each note</strong> shown in order. Take a moment to look before starting.${sequenceStaff(phrase)}`,
-      audio: function () { audio().note(keyDef.root, 1.2); },
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order. Take a moment to look before starting.${sequenceStaff(m.notes)}`,
+      audio: function () { audio().note(m.tonicMidi, 1.2); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        targets: makeSequenceTargets(m.notes),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 5 sight-singing: 6 notes, range up to a 5th above and 4th below tonic, one leap of a 4th allowed. Plan the biggest interval (the 4th leap) before you start singing — the rest will usually be steps.`,
+      explanation: `Grade 5 sight-singing: 6 notes in C, F, G, D, or B♭ major, starting and ending on the tonic, range up to a 5th above and a 4th below it. The only leap allowed is the rising 4th from the dominant below up to the tonic — everything else moves by step.`,
     };
   }
 
@@ -1032,30 +1000,20 @@
 
   function g6EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "top", "Grade 6"); }
 
-  // Grade 6 sight-sing phrases: 6-7 notes, full octave range, up to 2 sharps/flats.
-  const G6_SIGHT_PHRASES = G5_SIGHT_PHRASES.concat([
-    { root: 62, name: "D major", phrases: [
-      [62, 64, 66, 69, 66, 64, 62],   // D E F# A F# E D
-      [69, 66, 64, 62, 61, 62, 69],   // A F# E D C# D A (leading tone C#)
-      [62, 66, 69, 71, 69, 66, 62],   // D F# A B A F# D
-    ]},
-  ]);
-
   function g6SightSingQuestion(rng) {
-    const keyDef = pick(rng, G6_SIGHT_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g6SightSing);
     return {
-      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing each note</strong> shown in order.${sequenceStaff(phrase)}`,
-      audio: function () { audio().note(keyDef.root, 1.2); },
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown in order.${sequenceStaff(m.notes)}`,
+      audio: function () { audio().note(m.tonicMidi, 1.2); },
       micTask: {
         type: "sequence",
-        targets: makeSequenceTargets(phrase),
+        targets: makeSequenceTargets(m.notes),
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 6 sight-singing: a longer phrase within an octave, in a major key with up to 2 sharps or flats. In the real exam an accompaniment plays under you — here you get the tonic as a reference before starting.`,
+      explanation: `Grade 6 sight-singing: a longer phrase within an octave, in a major key with up to 2 sharps or flats, starting and ending on the tonic. The only leap allowed is the same rising dominant-to-tonic 4th as Grade 5. In the real exam an accompaniment plays under you — here you get the tonic as a reference before starting.`,
     };
   }
 
@@ -1093,15 +1051,36 @@
     return pick(rng, pool)(rng);
   }
 
-  // Grade 7 sight-sing phrases: extend G6's set with a key up to 4 sharps/flats
-  // (Bb major stays within the notation engine's correctly-spelled accidentals).
-  const G7_SIGHT_PHRASES = G6_SIGHT_PHRASES.concat([
+  // Grade 7/8 sight-sing phrases: a two-part texture (the companion part comes
+  // from diatonicThirdBelow below), so these stay a hand-written bank rather
+  // than a single generated line - keys up to 4 sharps/flats.
+  const G7_SIGHT_PHRASES = [
+    { root: MIDI.C4, name: "C major", phrases: [
+      [MIDI.C4, MIDI.D4, 65, MIDI.E4, MIDI.D4, MIDI.C4],     // C D F E D C
+      [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4], // G E D C B C
+      [MIDI.C4, MIDI.E4, 65, MIDI.G4, MIDI.E4, MIDI.C4],      // C E F G E C
+      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.G3, MIDI.A3, MIDI.C4], // C B A G A C
+    ]},
+    { root: 65, name: "F major", phrases: [
+      [65, 67, MIDI.A4, 72, MIDI.A4, 65],                         // F G A C' A F
+      [65, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4, 65],               // F E D C D F
+      [72, MIDI.A4, 67, 65, 67, MIDI.A4],                         // C' A G F G A
+    ]},
+    { root: MIDI.G4, name: "G major", phrases: [
+      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],  // G A B D' B G
+      [MIDI.G4, 66, MIDI.E4, MIDI.D4, MIDI.E4, MIDI.G4],        // G F# E D E G
+    ]},
+    { root: 62, name: "D major", phrases: [
+      [62, 64, 66, 69, 66, 64, 62],   // D E F# A F# E D
+      [69, 66, 64, 62, 61, 62, 69],   // A F# E D C# D A (leading tone C#)
+      [62, 66, 69, 71, 69, 66, 62],   // D F# A B A F# D
+    ]},
     { root: 70, name: "B♭ major", phrases: [
       [70, 72, 74, 75, 74, 72, 70],   // Bb C D Eb D C Bb
       [70, 74, 77, 79, 77, 74, 70],   // Bb D F G F D Bb
       [77, 75, 74, 72, 70, 72, 77],   // F Eb D C Bb C F
     ]},
-  ]);
+  ];
 
   function g7SightSingQuestion(rng) {
     const keyDef = pick(rng, G7_SIGHT_PHRASES);
@@ -1379,8 +1358,8 @@
         {
           id: "g5-aural-sight-sing",
           title: "Aural: sight-sing (wider range)",
-          why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic, and one allowed leap of a perfect 4th.",
-          what: "<p>Spot the 4th leap before you start — it's the hardest interval to hit accurately. Everything else will be steps. Practice the sound of a perfect 4th (same as the start of 'Here Comes the Bride') so you can leap it confidently.</p>",
+          why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic. The only leap it may contain is a rising 4th from the dominant below up to the tonic.",
+          what: "<p>Scan the staff for a leap before you start — if there is one, it's a rising 4th from the dominant below to the tonic (same interval as the start of 'Here Comes the Bride'), the hardest interval to hit accurately. Everything else moves by step.</p>",
           questions: g5SightSingQuestion,
           tags: ["aural"],
         },
@@ -1432,8 +1411,8 @@
         {
           id: "g6-aural-sight-sing",
           title: "Aural: sight-sing (octave range)",
-          why: "Grade 6 sight-singing extends across a full octave, in a major key with up to 2 sharps or flats, with an accompaniment playing underneath in the real exam.",
-          what: "<p>Look through the whole phrase before you start — spot the highest and lowest notes and where the biggest leaps are. Keep your own line steady even if you imagine a moving accompaniment underneath.</p>",
+          why: "Grade 6 sight-singing extends across a full octave, in a major key with up to 2 sharps or flats, with an accompaniment playing underneath in the real exam. As in Grade 5, the only leap it may contain is the rising dominant-to-tonic 4th.",
+          what: "<p>Look through the whole phrase before you start — spot the highest and lowest notes and, if there's a leap, confirm it's the rising 4th from the dominant below to the tonic. Keep your own line steady even if you imagine a moving accompaniment underneath.</p>",
           questions: g6SightSingQuestion,
           tags: ["aural"],
         },
