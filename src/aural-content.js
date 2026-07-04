@@ -688,6 +688,12 @@
   // Semitone offset from C for each key the harmony tasks can appear in.
   const CHORD_KEYS = { C: 0, G: 7, F: 5, D: 2 };
 
+  // Semitone offset from A3 (=57) for each supported minor key.  These are the
+  // relative minors of the CHORD_KEYS major keys, so they share key signatures.
+  const MINOR_CHORD_KEYS = { Am: 0, Em: 7, Dm: 5, Bm: 2 };
+  // Human-readable names for display in prompts.
+  const MINOR_KEY_NAMES = { Am: "A minor", Em: "E minor", Dm: "D minor", Bm: "B minor" };
+
   // Diatonic "3rd below" within an arbitrary major key. The sight-singing
   // accompaniment must stay in the phrase's own key (a plain -3 semitones or a
   // C-major lookup would sound out-of-key against G, D or B♭ major). Builds the
@@ -745,6 +751,38 @@
     ];
   }
 
+  // Minor-key voicings transposed from an A-minor base (A3=57). The V chord
+  // uses the raised leading note from harmonic minor, making it a major
+  // dominant (E-G♯-B in A minor). VI is the major submediant used in the
+  // minor-key interrupted cadence (V→VI rather than V→vi).
+  function chordsForKeyMinor(key) {
+    const shift = MINOR_CHORD_KEYS[key];
+    const t = (notes) => notes.map((m) => m + shift);
+    return {
+      i:  t([MIDI.A3, MIDI.C4, MIDI.E4]),   // minor tonic
+      iv: t([MIDI.D4, MIDI.F4, MIDI.A4]),   // minor subdominant
+      V:  t([MIDI.E4, 68,      MIDI.B4]),   // major dominant (G♯ = harmonic minor)
+      VI: t([MIDI.F4, MIDI.A4, MIDI.C5]),   // major submediant (for interrupted)
+    };
+  }
+
+  function cadencesForKeyMinor(chords) {
+    return [
+      { type: "perfect", label: "Perfect cadence (V-i)",
+        chords: [chords.V, chords.i],
+        explanation: `A <b>perfect cadence</b> (V-i) — the major dominant (raised 7th from harmonic minor) resolving to the minor tonic. The strongest, most final close in a minor key.` },
+      { type: "imperfect", label: "Imperfect cadence (ending on V)",
+        chords: [chords.i, chords.V],
+        explanation: `An <b>imperfect cadence</b> (ending on V) — it sounds unfinished, like a question, in minor as in major.` },
+      { type: "interrupted", label: "Interrupted cadence (V-VI)",
+        chords: [chords.V, chords.VI],
+        explanation: `An <b>interrupted cadence</b> (V-VI) — in a minor key V moves to the major submediant (VI) instead of the expected tonic: a sudden bright, surprising sound.` },
+      { type: "plagal", label: "Plagal cadence (iv-i)",
+        chords: [chords.iv, chords.i],
+        explanation: `A <b>plagal cadence</b> (iv-i) — the minor subdominant resolving to the minor tonic; the "Amen" cadence in its minor form.` },
+    ];
+  }
+
   // Play a cadence the way ABRSM presents it: sound the key chord (the tonic)
   // first to establish the tonality, a short gap, then the cadence chords. Pass
   // keyChord to prepend it; omit for a bare cadence.
@@ -760,15 +798,28 @@
 
   // Shared cadence-ID generator: pick from the first `count` cadence types
   // (perfect/imperfect at Grade 6, +interrupted at 7, +plagal at 8), in a
-  // randomly-chosen key so students don't only ever hear C major.
+  // randomly-chosen key — major or minor — so students hear cadences in both
+  // modes, as required by the ABRSM Grade 6–7 syllabus.
   function auralCadenceQuestion(rng, count) {
-    const key = pick(rng, Object.keys(CHORD_KEYS));
-    const chords = chordsForKey(key);
-    const pool = cadencesForKey(chords).slice(0, count);
+    const minor = rng.bool();
+    let tonicChord, keyLabel, pool;
+    if (minor) {
+      const key = pick(rng, Object.keys(MINOR_CHORD_KEYS));
+      const chords = chordsForKeyMinor(key);
+      tonicChord = chords.i;
+      keyLabel = MINOR_KEY_NAMES[key];
+      pool = cadencesForKeyMinor(chords).slice(0, count);
+    } else {
+      const key = pick(rng, Object.keys(CHORD_KEYS));
+      const chords = chordsForKey(key);
+      tonicChord = chords.I;
+      keyLabel = `${key} major`;
+      pool = cadencesForKey(chords).slice(0, count);
+    }
     const c = pick(rng, pool);
     return {
-      prompt: `Listen: the key chord of <b>${key} major</b> sounds first, then a two-chord cadence. Which cadence is it?`,
-      audio: playCadence(c.chords, chords.I),
+      prompt: `Listen: the key chord of <b>${keyLabel}</b> sounds first, then a two-chord cadence. Which cadence is it?`,
+      audio: playCadence(c.chords, tonicChord),
       choices: choices(rng, c.label, pool.map((x) => x.label), count),
       answer: c.label,
       explanation: c.explanation,
