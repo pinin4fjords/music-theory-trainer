@@ -392,7 +392,7 @@
 
   function g1EchoMelodyQuestion(rng) {
     return multiEchoMelodyQuestion(rng, "g1Echo", {
-      prompt: `Listen to each short phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — the notes stay hidden until you\'re done.`,
+      prompt: `Listen to each short phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — the notes stay hidden until you're done.`,
       explanation: `Grade 1 echo singing: the examiner plays three different short phrases and you sing each one back immediately after hearing it. Focus on the contour — whether each note goes up, stays the same, or goes down.`,
     });
   }
@@ -453,7 +453,7 @@
   // Grade 2 echo melody: major only (tonic-to-dominant); minor enters at 3B.
   function g2EchoMelodyQuestion(rng) {
     return multiEchoMelodyQuestion(rng, "g2Echo", {
-      prompt: `Listen to each major-key phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you\'re done.`,
+      prompt: `Listen to each major-key phrase, then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you're done.`,
       explanation: `Grade 2 echo singing: three short major-key phrases, each spanning up to a 5th from tonic to dominant. Fix the tonic in your ear first, then follow the shape up and down from it.`,
     });
   }
@@ -461,7 +461,7 @@
   // Grade 3 echo melody: major or minor, range within an octave.
   function g3EchoMelodyQuestion(rng) {
     return multiEchoMelodyQuestion(rng, "g3Echo", {
-      prompt: `Listen to each phrase (it may be major or minor), then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you\'re done.`,
+      prompt: `Listen to each phrase (it may be major or minor), then <strong>sing it back immediately</strong>. Three phrases in turn — notes hidden until you're done.`,
       explanation: `Grade 3 echo singing: three phrases within a single octave, major or minor. Mostly stepwise motion with the occasional leap of a 3rd — hum the shape internally before you sing.`,
     });
   }
