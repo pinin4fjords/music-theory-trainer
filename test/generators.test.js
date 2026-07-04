@@ -63,7 +63,10 @@ describe("content generators - property/smoke tests", () => {
       const keysSeen = new Set();
       for (let i = 0; i < 40; i++) {
         const q = topic.questions(r);
-        const m = q.prompt.match(/<b>(\w+) major<\/b>/);
+        // Cadence questions may be in a major or minor key; chord/modulation
+        // questions are always major.  Accept both "<b>X major</b>" and
+        // "<b>X minor</b>" as valid key labels.
+        const m = q.prompt.match(/<b>([A-G][a-z#♭]* (?:major|minor))<\/b>/);
         expect(m).toBeTruthy();
         keysSeen.add(m[1]);
       }
