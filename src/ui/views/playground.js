@@ -121,13 +121,15 @@
 
     function drawKeyboard(activeMidis) {
       C.clear(kb);
+      const midiToName = global.MTT.audioInput ? global.MTT.audioInput.midiToName : (m) => "MIDI note " + m;
       for (let midi = 60; midi <= 84; midi++) {
         const isBlack = [1, 3, 6, 8, 10].includes(midi % 12);
         const active = activeMidis.has(midi);
         const key = document.createElement("button");
         key.type = "button";
         key.className = "pg-key" + (isBlack ? " black" : "") + (active ? " active" : "");
-        key.setAttribute("aria-label", "MIDI note " + midi);
+        key.setAttribute("aria-label", midiToName(midi));
+        key.setAttribute("aria-pressed", active ? "true" : "false");
         key.addEventListener("click", () => A.note(midi));
         kb.appendChild(key);
       }

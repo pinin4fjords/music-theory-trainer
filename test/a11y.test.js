@@ -92,6 +92,43 @@ describe("a11y - settings menu focus management", () => {
   });
 });
 
+describe("a11y - explainer modal focus trap", () => {
+  it("Tab wraps from the last focusable element back to the first", () => {
+    instance.router.navigate("learn", "g1-notes");
+    document.querySelector(".dig-deeper").click();
+    const panel = document.querySelector(".explainer-modal-panel");
+    expect(panel).toBeTruthy();
+    const focusable = [...panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    expect(focusable.length).toBeGreaterThan(1);
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    last.focus();
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("Shift+Tab wraps from the first focusable element back to the last", () => {
+    instance.router.navigate("learn", "g1-notes");
+    document.querySelector(".dig-deeper").click();
+    const panel = document.querySelector(".explainer-modal-panel");
+    const focusable = [...panel.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    first.focus();
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Tab", shiftKey: true, bubbles: true, cancelable: true }));
+    expect(document.activeElement).toBe(last);
+  });
+
+  it("focus opens inside the panel and Escape restores it to the opener even when focus has drifted out", () => {
+    instance.router.navigate("learn", "g1-notes");
+    const dig = document.querySelector(".dig-deeper");
+    dig.click();
+    expect(document.querySelector(".explainer-modal-panel").contains(document.activeElement)).toBe(true);
+    document.body.focus(); // simulate focus escaping the dialog
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(document.querySelector(".explainer-modal-overlay")).toBeFalsy();
+    expect(document.activeElement).toBe(dig);
+  });
+});
+
 describe("a11y - quiz interactivity", () => {
   it("a notation prompt has a text alternative and choices are real buttons", () => {
     instance.router.navigate("quiz", { single: notesTopic });
@@ -125,5 +162,25 @@ describe("a11y - quiz interactivity", () => {
     expect(reveal.getAttribute("role")).toBe("status");
     const next = [...document.querySelectorAll("#main .btn")].pop();
     expect(document.activeElement).toBe(next);
+  });
+});
+
+describe("a11y - playground keyboard", () => {
+  it("keys are labelled with note names, not raw MIDI numbers", () => {
+    instance.router.navigate("play");
+    const keys = [...document.querySelectorAll(".pg-key")];
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.every((k) => !/MIDI note/.test(k.getAttribute("aria-label")))).toBe(true);
+    expect(keys.some((k) => /^C4$/.test(k.getAttribute("aria-label")))).toBe(true);
+  });
+
+  it("keys that are part of the built structure expose aria-pressed, not just a colour class", () => {
+    instance.router.navigate("play");
+    const active = document.querySelectorAll(".pg-key.active");
+    const inactive = document.querySelectorAll(".pg-key:not(.active)");
+    expect(active.length).toBeGreaterThan(0);
+    expect(inactive.length).toBeGreaterThan(0);
+    expect([...active].every((k) => k.getAttribute("aria-pressed") === "true")).toBe(true);
+    expect([...inactive].every((k) => k.getAttribute("aria-pressed") === "false")).toBe(true);
   });
 });
