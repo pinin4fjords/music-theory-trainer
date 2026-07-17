@@ -1313,29 +1313,28 @@
   function g8ModulationQuestion(rng) { return rng.bool() ? minorModulationQuestion(rng) : modulationQuestion(rng); }
   function g8EchoThreePartQuestion(rng) { return threePartEchoQuestion(rng); }
 
-  // Grade 8 sight-singing: same two-part generation as Grade 7, but the learner
-  // sings the lower (companion) line while the generated upper line plays above.
+  // Grade 8 sight-singing: the learner sings the lower part while the upper
+  // plays above. The sung (lower) line is the well-formed sight-singing melody
+  // so it is stepwise and singable; the played upper line is a consonant
+  // companion generated above it.
   function g8SightSingQuestion(rng) {
-    const m = auralGen().generateMelody(rng, MELODY_SPECS.g8SightSing);
-    // The sung lower line is never sounded against the upper here (only the
-    // upper plays), so it is refit into the singing register for readable
-    // notation without affecting any harmonic interval.
-    const lower = auralGen().fitRegister(auralGen().generateCompanion(rng, m, { direction: "below" }));
+    const lower = auralGen().generateMelody(rng, MELODY_SPECS.g8SightSing);
+    const upper = auralGen().generateCompanion(rng, lower, { direction: "above" });
     const beatSec = 0.6;
     const tonicDurSec = 1.2;
     const accompDelayMs = tonicDurSec * 1000 + 100;
-    const useFlats = keyUsesFlats(m.key);
+    const useFlats = keyUsesFlats(lower.key);
     return {
-      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(lower)}`,
+      prompt: `Listen to the tonic of <b>${lower.key} major</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(lower.notes)}`,
       audio: function () {
         const a = audio();
-        a.note(m.tonicMidi, tonicDurSec);
-        later(function () { a.sequenceRhythm(m.notes, m.durations, beatSec); }, accompDelayMs);
+        a.note(lower.tonicMidi, tonicDurSec);
+        later(function () { a.sequenceRhythm(upper, lower.durations, beatSec); }, accompDelayMs);
       },
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(lower, useFlats),
+        targets: makeSequenceTargets(lower.notes, useFlats),
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
@@ -1510,7 +1509,7 @@
   }
 
   // =========================================================================
-  // Inject topics into MTT.content.grades
+  // Inject topics into MTT.content.auralGrades
   // =========================================================================
 
   const auralTopics = [

@@ -171,6 +171,27 @@
   // diagnostic slice of earlier-grade review rather than the daily-mix fraction.
   const PATH_LOWER_SLICE = 2;
 
+  // Upper bound on aural cards folded into one daily/path session.
+  const AURAL_DAILY_MAX = 3;
+
+  // Aural topics whose spaced-repetition schedule has come due, so daily/path
+  // sessions resurface them rather than leaving aural practice to depend on the
+  // learner visiting the Aural tab. "Due" here is strict (seen and past dueAt),
+  // unlike orderAural's isDue which also counts never-scheduled cards - so a
+  // learner with no aural history gets an unchanged, theory-only mix. Initial
+  // Grade (aural grade 0) is a standalone section, not foundation review, so it
+  // is admitted only when the session itself is Initial Grade.
+  function dueAuralTopics(content, grade, srsMap, now) {
+    const g = grade || 4;
+    const map = srsMap || {};
+    const due = auralTopics(content).filter((t) => {
+      if (!(t.grade <= g && (t.grade > 0 || g === 0))) return false;
+      const card = map[t.id];
+      return !!(card && card.dueAt != null && card.dueAt <= now);
+    });
+    return orderAural(due, map, now);
+  }
+
   // Spread the (minority) lower-grade picks evenly through the current-grade
   // picks, starting with a current-grade question. Deterministic.
   function interleave(current, lower) {
@@ -274,27 +295,37 @@
     // current-grade quota below, is what makes the two modes assemble genuinely
     // different sessions.
     const orderCurrent = (pool) => isPath ? progressionOrder(pool, srsMap) : orderPool(pool, srsMap, now, grade, mode);
+
+    // Reserve a bounded, due-first slice for aural cards that have come due.
+    // Empty when the learner has no due aural history, in which case the rest of
+    // assembly (and its rng draws) is exactly the theory-only mix.
+    const seen = new Set();
+    const dueAural = dueAuralTopics(content, grade, srsMap, now);
+    const auralQuota = Math.min(AURAL_DAILY_MAX, dueAural.length, Math.max(0, length - 1));
+    const auralPicks = assemble(dueAural, auralQuota, rng, seen);
+    const bodyLength = length - auralPicks.length;
+
     const lowerTopics = orderPool(all.filter((t) => t.grade < grade), srsMap, now, grade, mode);
     const currentTopics = orderCurrent(all.filter((t) => t.grade === grade));
 
     let picks;
     // No lower grades available (Grade 1, or nothing seen below): single pool.
     if (grade <= 1 || !lowerTopics.length || !currentTopics.length) {
-      picks = assemble(orderCurrent(all), length, rng);
+      picks = assemble(orderCurrent(all), bodyLength, rng, seen);
     } else {
-      const seen = new Set();
       const lowerQuota = isPath
-        ? Math.min(length - 1, PATH_LOWER_SLICE)
-        : Math.min(length - 1, Math.max(2, Math.round(length * LOWER_GRADE_FRACTION)));
-      const current = assemble(currentTopics, length - lowerQuota, rng, seen);
-      const lower = assemble(lowerTopics, length - current.length, rng, seen);
+        ? Math.min(bodyLength - 1, PATH_LOWER_SLICE)
+        : Math.min(bodyLength - 1, Math.max(2, Math.round(bodyLength * LOWER_GRADE_FRACTION)));
+      const current = assemble(currentTopics, bodyLength - lowerQuota, rng, seen);
+      const lower = assemble(lowerTopics, bodyLength - current.length, rng, seen);
       picks = interleave(current, lower);
       // Backfill from the full pool if a sub-pool ran dry on a small curriculum.
-      if (picks.length < length) {
-        picks = picks.concat(assemble(orderCurrent(all), length - picks.length, rng, seen));
+      if (picks.length < bodyLength) {
+        picks = picks.concat(assemble(orderCurrent(all), bodyLength - picks.length, rng, seen));
       }
-      picks = picks.slice(0, length);
+      picks = picks.slice(0, bodyLength);
     }
+    picks = auralPicks.length ? interleave(picks, auralPicks) : picks;
     return loadBalance(picks, srsMap).slice(0, length);
   }
 
