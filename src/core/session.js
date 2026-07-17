@@ -303,11 +303,72 @@
     return assemble([topic], length || SESSION_LEN, rng);
   }
 
+  // --- Placement diagnostic (issue #51) -------------------------------------
+
+  // How many representative topics each grade band contributes to the optional
+  // placement check. One keeps the whole walk short (~8 questions across the
+  // grades) while still sampling every band in ascending difficulty.
+  const PLACEMENT_TOPICS_PER_BAND = 1;
+
+  // A band counts as passed when at least this fraction of its questions are
+  // correct; below it the band is failed. With one question per band this is
+  // simply "got it right".
+  const PLACEMENT_PASS = 0.5;
+
+  // Consecutive failed bands that end the walk early, so a struggling beginner
+  // is never marched up to Grade 8 questions.
+  const PLACEMENT_MAX_MISSES = 2;
+
+  // Representative topics per grade band for the placement check: the first
+  // quizable theory topic of each grade, ordered ascending by grade. Aural
+  // topics are excluded because they need a microphone, which onboarding can't
+  // assume. Deterministic (content order is fixed).
+  function placementBands(content) {
+    const byGrade = new Map();
+    quizableTopics(content).forEach((t) => {
+      if (!byGrade.has(t.grade)) byGrade.set(t.grade, []);
+      byGrade.get(t.grade).push(t);
+    });
+    return [...byGrade.keys()].sort((a, b) => a - b)
+      .map((grade) => ({ grade, topics: byGrade.get(grade).slice(0, PLACEMENT_TOPICS_PER_BAND) }));
+  }
+
+  function bandPassed(result) {
+    return result.total ? (result.correct / result.total) >= PLACEMENT_PASS : false;
+  }
+
+  // Whether the placement walk should stop now: the learner has failed the last
+  // PLACEMENT_MAX_MISSES bands in a row. `results` are the attempted bands in
+  // ascending-grade order, each { grade, correct, total }.
+  function shouldStopPlacement(results) {
+    let streak = 0;
+    results.forEach((r) => { streak = bandPassed(r) ? 0 : streak + 1; });
+    return streak >= PLACEMENT_MAX_MISSES;
+  }
+
+  // Suggest a starting grade from the attempted bands: the highest grade the
+  // learner comfortably passed, meaning they passed that band AND did not fail
+  // the band below it (so a single fluke pass above a failed foundation doesn't
+  // over-promote). Falls back to Grade 1 when nothing qualifies, so a struggling
+  // beginner lands at the entry point rather than nowhere.
+  function placementSuggestion(results) {
+    const passed = new Map();
+    results.forEach((r) => passed.set(r.grade, bandPassed(r)));
+    let suggested = 1;
+    results.forEach((r) => {
+      const g = r.grade;
+      if (passed.get(g) && (g === 1 || passed.get(g - 1))) suggested = g;
+    });
+    return suggested;
+  }
+
   const api = {
     SESSION_LEN, DOMAINS, DEFAULT_RECIPE, HIGH_EFFORT_MS,
+    PLACEMENT_PASS, PLACEMENT_MAX_MISSES, PLACEMENT_TOPICS_PER_BAND,
     allTopics, quizableTopics, auralTopics, gradeTopics, domainTopics,
     orderPool, progressionOrder, orderAural, assemble, build, buildByDomain,
     buildSingle, qSig, setWarn, isHighEffort, loadBalance,
+    placementBands, shouldStopPlacement, placementSuggestion,
   };
 
   global.MTT = global.MTT || {};

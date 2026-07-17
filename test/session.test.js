@@ -297,3 +297,52 @@ describe("session - resilience to invalid generators", () => {
     expect(session.assemble([], 5, rng.create(1))).toEqual([]);
   });
 });
+
+describe("session - placement diagnostic (issue #51)", () => {
+  it("placementBands samples one representative topic per grade in ascending order", () => {
+    const bands = session.placementBands(content);
+    const grades = bands.map((b) => b.grade);
+    expect(grades).toEqual([...grades].sort((a, b) => a - b)); // ascending
+    for (let g = 1; g <= 8; g++) expect(grades).toContain(g); // every grade band present
+    bands.forEach((b) => {
+      expect(b.topics.length).toBe(session.PLACEMENT_TOPICS_PER_BAND);
+      expect(b.topics.every((t) => t.grade === b.grade)).toBe(true);
+      expect(b.topics.every((t) => typeof t.questions === "function")).toBe(true);
+    });
+  });
+
+  it("placement bands generate gradeable choice questions (no mic tasks)", () => {
+    const bands = session.placementBands(content);
+    bands.forEach((b) => {
+      const picks = session.assemble(b.topics, 1, rng.create("place-" + b.grade));
+      expect(picks.length).toBe(1);
+      expect(picks[0].q.micTask).toBeFalsy();
+      expect(Array.isArray(picks[0].q.choices)).toBe(true);
+    });
+  });
+
+  it("shouldStopPlacement early-exits after two consecutive failed bands", () => {
+    const pass = (grade) => ({ grade, correct: 1, total: 1 });
+    const fail = (grade) => ({ grade, correct: 0, total: 1 });
+    expect(session.shouldStopPlacement([pass(1), pass(2)])).toBe(false);
+    expect(session.shouldStopPlacement([pass(1), fail(2)])).toBe(false); // one miss only
+    expect(session.shouldStopPlacement([pass(1), fail(2), fail(3)])).toBe(true); // two in a row
+    expect(session.shouldStopPlacement([fail(1), pass(2), fail(3)])).toBe(false); // streak reset by the pass
+    expect(session.shouldStopPlacement([fail(1), fail(2)])).toBe(true); // failed from the start
+  });
+
+  it("placementSuggestion returns the highest comfortably-passed grade", () => {
+    const pass = (grade) => ({ grade, correct: 1, total: 1 });
+    const fail = (grade) => ({ grade, correct: 0, total: 1 });
+    // Passed 1-3 then failed 4-5: suggest 3 (passed 3, and 2 below it).
+    expect(session.placementSuggestion([pass(1), pass(2), pass(3), fail(4), fail(5)])).toBe(3);
+    // Passed everything attempted: suggest the top.
+    expect(session.placementSuggestion([pass(1), pass(2), pass(3), pass(4)])).toBe(4);
+    // A fluke pass above a failed foundation does not promote past the gap.
+    expect(session.placementSuggestion([pass(1), fail(2), pass(3), fail(4), fail(5)])).toBe(1);
+    // Struggled from the start: fall back to Grade 1 rather than nowhere.
+    expect(session.placementSuggestion([fail(1), fail(2)])).toBe(1);
+    // Only Grade 1 passed.
+    expect(session.placementSuggestion([pass(1), fail(2), fail(3)])).toBe(1);
+  });
+});
