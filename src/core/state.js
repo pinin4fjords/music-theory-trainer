@@ -91,11 +91,10 @@
      */
     function recordAnswer(topicId, result) {
       const now = result.now != null ? result.now : clock();
-      state.srs[topicId] = srs().update(state.srs[topicId], {
-        correct: result.correct,
-        responseMs: result.responseMs,
-        now,
-      });
+      const update = { correct: result.correct, responseMs: result.responseMs, now };
+      if (typeof result.quality === "number") update.quality = result.quality;
+      if (typeof result.choices === "number") update.choices = result.choices;
+      state.srs[topicId] = srs().update(state.srs[topicId], update);
       state.totalAnswered = (state.totalAnswered || 0) + 1;
 
       // Streak credit for the day is earned as answers are recorded, not only

@@ -18,6 +18,20 @@ describe("state - store", () => {
     expect(store.cardFor("g1-notes").avgMs).toBe(1200);
   });
 
+  it("forwards graded quality to the SRS card: a partial take holds the box instead of promoting", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    store.recordAnswer("g1-notes", { correct: true, quality: 0.6, now: 0 });
+    expect(store.cardFor("g1-notes").box).toBe(0);
+  });
+
+  it("forwards the choice count so a two-choice first correct can't be promoted on a lucky guess", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    store.recordAnswer("g1-notes", { correct: true, responseMs: 1200, choices: 2, now: 0 });
+    expect(store.cardFor("g1-notes").box).toBe(0);
+    store.recordAnswer("g1-notes", { correct: true, responseMs: 1200, choices: 2, now: 0 });
+    expect(store.cardFor("g1-notes").box).toBe(1);
+  });
+
   it("advances the streak across consecutive days only once per day", () => {
     const store = state.create({ storage: fakeStore() });
     expect(store.recordSessionDay(0)).toBe(true);
