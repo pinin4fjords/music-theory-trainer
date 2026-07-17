@@ -19,6 +19,9 @@
   // session ever calls finish() - matches the session-length gate finish()
   // itself used to apply alone.
   const DAY_CREDIT_THRESHOLD = 5;
+  // Recent-misses history is deliberately small: a glance-back list for
+  // deliberate review, not a full answer log.
+  const MISS_LOG_MAX = 20;
   const storage = () => global.MTT.storage;
   const srs = () => global.MTT.srs;
 
@@ -32,7 +35,15 @@
     const clock = opts.now || (() => Date.now());
     const listeners = [];
 
-    let state = storage().load(store);
+    // storage.js's default state has no misses field, so every path that can
+    // hand this store a fresh state object needs it filled in here; callers
+    // can then always treat state.misses as an array.
+    function ensureMisses(s) {
+      if (!Array.isArray(s.misses)) s.misses = [];
+      return s;
+    }
+
+    let state = ensureMisses(storage().load(store));
     const storageOK = storage().probe(store);
 
     // Stamp each save so the persistence layer can reconcile newest-wins across
@@ -54,7 +65,7 @@
       const at = typeof candidate.savedAt === "number" ? candidate.savedAt : 0;
       const cur = typeof state.savedAt === "number" ? state.savedAt : 0;
       if (at <= cur) return false;
-      state = storage().normalize(candidate);
+      state = ensureMisses(storage().normalize(candidate));
       storage().save(state, store);
       notify();
       return true;
@@ -133,7 +144,7 @@
 
     // Replace the entire state (restore from backup). Already migrated/validated.
     function restore(newState) {
-      state = storage().normalize(newState);
+      state = ensureMisses(storage().normalize(newState));
       persist();
       notify();
     }
@@ -143,8 +154,25 @@
     // IndexedDB can't resurrect the old progress via reconciliation.
     function reset() {
       const keptSettings = Object.assign({}, state.settings);
-      state = storage().defaultState();
+      state = ensureMisses(storage().defaultState());
       state.settings = Object.assign(state.settings, keptSettings);
+      persist();
+      notify();
+    }
+
+    // Append one wrong-answer record to a small bounded history (newest
+    // first), for the Progress view's "recent misses" review list.
+    function recordMiss(entry) {
+      const record = {
+        topicId: entry.topicId,
+        topicTitle: entry.topicTitle,
+        grade: entry.grade,
+        prompt: entry.prompt,
+        yourAnswer: entry.yourAnswer,
+        correctAnswer: entry.correctAnswer,
+        at: entry.at != null ? entry.at : clock(),
+      };
+      state.misses = [record].concat(state.misses || []).slice(0, MISS_LOG_MAX);
       persist();
       notify();
     }
@@ -155,7 +183,7 @@
 
     return {
       get, settings, srsMap, cardFor, subscribe,
-      setSetting, recordAnswer, recordSessionDay, doneToday,
+      setSetting, recordAnswer, recordSessionDay, doneToday, recordMiss,
       restore, reset, hydrate, exportJSON,
       get storageOK() { return storageOK; },
     };

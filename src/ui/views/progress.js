@@ -1,9 +1,10 @@
 /* ui/views/progress.js - the progress / analytics view.
  *
  * A local-only read of how the learner is doing: estimated level, overall
- * accuracy, per-grade mastery (a bar per grade up to the current grade), and the
- * weakest topics with one-tap practice. All derived from the SRS card map via
- * core/analytics.js - nothing is sent anywhere.
+ * accuracy, per-grade mastery (a bar per grade up to the current grade), the
+ * weakest topics with one-tap practice, and a recent-misses list for
+ * deliberate review. Derived from the SRS card map via core/analytics.js and
+ * the miss log in core/state.js - nothing is sent anywhere.
  *
  * Public surface: global `MTT.ui.views.progress`.
  */
@@ -112,7 +113,30 @@
       view.appendChild(fc);
     }
 
+    // Recent misses: a small bounded review list (core/state.js recordMiss),
+    // newest first, so the learner can go back over exactly what they got
+    // wrong rather than just an aggregate accuracy number.
+    const misses = st.misses || [];
+    if (misses.length) {
+      const mc = C.el(`<div class="card misses-card"><h3 style="margin-top:0">Recent misses</h3><p class="muted" style="margin-top:0">Questions you got wrong recently - worth another look.</p></div>`);
+      const list = C.el(`<div class="miss-list"></div>`);
+      misses.forEach((m) => {
+        list.appendChild(C.el(`
+          <div class="miss-row">
+            <div class="miss-row-head"><span>Grade ${m.grade} · ${escapeHtml(m.topicTitle)}</span></div>
+            <p class="miss-prompt">${escapeHtml(m.prompt)}</p>
+            <p class="miss-answers">You said: <b>${escapeHtml(m.yourAnswer)}</b> · Correct: <b>${escapeHtml(m.correctAnswer)}</b></p>
+          </div>`));
+      });
+      mc.appendChild(list);
+      view.appendChild(mc);
+    }
+
     view.appendChild(C.button("Back home", () => ctx.router.navigate("home"), { className: "ghost" }));
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   const api = { render };

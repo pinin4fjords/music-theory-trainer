@@ -106,3 +106,45 @@ describe("state - store", () => {
     expect(store.get().streak).toBe(2);
   });
 });
+
+describe("state - recent misses log (issue #54)", () => {
+  it("starts empty and records a miss newest-first", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    expect(store.get().misses).toEqual([]);
+    store.recordMiss({ topicId: "g1-notes", topicTitle: "Notes", grade: 1, prompt: "Name this note", yourAnswer: "D", correctAnswer: "C", at: 0 });
+    store.recordMiss({ topicId: "g1-keys", topicTitle: "Keys", grade: 1, prompt: "Name this key", yourAnswer: "G major", correctAnswer: "F major", at: 1 });
+    const misses = store.get().misses;
+    expect(misses.length).toBe(2);
+    expect(misses[0].topicId).toBe("g1-keys"); // most recent first
+    expect(misses[1].topicId).toBe("g1-notes");
+    expect(misses[0].yourAnswer).toBe("G major");
+    expect(misses[0].correctAnswer).toBe("F major");
+  });
+
+  it("caps the log at 20 entries, dropping the oldest", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    for (let i = 0; i < 25; i++) {
+      store.recordMiss({ topicId: "t" + i, topicTitle: "T", grade: 1, prompt: "p", yourAnswer: "a", correctAnswer: "b", at: i });
+    }
+    const misses = store.get().misses;
+    expect(misses.length).toBe(20);
+    expect(misses[0].topicId).toBe("t24"); // newest kept
+    expect(misses[19].topicId).toBe("t5"); // oldest surviving entry
+  });
+
+  it("survives a reload through the same underlying store", () => {
+    const shared = fakeStore();
+    const a = state.create({ storage: shared, now: () => 0 });
+    a.recordMiss({ topicId: "g1-notes", topicTitle: "Notes", grade: 1, prompt: "p", yourAnswer: "D", correctAnswer: "C", at: 0 });
+    const b = state.create({ storage: shared, now: () => 0 });
+    expect(b.get().misses.length).toBe(1);
+    expect(b.get().misses[0].topicId).toBe("g1-notes");
+  });
+
+  it("reset() clears the miss log along with the rest of progress", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    store.recordMiss({ topicId: "g1-notes", topicTitle: "Notes", grade: 1, prompt: "p", yourAnswer: "D", correctAnswer: "C", at: 0 });
+    store.reset();
+    expect(store.get().misses).toEqual([]);
+  });
+});
