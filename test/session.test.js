@@ -96,6 +96,124 @@ describe("session - assembly", () => {
   });
 });
 
+describe("session - domain tagging", () => {
+  it("every quizable topic carries a known domain, defaulting to Theory", () => {
+    const topics = session.quizableTopics(content);
+    expect(topics.length).toBeGreaterThan(0);
+    expect(topics.every((t) => session.DOMAINS.includes(t.domain))).toBe(true);
+    const untagged = topics.find((t) => t.id === "g1-notes");
+    expect(untagged.domain).toBe("Theory");
+  });
+
+  it("hand-tagged Physics/History topics keep their explicit domain", () => {
+    const topics = session.quizableTopics(content);
+    const byId = (id) => topics.find((t) => t.id === id);
+    expect(byId("g3-quality").domain).toBe("Physics");
+    expect(byId("g4-alto-clef").domain).toBe("History");
+    expect(byId("g5-clefs").domain).toBe("History");
+    expect(byId("g6-figured-bass").domain).toBe("History");
+  });
+
+  it("every aural topic defaults to the Aural domain", () => {
+    const aural = session.auralTopics(content);
+    expect(aural.length).toBeGreaterThan(0);
+    expect(aural.every((t) => t.domain === "Aural")).toBe(true);
+  });
+});
+
+describe("session - domain recipes", () => {
+  it("honors a recipe's per-domain quotas when every domain has topics available", () => {
+    const recipe = { Theory: 1, Aural: 1, Physics: 1, History: 1 };
+    const s = session.build({
+      content, settings: { grade: 8, mode: "daily" }, srsMap: {}, rng: rng.create("recipe"), now: 0,
+      length: 4, recipe,
+    });
+    expect(s.length).toBe(4);
+    const counts = {};
+    s.forEach((x) => { counts[x.topic.domain] = (counts[x.topic.domain] || 0) + 1; });
+    expect(counts.Theory).toBe(1);
+    expect(counts.Aural).toBe(1);
+    expect(counts.Physics).toBe(1);
+    expect(counts.History).toBe(1);
+  });
+
+  it("backfills from the whole pool when a domain's quota can't be met", () => {
+    // Grade 1 has no Physics/History-tagged topics at all (they start at G3+),
+    // so those slots must be backfilled rather than left empty.
+    const recipe = { Theory: 1, Physics: 5, History: 4 };
+    const s = session.build({
+      content, settings: { grade: 1, mode: "daily" }, srsMap: {}, rng: rng.create("thin"), now: 0,
+      length: 10, recipe,
+    });
+    expect(s.length).toBe(10);
+    expect(s.every((x) => x.topic.grade === 1)).toBe(true);
+  });
+
+  it("`recipe: true` uses DEFAULT_RECIPE", () => {
+    const s = session.build({
+      content, settings: { grade: 8, mode: "daily" }, srsMap: {}, rng: rng.create("default-recipe"), now: 0,
+      recipe: true,
+    });
+    expect(s.length).toBe(session.SESSION_LEN);
+  });
+
+  it("is deterministic for a fixed seed + state + now", () => {
+    const opts = () => ({
+      content, settings: { grade: 6, mode: "daily" }, srsMap: {}, rng: rng.create("recipe-fixed"), now: 500,
+      recipe: { Theory: 2, Aural: 2, Physics: 1, History: 1 },
+    });
+    const a = session.build(opts()).map((x) => session.qSig(x.q));
+    const b = session.build(opts()).map((x) => session.qSig(x.q));
+    expect(a).toEqual(b);
+  });
+});
+
+describe("session - cognitive-load balancing", () => {
+  it("isHighEffort is true only at/above the threshold", () => {
+    const topic = { id: "t" };
+    expect(session.isHighEffort(topic, { t: { avgMs: session.HIGH_EFFORT_MS } })).toBe(true);
+    expect(session.isHighEffort(topic, { t: { avgMs: session.HIGH_EFFORT_MS - 1 } })).toBe(false);
+    expect(session.isHighEffort(topic, { t: { avgMs: null } })).toBe(false);
+    expect(session.isHighEffort(topic, {})).toBe(false);
+  });
+
+  it("separates two high-effort picks by swapping in the nearest low-effort one", () => {
+    const mk = (id) => ({ topic: { id }, q: { prompt: id, choices: ["a", "b"], answer: "a" } });
+    const picks = [mk("a"), mk("b"), mk("c"), mk("d")];
+    const srsMap = {
+      a: { avgMs: 30000 }, b: { avgMs: 25000 }, c: { avgMs: 2000 }, d: { avgMs: 1000 },
+    };
+    const out = session.loadBalance(picks, srsMap);
+    expect(out.map((x) => x.topic.id)).toEqual(["a", "c", "b", "d"]);
+  });
+
+  it("leaves order untouched when no two high-effort picks are adjacent", () => {
+    const mk = (id) => ({ topic: { id }, q: {} });
+    const picks = [mk("a"), mk("b"), mk("c")];
+    const srsMap = { a: { avgMs: 30000 }, b: { avgMs: 1000 }, c: { avgMs: 30000 } };
+    const out = session.loadBalance(picks, srsMap);
+    expect(out.map((x) => x.topic.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("build() separates two naturally-adjacent high-effort topics via load balancing", () => {
+    // With no other SRS signal, unseen topics tie on priority and the pool
+    // keeps its declared order, so a Theory-only recipe of 4 draws the first
+    // four Grade 1 theory topics in order: g1-notes, g1-rhythm, g1-keys, g1-time.
+    // Marking the first two high-effort puts them adjacent before balancing.
+    const srsMap = {
+      "g1-notes": { avgMs: 30000 },
+      "g1-rhythm": { avgMs: 25000 },
+      "g1-keys": { avgMs: 1000 },
+    };
+    const s = session.build({
+      content, settings: { grade: 1, mode: "daily" }, srsMap, rng: rng.create("load-domain"), now: 0,
+      length: 4, recipe: { Theory: 4 },
+    });
+    const ids = s.map((x) => x.topic.id);
+    expect(Math.abs(ids.indexOf("g1-notes") - ids.indexOf("g1-rhythm"))).toBeGreaterThan(1);
+  });
+});
+
 describe("session - resilience to invalid generators", () => {
   it("skips invalid questions, logs a structured warning, and never crashes", () => {
     const warnings = [];
