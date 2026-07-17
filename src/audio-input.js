@@ -164,6 +164,51 @@
     return stop;
   }
 
+  // --- Onset detection (clap-back tasks) ----------------------------------
+
+  // Frame period for the energy envelope, in milliseconds. Short enough to time
+  // clap transients; the per-frame RMS is streamed to the caller, which runs the
+  // (pure, testable) peak-picker in MTT.rhythmGrade over the collected buffer.
+  const ONSET_HOP_MS = 16;
+
+  // Opens the mic and streams an energy envelope. Calls `onFrame({ t, energy })`
+  // every ~ONSET_HOP_MS, where `t` is milliseconds since the stream opened and
+  // `energy` is the frame RMS. Returns a stop function. Shares the module's
+  // stream/analyser singletons, so it cannot run alongside pitch detection.
+  async function startOnsetDetection(onFrame, opts) {
+    if (!isAvailable()) throw new Error("Microphone not available in this browser.");
+    stop();
+
+    stream = await global.navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      video: false,
+    });
+
+    const AC = global.AudioContext || global.webkitAudioContext;
+    ctx = new AC();
+
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0;
+
+    source = ctx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const buf = new Float32Array(analyser.fftSize);
+    const hopMs = (opts && opts.hopMs) || ONSET_HOP_MS;
+    const clock = () => (global.performance && global.performance.now ? global.performance.now() : Date.now());
+    const t0 = clock();
+
+    pollTimer = setInterval(function () {
+      analyser.getFloatTimeDomainData(buf);
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      onFrame({ t: clock() - t0, energy: Math.sqrt(sum / buf.length) });
+    }, hopMs);
+
+    return stop;
+  }
+
   // --- MIDI / note utilities ----------------------------------------------
 
   // Note name for a MIDI number (e.g. 60 → "C4").
@@ -182,7 +227,9 @@
     isAvailable,
     requestPermission,
     startPitchDetection,
+    startOnsetDetection,
     stop,
+    ONSET_HOP_MS,
     midiToName,
     hzToMidi,
     midiAndCents,

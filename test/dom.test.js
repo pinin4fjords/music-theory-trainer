@@ -490,7 +490,8 @@ describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
 
     // Fix the generated question so the test knows exactly how many notes to
     // "sing" per phrase. The echo task now generates three phrases.
-    const topic = instance.ctx.content.auralGrades[0].topics.find((t) => t.id === "g1-aural-sing");
+    const topic = instance.ctx.content.auralGrades
+      .flatMap((ag) => ag.topics).find((t) => t.id === "g1-aural-sing");
     const fixedQuestion = topic.questions(globalThis.MTT.rng.create("fixed-echo"));
     // Multi-echo: each phrase descriptor lives in micTask.phrases[i].
     const targetCount = fixedQuestion.micTask.phrases[0].targets.length;
@@ -556,5 +557,78 @@ describe("DOM - aural echo-sing feedback on a mismatched attempt", () => {
       ai.isAvailable = realIsAvailable;
       ai.startPitchDetection = realStart;
     }
+  });
+});
+
+function auralTopicById(id) {
+  return instance.ctx.content.auralGrades.flatMap((ag) => ag.topics).find((t) => t.id === id);
+}
+
+describe("DOM - tap-the-pulse interaction (needs no mic)", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("renders a pulse panel, captures keyboard taps, and scores without leaking the sentinel", async () => {
+    const topic = auralTopicById("g0-aural-pulse");
+    const fixed = topic.questions(globalThis.MTT.rng.create("pulse-fixed"));
+    const fixedTopic = Object.assign({}, topic, { questions: () => fixed });
+
+    vi.useFakeTimers();
+    instance.router.navigate("quiz", { single: fixedTopic });
+    expect(document.querySelector(".mic-pulse-panel")).toBeTruthy();
+
+    document.querySelector(".mic-start-btn").click();
+    for (let i = 0; i < 6; i++) {
+      document.dispatchEvent(new window.KeyboardEvent("keydown", { code: "Space", key: " " }));
+    }
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { code: "KeyA", key: "a" }));
+
+    const playMs = fixed.micTask.beatMs * fixed.micTask.totalBeats;
+    await vi.advanceTimersByTimeAsync(playMs + 700);
+    vi.useRealTimers();
+
+    const scoreBtn = [...document.querySelectorAll(".seq-btn-row button")].find((b) => /Score it/.test(b.textContent));
+    expect(scoreBtn).toBeTruthy();
+    scoreBtn.click();
+
+    const reveal = document.querySelector(".reveal");
+    expect(reveal).toBeTruthy();
+    expect(reveal.textContent).not.toMatch(/I tapped the pulse/);
+  });
+
+  it("removes its document key handler on teardown so taps can't outlive the view", () => {
+    const topic = auralTopicById("g0-aural-pulse");
+    const fixed = topic.questions(globalThis.MTT.rng.create("pulse-teardown"));
+    const fixedTopic = Object.assign({}, topic, { questions: () => fixed });
+    instance.router.navigate("quiz", { single: fixedTopic });
+    document.querySelector(".mic-start-btn").click();
+    // Navigating away runs the view teardown; a lingering keydown must not throw.
+    instance.router.navigate("home");
+    expect(() => document.dispatchEvent(new window.KeyboardEvent("keydown", { code: "Space", key: " " }))).not.toThrow();
+  });
+});
+
+describe("DOM - clap-back falls back to match-the-notation without a mic", () => {
+  it("shows the fallback message and grades a picked notation pattern", () => {
+    // jsdom exposes no navigator.mediaDevices, so audioInput.isAvailable() is false.
+    const topic = auralTopicById("g4-aural-time");
+    const fixed = topic.questions(globalThis.MTT.rng.create("clap-fixed"));
+    const fixedTopic = Object.assign({}, topic, { questions: () => fixed });
+    instance.router.navigate("quiz", { single: fixedTopic });
+
+    const panel = document.querySelector(".mic-clap-panel");
+    expect(panel).toBeTruthy();
+    expect(panel.textContent).toMatch(/Microphone not available/);
+
+    // The notation choices render as HTML (glyphs), not literal tags.
+    const answerText = (() => { const d = document.createElement("div"); d.innerHTML = fixed.answer; return d.textContent; })();
+    const buttons = [...document.querySelectorAll(".mic-self-report button")];
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    const correct = buttons.find((b) => b.textContent === answerText);
+    expect(correct).toBeTruthy();
+    expect(correct.textContent).not.toMatch(/<b>/); // markup rendered, not shown literally
+
+    correct.click();
+    const reveal = document.querySelector(".reveal");
+    expect(reveal.textContent).toMatch(/Correct/);
   });
 });

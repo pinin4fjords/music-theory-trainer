@@ -51,9 +51,10 @@
 
     orderedGrades.forEach(function (ag) {
       const isCurrentGrade = ag.grade === currentGrade;
+      const title = ag.title || `Grade ${ag.grade}`;
       const gradeLabel = isCurrentGrade
-        ? `Grade ${ag.grade} <span class="pill" style="font-size:.8em;vertical-align:middle">your grade</span>`
-        : `Grade ${ag.grade}`;
+        ? `${title} <span class="pill" style="font-size:.8em;vertical-align:middle">your grade</span>`
+        : title;
       view.appendChild(C.el(`<h2 style="margin-top:28px">${gradeLabel}</h2>`));
 
       const grid = C.el(`<div class="grid"></div>`);

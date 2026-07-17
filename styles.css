@@ -410,6 +410,19 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .seq-score.ok   { color: var(--good); }
 .seq-score.part { color: var(--accent); }
 .seq-score.bad  { color: var(--bad); }
+
+/* Tap-the-pulse and clap-back panels. */
+.pulse-tap-row .btn { flex: 1 1 140px; padding: 16px 12px; font-size: 1.05rem; }
+.tap-flash {
+  background: var(--accent) !important; color: #fff !important;
+  transform: scale(.97);
+}
+.clap-pulse {
+  width: 56px; height: 56px; border-radius: 50%; margin: 10px auto;
+  background: var(--accent); opacity: .22;
+  transition: opacity .06s ease, transform .06s ease;
+}
+.clap-pulse-hit { opacity: 1; transform: scale(1.15); }
 .seq-btn-row {
   display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
 }

@@ -23,6 +23,7 @@ src("core/diagnose.js");
 src("notation.js");
 src("audio.js");
 src("audio-input.js");
+src("rhythm-grade.js");
 src("core/srs.js");
 src("core/analytics.js");
 src("core/storage.js");

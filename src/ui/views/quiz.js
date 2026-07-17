@@ -525,10 +525,283 @@
     return stopActive;
   }
 
+  // A monotonic millisecond clock for tap/onset timing, independent of the
+  // injected ctx.now (which tests may stub to Date.now).
+  function nowMs() {
+    return (global.performance && global.performance.now) ? global.performance.now() : Date.now();
+  }
+
+  // Tap-the-pulse variant (type "pulse"): a steady pulse plays and the learner
+  // taps along on every beat, marking the strong (first) beat of each bar. Grades
+  // tempo stability, tempo accuracy against the played pulse, and accent
+  // placement via MTT.rhythmGrade.gradeTaps. Needs no microphone; taps come from
+  // the keyboard (Space for a beat, A for the strong beat) or the two buttons.
+  //
+  // task = { type:"pulse", beatMs, totalBeats, beatsPerBar, playFn }
+  function renderPulseTap(view, q, C, ctx, onResult) {
+    const task = q.micTask;
+    const grader = global.MTT && global.MTT.rhythmGrade;
+    const beatMs = task.beatMs;
+    const playMs = beatMs * task.totalBeats;
+
+    let taps = [];
+    let accents = [];
+    let t0 = 0;
+    let capturing = false;
+    let finished = false;
+    let endTimer = null;
+    let keyHandler = null;
+
+    const panel = C.el(`<div class="mic-panel mic-pulse-panel"></div>`);
+    const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
+    const countEl = C.el(`<p class="pulse-count muted" style="font-size:.9em;margin:.3em 0" aria-hidden="true"></p>`);
+    const resultEl = C.el(`<div class="mic-seq-result"></div>`);
+    resultEl.hidden = true;
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn mic-start-btn";
+    startBtn.type = "button";
+    startBtn.textContent = "▶ Play pulse & tap along";
+
+    const tapRow = C.el(`<div class="pulse-tap-row" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0"></div>`);
+    const beatBtn = C.button("● Tap (Space)", function () { registerTap(false); });
+    const accentBtn = C.button("◆ Strong beat (A)", function () { registerTap(true); }, { className: "ghost" });
+    beatBtn.disabled = true;
+    accentBtn.disabled = true;
+    tapRow.appendChild(beatBtn);
+    tapRow.appendChild(accentBtn);
+
+    function detachKeys() {
+      if (keyHandler) { document.removeEventListener("keydown", keyHandler); keyHandler = null; }
+    }
+
+    function stop() {
+      if (endTimer) { clearTimeout(endTimer); endTimer = null; }
+      detachKeys();
+      capturing = false;
+    }
+
+    function registerTap(isAccent) {
+      if (!capturing || finished) return;
+      taps.push(nowMs() - t0);
+      accents.push(!!isAccent);
+      const strong = accents.filter(Boolean).length;
+      countEl.textContent = `Taps: ${taps.length}` + (strong ? ` (${strong} strong)` : "");
+      const btn = isAccent ? accentBtn : beatBtn;
+      btn.classList.add("tap-flash");
+      global.setTimeout(function () { btn.classList.remove("tap-flash"); }, 90);
+    }
+
+    function begin() {
+      startBtn.disabled = true;
+      startBtn.textContent = "🥁 Tapping…";
+      taps = []; accents = []; finished = false; capturing = true;
+      countEl.textContent = "Taps: 0";
+      resultEl.hidden = true;
+      beatBtn.disabled = false; accentBtn.disabled = false;
+      statusEl.textContent = "Tap every beat, and press ◆ / A on the first beat of each bar.";
+      t0 = nowMs();
+      try { task.playFn(); } catch { /* ignore */ }
+      keyHandler = function (e) {
+        if (e.repeat) return;
+        if (e.code === "Space" || e.key === " ") { e.preventDefault(); registerTap(false); }
+        else if (e.key === "a" || e.key === "A") { e.preventDefault(); registerTap(true); }
+      };
+      document.addEventListener("keydown", keyHandler);
+      endTimer = global.setTimeout(finishAttempt, playMs + 500);
+    }
+
+    function finishAttempt() {
+      if (finished) return;
+      finished = true;
+      stop();
+      beatBtn.disabled = true; accentBtn.disabled = true;
+      startBtn.disabled = false;
+      startBtn.textContent = "▶ Play again & tap";
+      statusEl.textContent = "";
+      showResult(grader ? grader.gradeTaps({ taps: taps, accents: accents, targetBeatMs: beatMs, beatsPerBar: task.beatsPerBar }) : null);
+    }
+
+    function pct(x) { return Math.round((x || 0) * 100); }
+
+    function showResult(res) {
+      if (!res) { onResult(q.answer); return; }
+      const rows = [`<div class="seq-row"><span class="seq-row-label">Steadiness</span><span class="seq-note ${res.tempoStability >= 0.5 ? "match" : "miss"}">${pct(res.tempoStability)}%</span></div>`];
+      if (res.tempoAccuracy != null) rows.push(`<div class="seq-row"><span class="seq-row-label">Tempo</span><span class="seq-note ${res.tempoAccuracy >= 0.4 ? "match" : "miss"}">${pct(res.tempoAccuracy)}%</span></div>`);
+      if (res.accent != null) rows.push(`<div class="seq-row"><span class="seq-row-label">Strong beat</span><span class="seq-note ${res.accent >= 0.5 ? "match" : "miss"}">${pct(res.accent)}%</span></div>`);
+      const bpm = res.bpm ? ` · ~${Math.round(res.bpm)} bpm` : "";
+      resultEl.innerHTML = `<div class="seq-compare">${rows.join("")}</div>`
+        + `<p class="seq-score ${res.pass ? "ok" : "bad"}">${res.feedback}${bpm}</p>`;
+      resultEl.hidden = false;
+
+      const detail = res.pass ? null : res.feedback;
+      const actRow = C.el(`<div class="seq-btn-row"></div>`);
+      actRow.appendChild(C.button("↺ Try again", function () {
+        resultEl.hidden = true; actRow.remove(); countEl.textContent = "";
+        startBtn.textContent = "▶ Play pulse & tap along";
+      }));
+      actRow.appendChild(C.button("Score it", function () {
+        stop();
+        onResult(res.pass ? q.answer : q.choices.find(function (c) { return c !== q.answer; }), detail);
+      }, { className: res.pass ? "" : "ghost" }));
+      panel.appendChild(actRow);
+    }
+
+    startBtn.addEventListener("click", begin);
+
+    panel.appendChild(statusEl);
+    panel.appendChild(startBtn);
+    panel.appendChild(tapRow);
+    panel.appendChild(countEl);
+    panel.appendChild(resultEl);
+    view.appendChild(panel);
+    return stop;
+  }
+
+  // Clap-back variant (type "clap"): play a target rhythm, then open the mic and
+  // grade the clapped-back rhythm against the target inter-onset intervals via
+  // energy-envelope onset detection (MTT.audioInput.startOnsetDetection feeding
+  // MTT.rhythmGrade.detectOnsets/gradeClap). When the mic is unavailable the panel
+  // steps aside and the self-report choices act as a match-the-notation fallback.
+  //
+  // task = { type:"clap", targetIOIs, beatsPerBar, autoPlayAndRespondMs }; the
+  // rhythm plays via the question's top-level q.audio.
+  function renderClap(view, q, C, ctx, onResult) {
+    const task = q.micTask;
+    const ai = global.MTT && global.MTT.audioInput;
+    const grader = global.MTT && global.MTT.rhythmGrade;
+
+    const SILENCE_MS = 900;       // trailing silence that ends the take
+    const MAX_LISTEN_MS = 12000;  // hard cap so an open mic can't stay live forever
+
+    let stopDetector = null;
+    let maxTimer = null;
+    let finished = false;
+    let listening = false;
+    let hasClapped = false;
+    let lastLoudT = 0;
+    let maxEnergy = 0;
+    let frames = [];
+
+    const panel = C.el(`<div class="mic-panel mic-clap-panel"></div>`);
+    const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
+    const pulseDot = C.el(`<div class="clap-pulse" aria-hidden="true"></div>`);
+    const resultEl = C.el(`<div class="mic-seq-result"></div>`);
+    resultEl.hidden = true;
+
+    function stopMic() {
+      if (maxTimer) { clearTimeout(maxTimer); maxTimer = null; }
+      if (stopDetector) { try { stopDetector(); } catch { /* ok */ } stopDetector = null; }
+      listening = false;
+    }
+
+    if (!ai || !ai.isAvailable()) {
+      panel.appendChild(C.el(`<p class="muted" style="font-size:.9em">Microphone not available, so pick the matching rhythm below instead.</p>`));
+      view.appendChild(panel);
+      return stopMic;
+    }
+
+    const startBtn = document.createElement("button");
+    startBtn.className = "btn mic-start-btn";
+    startBtn.type = "button";
+    startBtn.textContent = "▶ Hear & clap back";
+
+    function onFrame(f) {
+      if (!listening || finished) return;
+      frames.push(f.energy);
+      if (f.energy > maxEnergy) maxEnergy = f.energy;
+      const loud = f.energy >= Math.max(0.02, maxEnergy * 0.3);
+      pulseDot.classList.toggle("clap-pulse-hit", loud);
+      if (loud) { hasClapped = true; lastLoudT = f.t; statusEl.textContent = "Clapping…"; }
+      else if (hasClapped && f.t - lastLoudT >= SILENCE_MS) { finishAttempt(); }
+    }
+
+    function finishAttempt() {
+      if (finished) return;
+      finished = true;
+      stopMic();
+      startBtn.disabled = false;
+      startBtn.textContent = "▶ Play again & clap";
+      pulseDot.classList.remove("clap-pulse-hit");
+      statusEl.textContent = "";
+      const hopMs = ai.ONSET_HOP_MS || 16;
+      const onsets = grader ? grader.detectOnsets(frames, { hopMs: hopMs }) : [];
+      showResult(grader ? grader.gradeClap(task.targetIOIs, onsets) : null);
+    }
+
+    async function beginListening() {
+      try {
+        stopDetector = await ai.startOnsetDetection(onFrame);
+        return true;
+      } catch (err) {
+        startBtn.disabled = false;
+        startBtn.textContent = "▶ Hear & clap back";
+        statusEl.textContent = micErrorMessage(err);
+        return false;
+      }
+    }
+
+    startBtn.addEventListener("click", function () {
+      startBtn.disabled = true;
+      finished = false; listening = false; hasClapped = false;
+      maxEnergy = 0; frames = []; lastLoudT = 0;
+      resultEl.hidden = true;
+      startBtn.textContent = "▶ Playing…";
+      statusEl.textContent = "Listen carefully…";
+      if (ctx.audio && ctx.audio.cancel) { try { ctx.audio.cancel(); } catch { /* ok */ } }
+      try { q.audio(); } catch { /* ignore */ }
+
+      // Open the mic only after playback ends: on Android getUserMedia ducks any
+      // sound currently playing, even on a separate context.
+      global.setTimeout(async function () {
+        if (finished) return;
+        startBtn.textContent = "🎤 Opening mic…";
+        if (!(await beginListening())) return;
+        frames = []; hasClapped = false; maxEnergy = 0;
+        listening = true;
+        maxTimer = global.setTimeout(finishAttempt, MAX_LISTEN_MS);
+        startBtn.textContent = "👏 Clap now!";
+        statusEl.textContent = "Clap the rhythm back, then stop.";
+      }, task.autoPlayAndRespondMs || 1500);
+    });
+
+    function showResult(res) {
+      if (!res) { onResult(q.answer); return; }
+      let html = `<p class="seq-score ${res.pass ? "ok" : res.matched > 0 ? "part" : "bad"}">${res.feedback}</p>`;
+      if (res.total > 0) {
+        html += `<p class="muted" style="font-size:.8em">${res.matched} of ${res.total} inter-clap gaps in time · ${res.detectedOnsets} claps detected.</p>`;
+      }
+      resultEl.innerHTML = html;
+      resultEl.hidden = false;
+
+      const detail = res.pass ? null : res.feedback;
+      const actRow = C.el(`<div class="seq-btn-row"></div>`);
+      actRow.appendChild(C.button("↺ Try again", function () {
+        resultEl.hidden = true; actRow.remove();
+        startBtn.textContent = "▶ Hear & clap back";
+        statusEl.textContent = "";
+      }));
+      actRow.appendChild(C.button("Score it", function () {
+        stopMic();
+        onResult(res.pass ? q.answer : q.choices.find(function (c) { return c !== q.answer; }), detail);
+      }, { className: res.pass ? "" : "ghost" }));
+      panel.appendChild(actRow);
+    }
+
+    panel.appendChild(startBtn);
+    panel.appendChild(pulseDot);
+    panel.appendChild(statusEl);
+    panel.appendChild(resultEl);
+    view.appendChild(panel);
+    return stopMic;
+  }
+
   // Dispatches to the appropriate mic handler based on task type.
   function renderMicTask(view, q, C, ctx, onResult) {
     if (q.micTask.type === "multiEcho") return renderMultiEcho(view, q, C, ctx, onResult);
     if (q.micTask.type === "sequence") return renderMicSequence(view, q, C, ctx, onResult);
+    if (q.micTask.type === "pulse") return renderPulseTap(view, q, C, ctx, onResult);
+    if (q.micTask.type === "clap") return renderClap(view, q, C, ctx, onResult);
     return renderMicPitch(view, q, C, ctx, onResult);
   }
 
@@ -672,7 +945,8 @@
         `<div class="progress-row" role="img" aria-label="Question ${idx + 1} of ${session.length}">`
         + `<div class="progress-dots" aria-hidden="true">${dots}</div>`
         + `<span class="progress-count">${idx + 1} / ${session.length}</span></div>`));
-      view.appendChild(C.el(`<div class="topic-label">Grade ${topic.grade} · ${topic.title}</div>`));
+      const gradeName = topic.grade === 0 ? "Initial Grade" : `Grade ${topic.grade}`;
+      view.appendChild(C.el(`<div class="topic-label">${gradeName} · ${topic.title}</div>`));
 
       const prompt = C.el(`<div class="quiz-prompt"></div>`);
       try {
@@ -722,11 +996,17 @@
         });
         activeStopMic = stopMic;
         const selfReport = C.el(`<div class="mic-self-report"></div>`);
-        selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if mic unavailable) - your answer affects which topics the app revisits, so be honest:</span>`));
+        selfReport.appendChild(C.el(`<span class="muted" style="font-size:.88em;display:block;margin-bottom:6px">Self-report (if the mic or tapping isn't working) - your answer affects which topics the app revisits, so be honest:</span>`));
         q.choices.forEach((choice) => {
-          const sb = C.button(choice, () => {
+          // innerHTML (not textContent) so choices carrying notation markup (the
+          // clap task's rhythm patterns) render as glyphs, not literal tags.
+          const sb = document.createElement("button");
+          sb.type = "button";
+          sb.className = "btn ghost";
+          sb.innerHTML = choice;
+          sb.addEventListener("click", () => {
             if (!answered) reveal(choice === q.answer ? "correct" : "wrong", null);
-          }, { className: "ghost" });
+          });
           selfReport.appendChild(sb);
         });
         view.appendChild(selfReport);
