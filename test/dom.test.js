@@ -841,3 +841,151 @@ describe("DOM - graded singing credit (issue #47)", () => {
     expect(sung.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("DOM - Learn cards show mastery chips (issue #54)", () => {
+  it("shows an accuracy chip for a practised topic and 'New' for an unpractised one", () => {
+    const seeded = {
+      stateVersion: 2,
+      totalAnswered: 8,
+      settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
+      srs: {
+        // 6 of 8 correct => 75% accuracy chip.
+        "g1-notes": { box: 3, seen: 8, correct: 6, streak: 1, lapses: 2, avgMs: 1200, lastSeen: 0, dueAt: 0 },
+      },
+    };
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(seeded), now: () => NOW, seed: "learn-chip" });
+    inst.router.navigate("learn");
+    const chips = [...document.querySelectorAll("#main .learn-acc-chip")].map((c) => c.textContent.trim());
+    expect(chips).toContain("75%");
+    expect(chips).toContain("New");
+  });
+
+  it("gives a 'coming next' topic its own badge, not an always-New mastery chip", () => {
+    instance.router.navigate("learn");
+    const comingNextCard = [...document.querySelectorAll("#main .card.topic")]
+      .find((c) => /coming next/.test(c.textContent));
+    expect(comingNextCard).toBeTruthy();
+    expect(comingNextCard.querySelector(".learn-acc-chip")).toBeNull();
+  });
+});
+
+describe("DOM - Reference quick link on Home (issue #54)", () => {
+  it("has a home quick-link card into Reference", () => {
+    const cards = [...document.querySelectorAll("#home-cards button")];
+    const refCard = cards.find((c) => /Reference/.test(c.textContent));
+    expect(refCard).toBeTruthy();
+    refCard.click();
+    expect(document.querySelector("#main h1").textContent).toMatch(/Reference/);
+  });
+});
+
+describe("DOM - slower replay for singing/memory tasks (issue #54)", () => {
+  function micTopicWithAudio(step, dur) {
+    const baseTopic = instance.ctx.content.auralGrades.flatMap((ag) => ag.topics)[0];
+    return Object.assign({}, baseTopic, {
+      questions: () => ({
+        prompt: "Listen and sing it back",
+        choices: ["I sang it correctly", "I did not"],
+        answer: "I sang it correctly",
+        audio: () => globalThis.MTT.audio.sequence([60, 62, 64], step, dur),
+        micTask: { type: "pitch", targetMidi: 60, targetName: "C4" },
+      }),
+    });
+  }
+
+  it("offers a 'Replay slower' button next to 'Hear it' for a micTask question", () => {
+    instance.router.navigate("quiz", { single: micTopicWithAudio(0.3, 0.4) });
+    const hearIt = [...document.querySelectorAll(".audio-btn")].find((b) => /Hear it/.test(b.textContent));
+    const slower = [...document.querySelectorAll(".audio-btn")].find((b) => /Replay slower/.test(b.textContent));
+    expect(hearIt).toBeTruthy();
+    expect(slower).toBeTruthy();
+  });
+
+  it("does not offer 'Replay slower' for a standard (non-micTask) audio question", () => {
+    const baseTopic = instance.ctx.content.grades[0].topics[0];
+    const fixedTopic = Object.assign({}, baseTopic, {
+      questions: () => ({ prompt: "Listen", choices: ["A", "B"], answer: "A", audio: () => {} }),
+    });
+    instance.router.navigate("quiz", { single: fixedTopic });
+    const slower = [...document.querySelectorAll(".audio-btn")].find((b) => /Replay slower/.test(b.textContent));
+    expect(slower).toBeUndefined();
+  });
+
+  it("stretches the step/dur passed to the audio layer by 1.5x on 'Replay slower'", () => {
+    const audio = globalThis.MTT.audio;
+    const realSequence = audio.sequence;
+    const calls = [];
+    audio.sequence = (...args) => { calls.push(args); };
+    try {
+      instance.router.navigate("quiz", { single: micTopicWithAudio(0.3, 0.4) });
+      calls.length = 0; // drop the automatic play-on-load call
+      const slower = [...document.querySelectorAll(".audio-btn")].find((b) => /Replay slower/.test(b.textContent));
+      slower.click();
+
+      expect(calls.length).toBe(1);
+      const [, step, dur] = calls[0];
+      expect(step).toBeCloseTo(0.45); // 0.3 * 1.5
+      expect(dur).toBeCloseTo(0.6); // 0.4 * 1.5
+      // The stretch is scoped to the one replay call - a later normal "Hear it"
+      // must go back to the original timing.
+      calls.length = 0;
+      const hearIt = [...document.querySelectorAll(".audio-btn")].find((b) => /Hear it/.test(b.textContent));
+      hearIt.click();
+      expect(calls[0][1]).toBeCloseTo(0.3);
+      expect(calls[0][2]).toBeCloseTo(0.4);
+    } finally {
+      audio.sequence = realSequence;
+    }
+  });
+});
+
+describe("DOM - 'session saved' cue on leaving a live quiz (issue #54)", () => {
+  it("shows a saved cue when navigating away mid-session", () => {
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+    instance.router.navigate("home");
+    expect(document.querySelector(".session-saved-toast")).toBeTruthy();
+    expect(document.querySelector(".session-saved-toast").textContent).toMatch(/saved/i);
+  });
+
+  it("does not show the cue once the session has finished", () => {
+    instance.router.navigate("quiz");
+    let guard = 0;
+    while (guard++ < 40) {
+      const choice = document.querySelector(".choice:not(:disabled)");
+      if (choice) {
+        choice.click();
+        [...document.querySelectorAll("#main .btn")].pop().click();
+      }
+      if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+    }
+    instance.router.navigate("home");
+    expect(document.querySelector(".session-saved-toast")).toBeNull();
+  });
+});
+
+describe("DOM - recent misses list on Progress (issue #54)", () => {
+  it("records a miss on a wrong answer and lists it on the Progress view", () => {
+    const baseTopic = instance.ctx.content.grades[0].topics[0];
+    const fixedTopic = Object.assign({}, baseTopic, {
+      questions: () => ({ prompt: "What is this?", choices: ["Right one", "Wrong one"], answer: "Right one" }),
+    });
+    instance.router.navigate("quiz", { single: fixedTopic });
+    const wrongChoice = [...document.querySelectorAll(".choice")].find((b) => b.textContent.includes("Wrong one"));
+    wrongChoice.click();
+
+    expect(instance.store.get().misses.length).toBe(1);
+    expect(instance.store.get().misses[0].prompt).toMatch(/What is this/);
+    expect(instance.store.get().misses[0].yourAnswer).toMatch(/Wrong one/);
+    expect(instance.store.get().misses[0].correctAnswer).toMatch(/Right one/);
+
+    instance.router.navigate("progress");
+    const text = document.querySelector("#main").textContent;
+    expect(text).toMatch(/Recent misses/);
+    expect(text).toMatch(/What is this/);
+    expect(text).toMatch(/Wrong one/);
+    expect(text).toMatch(/Right one/);
+  });
+});

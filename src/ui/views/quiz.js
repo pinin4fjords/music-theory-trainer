@@ -39,6 +39,48 @@
     return "Could not access the microphone — use self-report below.";
   }
 
+  // --- Slower replay ---------------------------------------------------------
+
+  // Factor by which a "Replay slower" press stretches note timing.
+  const SLOW_REPLAY_FACTOR = 1.5;
+
+  // Argument indices (per method) that carry a timing value in seconds/beats -
+  // step, dur, or beatSec - rather than a note list or gain. aural-content.js
+  // resolves the audio engine live at call time (`global.MTT.audio` or
+  // `global.MTT.audioPiano`), so wrapping these methods on both engines for the
+  // duration of one playback call is enough to stretch a fixed q.audio()
+  // closure's timing without either engine or the closure itself knowing about
+  // "slow" mode.
+  const TIMING_ARG_INDICES = {
+    sequence: [1, 2],        // (notes, step, dur, velocities)
+    sequenceRhythm: [2],     // (notes, durations, beatSec, velocities)
+    sequencePair: [2, 3],    // (notes1, notes2, step, dur)
+    sequenceAt: [2, 3],      // (notes, gain, step, dur)
+    note: [1],               // (n, dur)
+    chord: [1],              // (notes, dur)
+  };
+
+  // Run `fn` with every engine's timing methods temporarily scaled by `factor`,
+  // then restore the originals - even if fn throws.
+  function withStretchedAudio(factor, fn) {
+    const engines = [global.MTT && global.MTT.audio, global.MTT && global.MTT.audioPiano].filter(Boolean);
+    const restores = [];
+    engines.forEach(function (engine) {
+      Object.keys(TIMING_ARG_INDICES).forEach(function (name) {
+        const orig = engine[name];
+        if (typeof orig !== "function") return;
+        engine[name] = function (...args) {
+          TIMING_ARG_INDICES[name].forEach(function (i) {
+            if (typeof args[i] === "number") args[i] = args[i] * factor;
+          });
+          return orig.apply(engine, args);
+        };
+        restores.push(function () { engine[name] = orig; });
+      });
+    });
+    try { fn(); } finally { restores.forEach(function (r) { r(); }); }
+  }
+
   // --- Mic task panel -------------------------------------------------------
 
   // Single-pitch variant: detect one held note.
@@ -888,13 +930,14 @@
       ? ctx.session.buildSingle(Object.assign({}, single), rng, sessionLength)
       : ctx.session.build({ content: ctx.content, settings, srsMap: srsSnapshot, rng, now, length: sessionLength });
 
-    function playQuestionAudio(q) {
+    function playQuestionAudio(q, slower) {
       if (ctx.audio && ctx.audio.cancel) {
         // Best-effort only: replay should still continue if a stale audio graph
         // can't be cancelled cleanly during rapid replays or view switches.
         try { ctx.audio.cancel(); } catch { /* ok */ }
       }
-      safe(q.audio);
+      if (slower) withStretchedAudio(SLOW_REPLAY_FACTOR, function () { safe(q.audio); });
+      else safe(q.audio);
     }
 
     function findLearnTopic(topicId) {
@@ -963,7 +1006,29 @@
     let questionStart = ctx.now();
     let activeStopMic = null; // teardown for the current question's mic, if any
     let activeKeyHandler = null; // document keydown listener for number-key answers
+    // True while there's a live, resumable session to protect - cleared once
+    // finish() runs (it clears the resume snapshot itself), so the leaving cue
+    // never fires for a completed session's summary screen.
+    let sessionLive = true;
     const tally = (resuming && saved.tally && typeof saved.tally === "object") ? Object.assign({}, saved.tally) : {};
+
+    // A small toast confirming the interrupted session is safe to resume -
+    // shown on navigating away mid-quiz, since the resume mechanism (issue
+    // #14) otherwise protects silently and the learner has no way to know.
+    // Appended to the document body (not `main`) because the router clears
+    // `main` immediately after this view's teardown runs.
+    function showLeavingSavedCue() {
+      const doc = global.document;
+      if (!doc || !doc.body) return;
+      const toast = doc.createElement("div");
+      toast.className = "session-saved-toast";
+      toast.setAttribute("role", "status");
+      toast.textContent = "✓ Progress saved — resume anytime from Home.";
+      doc.body.appendChild(toast);
+      global.setTimeout(function () {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 4000);
+    }
 
     function detachKeyHandler() {
       if (activeKeyHandler) { document.removeEventListener("keydown", activeKeyHandler); activeKeyHandler = null; }
@@ -989,11 +1054,13 @@
 
     nextQuestion();
 
-    // Router calls this before navigating away: stop any open mic and remove the
-    // document-level key listener so it can't outlive the view.
+    // Router calls this before navigating away: stop any open mic, remove the
+    // document-level key listener so it can't outlive the view, and (for a
+    // still-live session) reassure the learner their place was saved.
     return function teardown() {
       if (activeStopMic) { try { activeStopMic(); } catch { /* ok */ } activeStopMic = null; }
       detachKeyHandler();
+      if (sessionLive) showLeavingSavedCue();
     };
 
     function nextQuestion() {
@@ -1054,6 +1121,15 @@
         const ab = C.playButton("Hear it", () => playQuestionAudio(q));
         ab.setAttribute("aria-label", "Replay the sound for this question");
         view.appendChild(ab);
+        // Singing/memory tasks (micTask) are where a slower repeat is most
+        // requested - the learner is trying to capture exact pitches/rhythm,
+        // not just recognise a sound.
+        if (q.micTask) {
+          const slowBtn = C.playButton("Replay slower", () => playQuestionAudio(q, true));
+          slowBtn.setAttribute("aria-label", "Replay the sound more slowly");
+          slowBtn.style.marginLeft = "8px";
+          view.appendChild(slowBtn);
+        }
         if (ctx.audio.isEnabled()) {
           playQuestionAudio(q);
         } else {
@@ -1164,6 +1240,27 @@
         if (typeof quality === "number") answerRecord.quality = quality;
         ctx.store.recordAnswer(topic.id, answerRecord);
 
+        // Log a miss for the Progress view's "recent misses" review list. Mic
+        // tasks are graded by pitch/rhythm rather than a literal answer choice
+        // (see the verdict text below), so "your answer"/"correct answer" fall
+        // back to the note/interval score detail rather than the self-report
+        // sentinel.
+        if (!correct) {
+          const yourAnswer = q.micTask
+            ? (scoreDetail || "(self-reported miss)")
+            : (kind === "idk" ? "(said I don't know)" : stripTags(pickedBtn ? pickedBtn._choice : ""));
+          const correctAnswerText = q.micTask ? "(sung/tapped task)" : stripTags(q.answer);
+          ctx.store.recordMiss({
+            topicId: topic.id,
+            topicTitle: topic.title,
+            grade: topic.grade,
+            prompt: stripTags(q.prompt) || "(notation-based question)",
+            yourAnswer,
+            correctAnswer: correctAnswerText,
+            at: ctx.now(),
+          });
+        }
+
         const t = tally[topic.id] || (tally[topic.id] = { title: topic.title, grade: topic.grade, correct: 0, total: 0 });
         t.total++;
         if (correct) t.correct++;
@@ -1221,6 +1318,7 @@
     }
 
     function finish() {
+      sessionLive = false; // nothing left to protect - the leaving cue would be noise here
       ctx.quizResume.clear(ctx.sessionStore);
       // Any completed session of a few questions counts toward the daily streak,
       // aural and single-topic ones included — recordSessionDay is idempotent per

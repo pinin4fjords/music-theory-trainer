@@ -60,3 +60,27 @@ describe("analytics - estimated level", () => {
     expect(est.label).toBe("Starting out");
   });
 });
+
+describe("analytics - grade coverage threshold (issue #54)", () => {
+  // Five synthetic topics in one grade so coverage fractions land on clean
+  // percentages (60% vs 80%), independent of how many real topics a grade has.
+  function fiveTopics(grade) {
+    return ["a", "b", "c", "d", "e"].map((id) => ({ id: `t-${id}`, title: id, grade }));
+  }
+
+  it("does not certify a grade at 60% coverage even with perfect mastery on what was seen", () => {
+    const grade1 = fiveTopics(1);
+    const map = {};
+    grade1.slice(0, 3).forEach((t) => { map[t.id] = masteredCard(); }); // 3/5 = 60%
+    const est = analytics.estimatedLevel(map, grade1);
+    expect(est.level).toBe(0);
+  });
+
+  it("certifies a grade at 80% coverage with strong mastery", () => {
+    const grade1 = fiveTopics(1);
+    const map = {};
+    grade1.slice(0, 4).forEach((t) => { map[t.id] = masteredCard(); }); // 4/5 = 80%
+    const est = analytics.estimatedLevel(map, grade1);
+    expect(est.level).toBe(1);
+  });
+});

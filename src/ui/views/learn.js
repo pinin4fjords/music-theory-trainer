@@ -14,8 +14,20 @@
     return typeof t.questions !== "function" || (t.tags && t.tags.indexOf("comingNext") !== -1);
   }
 
+  // Same chip pattern the Aural view uses (ui/views/aural.js topicAccuracyChip):
+  // "New" for a never-attempted topic, otherwise the SRS accuracy percentage.
+  function topicAccuracyChip(srsMap, topicId) {
+    const card = srsMap[topicId];
+    if (!card || card.seen <= 0) {
+      return `<span class="pill outline learn-acc-chip" aria-label="Not practised yet">New</span>`;
+    }
+    const pct = Math.round((card.correct / card.seen) * 100);
+    return `<span class="pill learn-acc-chip" aria-label="Accuracy ${pct}%">${pct}%</span>`;
+  }
+
   function render(main, ctx, arg) {
     const C = ctx.C;
+    const srsMap = ctx.store.srsMap();
 
     // Deep-link: open a specific topic directly (from the hash or a link).
     const topicId = typeof arg === "string" ? arg : null;
@@ -33,7 +45,11 @@
       view.appendChild(C.el(`<h2 style="margin-top:26px">${g.title}</h2>`));
       const grid = C.el(`<div class="grid"></div>`);
       g.topics.forEach((t) => {
-        const badge = isComingNext(t) ? `<span class="pill outline">coming next</span>` : "";
+        const coming = isComingNext(t);
+        // Drillable topics get a mastery chip (curriculum-map at a glance);
+        // "coming next" topics have no SRS card to report, so they keep their
+        // own badge instead of an always-"New" chip.
+        const badge = coming ? `<span class="pill outline">coming next</span>` : topicAccuracyChip(srsMap, t.id);
         const icon = global.MTT.ui.icons.iconHtml(t.id);
         const card = C.cardButton(`<div class="topic-head">${icon}<h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
           () => ctx.router.navigate("learn", t.id));

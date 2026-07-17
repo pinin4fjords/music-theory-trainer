@@ -91,7 +91,10 @@
   }
 
   // Coverage/mastery thresholds at which a grade counts as "demonstrated".
-  const DEMO_COVERAGE = 0.5;
+  // Coverage requires most of the grade's topics to have been attempted at
+  // least once, so the level chip can't certify a grade where a large chunk
+  // of the syllabus was never seen.
+  const DEMO_COVERAGE = 0.7;
   const DEMO_MASTERY = 0.75;
 
   /**

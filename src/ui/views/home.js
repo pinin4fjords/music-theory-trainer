@@ -190,6 +190,7 @@
       ["👂", "Aural", "Listening & singing tests", "aural"],
       ["💡", "Explainers", "The why behind the theory", "explore"],
       ["🎹", "Playground", "Build & hear it", "play"],
+      ["📖", "Reference", "Quick lookup tables", "reference"],
       ["📈", "Progress", "Level & weak areas", "progress"]].forEach(([icon, title, sub, tab]) => {
       const c = C.cardButton(`<div style="font-size:1.8rem" aria-hidden="true">${icon}</div><h3>${title}</h3><div class="why">${sub}</div>`,
         () => ctx.router.navigate(tab));
