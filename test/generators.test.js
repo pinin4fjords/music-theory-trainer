@@ -166,6 +166,65 @@ describe("content generators - property/smoke tests", () => {
     }
   });
 
+  it("g2-time drills 2/2, 3/2, 4/2 and 3/8 plus triplets, and never duplets", () => {
+    const topic = topics.find((t) => t.id === "g2-time");
+    expect(topic).toBeTruthy();
+    const r = rng.create("g2-time");
+    const sigsSeen = new Set();
+    let sawTriplet = false;
+    for (let i = 0; i < 300; i++) {
+      const q = topic.questions(r);
+      expect(q.prompt.toLowerCase()).not.toContain("duplet");
+      const m = q.prompt.match(/<b>(\d+\/\d+)<\/b>/);
+      if (m) sigsSeen.add(m[1]);
+      if (/triplet/i.test(q.prompt)) {
+        sawTriplet = true;
+        expect(q.answer).toBe("3 notes in the time of 2");
+      }
+    }
+    for (const sig of ["2/2", "3/2", "4/2", "3/8"]) expect(sigsSeen.has(sig), `never saw ${sig}`).toBe(true);
+    expect(sawTriplet).toBe(true);
+  });
+
+  it("g3-keys drills majors and minors, never exceeding 4 sharps or flats", () => {
+    const topic = topics.find((t) => t.id === "g3-keys");
+    expect(topic).toBeTruthy();
+    const r = rng.create("g3-keys");
+    const modesSeen = new Set();
+    for (let i = 0; i < 200; i++) {
+      const q = topic.questions(r);
+      const mode = q.prompt.match(/\b(major|minor)\b/);
+      expect(mode).toBeTruthy();
+      modesSeen.add(mode[1]);
+      const count = q.answer.match(/^(\d+)/);
+      if (count) expect(Number(count[1])).toBeLessThanOrEqual(4);
+    }
+    expect(modesSeen.has("major")).toBe(true);
+    expect(modesSeen.has("minor")).toBe(true);
+  });
+
+  it("g4-key-signatures drills minor keys as well as majors, up to 5 accidentals", () => {
+    const topic = topics.find((t) => t.id === "g4-key-signatures");
+    expect(topic).toBeTruthy();
+    const r = rng.create("g4-keys");
+    const modesSeen = new Set();
+    let sawFive = false;
+    for (let i = 0; i < 300; i++) {
+      const q = topic.questions(r);
+      const mode = q.prompt.match(/\b(major|minor)\b/);
+      expect(mode).toBeTruthy();
+      modesSeen.add(mode[1]);
+      const count = q.answer.match(/^(\d+)/);
+      if (count) {
+        expect(Number(count[1])).toBeLessThanOrEqual(5);
+        if (Number(count[1]) === 5) sawFive = true;
+      }
+    }
+    expect(modesSeen.has("major")).toBe(true);
+    expect(modesSeen.has("minor")).toBe(true);
+    expect(sawFive).toBe(true);
+  });
+
   it("interval-quality topics always carry diagnostic meta", () => {
     // Topics that name interval *quality* (not just number) drive the diagnostic
     // feedback, so every question they emit must carry interval meta.

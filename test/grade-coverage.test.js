@@ -34,8 +34,8 @@ const CURRICULUM_CHECKLIST = [
   { grade: 1, text: "Everyday tempo/dynamics/performance/articulation terms & signs", topicIds: ["g1-terms"] },
 
   // --- Grade 2 (as Grade 1, plus:) ----------------------------------------
-  { grade: 2, text: "Simple time signatures 2/2, 3/2, 4/2, 3/8; grouping of notes/rests", topicIds: [] },
-  { grade: 2, text: "Triplets, and triplet note groups with rests", topicIds: [] },
+  { grade: 2, text: "Simple time signatures 2/2, 3/2, 4/2, 3/8; grouping of notes/rests", topicIds: ["g2-time"] },
+  { grade: 2, text: "Triplets, and triplet note groups with rests", topicIds: ["g2-time"] },
   { grade: 2, text: "Stave extended to two ledger lines above and below", topicIds: [] },
   { grade: 2, text: "Relative major & minor keys; minor scale construction (harmonic only)", topicIds: ["g2-keys"] },
   { grade: 2, text: "Keys of A, Bb, Eb major and A, E, D minor: key signature, tonic triad (root position), degrees (number only), intervals above tonic (number only)", topicIds: ["g2-keys", "g2-triad"] },
@@ -46,7 +46,7 @@ const CURRICULUM_CHECKLIST = [
   { grade: 3, text: "The demisemiquaver and its equivalent rest", topicIds: ["g3-notation"] },
   { grade: 3, text: "Stave extension beyond two ledger lines", topicIds: [] },
   { grade: 3, text: "Octave transposition, treble clef to bass clef and vice versa", topicIds: ["g3-notation"] },
-  { grade: 3, text: "Scales and key signatures of all major/minor keys up to 4 sharps/flats (tonic triad, degrees, intervals above tonic by number and type)", topicIds: [] },
+  { grade: 3, text: "Scales and key signatures of all major/minor keys up to 4 sharps/flats (tonic triad, degrees, intervals above tonic by number and type)", topicIds: ["g3-keys"] },
   { grade: 3, text: "Both harmonic and melodic forms of minor scales", topicIds: ["g3-melodic"] },
   { grade: 3, text: "More terms and signs", topicIds: ["g3-terms"] },
 
@@ -59,7 +59,7 @@ const CURRICULUM_CHECKLIST = [
   { grade: 4, text: "Notes of the same pitch in different clefs; octave transposition treble/bass <-> alto", topicIds: [] },
   { grade: 4, text: "Double sharp and double flat signs and their cancellation; enharmonic equivalents", topicIds: ["g4-double-acc"] },
   { grade: 4, text: "Scales and key signatures of major keys up to 5 sharps/flats", topicIds: ["g4-key-signatures"] },
-  { grade: 4, text: "Scales and key signatures of minor keys up to 5 sharps/flats", topicIds: [] },
+  { grade: 4, text: "Scales and key signatures of minor keys up to 5 sharps/flats", topicIds: ["g4-key-signatures"] },
   { grade: 4, text: "Technical names for the notes of the diatonic scale (tonic, supertonic, etc.)", topicIds: ["g4-degree-names"] },
   { grade: 4, text: "Construction of the chromatic scale", topicIds: ["g4-chromatic"] },
   { grade: 4, text: "All intervals not exceeding an octave, between any two diatonic notes", topicIds: ["g4-intervals"] },
