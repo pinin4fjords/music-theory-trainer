@@ -280,21 +280,32 @@
 
   // Grade 4 caps at five sharps/flats; M.MAJOR_SIGNATURES goes further (to
   // support Grade 5's g5-key-id), so filter down to this topic's own scope.
+  const GRADE3_MAJOR_KEYS = Object.keys(M.MAJOR_SIGNATURES).filter((k) => Math.abs(M.MAJOR_SIGNATURES[k]) <= 4);
+  const GRADE3_MINOR_KEYS = ["A", "E", "B", "F#", "C#", "D", "G", "C", "F"];
   const GRADE4_MAJOR_KEYS = Object.keys(M.MAJOR_SIGNATURES).filter((k) => Math.abs(M.MAJOR_SIGNATURES[k]) <= 5);
+  const GRADE4_MINOR_KEYS = ["A", "E", "B", "F#", "C#", "G#", "D", "G", "C", "F", "Bb"];
   function keySignatureQuestion(rng) {
-    const keys = GRADE4_MAJOR_KEYS;
-    const key = pick(rng, keys);
-    const sig = M.keySignature(key, "major");
+    const minor = rng.bool();
+    const mode = minor ? "minor" : "major";
+    const key = pick(rng, minor ? GRADE4_MINOR_KEYS : GRADE4_MAJOR_KEYS);
+    const sig = M.keySignature(key, mode);
     const n = Math.abs(sig.count);
     const correct = n === 0 ? "none" : `${n} ${sig.type}${n > 1 ? "s" : ""}`;
     const order = sig.accidentals.map((l) => l + (sig.type === "sharp" ? "♯" : "♭")).join(" ");
+    let explanation;
+    if (n === 0) {
+      explanation = minor
+        ? `${key} minor has no sharps or flats, sharing the empty signature of its relative major, C.`
+        : `${key} major has no sharps or flats - the one major key with an empty signature.`;
+    } else {
+      explanation = `${key} ${mode} has <b>${correct}</b>: ${order}, added in the fixed circle-of-fifths order.`;
+      if (minor) explanation += ` A minor key borrows the signature of its relative major, ${M.relativeMajorOf(key)} major.`;
+    }
     return {
-      prompt: `How many sharps or flats are in the key signature of <b>${key} major</b>?`,
+      prompt: `How many sharps or flats are in the key signature of <b>${key} ${mode}</b>?`,
       choices: choices(rng, correct, ["none", "1 sharp", "2 sharps", "3 sharps", "4 sharps", "1 flat", "2 flats", "3 flats", "4 flats", "5 sharps", "5 flats"]),
       answer: correct,
-      explanation: (n === 0
-        ? `${key} major has no sharps or flats - the one major key with an empty signature.`
-        : `${key} major has <b>${correct}</b>: ${order}, added in the fixed circle-of-fifths order.`) + staffBlock({ clef: "treble", keySignature: sig }),
+      explanation: explanation + staffBlock({ clef: "treble", keySignature: sig }),
       meta: { type: "keysig" },
     };
   }
@@ -357,6 +368,8 @@
     { sig: "4/4", cat: "simple quadruple", why: "four crotchet beats" },
     { sig: "3/8", cat: "simple triple", why: "three quaver beats" },
     { sig: "2/2", cat: "simple duple", why: "two minim beats" },
+    { sig: "3/2", cat: "simple triple", why: "three minim beats" },
+    { sig: "4/2", cat: "simple quadruple", why: "four minim beats" },
     { sig: "6/8", cat: "compound duple", why: "six quavers grouping into two dotted-crotchet beats" },
     { sig: "9/8", cat: "compound triple", why: "nine quavers grouping into three dotted-crotchet beats" },
     { sig: "12/8", cat: "compound quadruple", why: "twelve quavers grouping into four dotted-crotchet beats" },
@@ -383,11 +396,13 @@
       explanation: `A ${name} is ${sq} semiquavers. The first dot adds half (${sq / 2}), the second dot adds half again (${sq / 4}): ${sq} + ${sq / 2} + ${sq / 4} = <b>${dd}</b>.`,
     };
   }
-  function tupletQuestion(rng) {
-    const t = pick(rng, [
-      { q: "a duplet", a: "2 notes in the time of 3", d: ["3 notes in the time of 2", "2 notes in the time of 4", "4 notes in the time of 3"], why: "it squeezes two equal notes into a space that normally holds three, so it appears in compound time" },
-      { q: "a triplet", a: "3 notes in the time of 2", d: ["2 notes in the time of 3", "3 notes in the time of 4", "3 notes in the time of 1"], why: "it fits three equal notes into the time of two, so it appears in simple time" },
-    ]);
+  const TUPLETS = [
+    { q: "a duplet", a: "2 notes in the time of 3", d: ["3 notes in the time of 2", "2 notes in the time of 4", "4 notes in the time of 3"], why: "it squeezes two equal notes into a space that normally holds three, so it appears in compound time" },
+    { q: "a triplet", a: "3 notes in the time of 2", d: ["2 notes in the time of 3", "3 notes in the time of 4", "3 notes in the time of 1"], why: "it fits three equal notes into the time of two, so it appears in simple time" },
+  ];
+  const TRIPLET_ONLY = TUPLETS.filter((t) => t.q === "a triplet");
+  function tupletQuestion(rng, pool) {
+    const t = pick(rng, pool || TUPLETS);
     return {
       prompt: `What does <b>${t.q}</b> mean?`,
       choices: choices(rng, t.a, t.d),
@@ -408,8 +423,9 @@
   // counts the beats in a bar; the bottom names the beat (by how many fit a
   // semibreve: 2 = minim, 4 = crotchet, 8 = quaver).
   const SIMPLE_BEAT_UNIT = { 2: "minim", 4: "crotchet", 8: "quaver" };
-  function simpleTimeQuestion(rng) {
-    const sig = pick(rng, ["2/4", "3/4", "4/4"]);
+  const GRADE1_TIME_SIGS = ["2/4", "3/4", "4/4"];
+  function simpleTimeQuestion(rng, sigs) {
+    const sig = pick(rng, sigs || GRADE1_TIME_SIGS);
     const [top, bottom] = sig.split("/").map(Number);
     if (rng.bool()) {
       return {
@@ -421,14 +437,18 @@
       };
     }
     const unit = SIMPLE_BEAT_UNIT[bottom];
+    const mapStr = Object.entries(SIMPLE_BEAT_UNIT)
+      .map(([b, u]) => (Number(b) === bottom ? `<b>${b} = ${u}</b>` : `${b} = ${u}`))
+      .join(", ");
     return {
       prompt: `In <b>${sig}</b>, which note value gets one beat?`,
       choices: choices(rng, unit, ["crotchet", "minim", "quaver", "semibreve"]),
       answer: unit,
-      explanation: `The bottom number names the beat by how many fill a semibreve: 2 = minim, <b>4 = crotchet</b>, 8 = quaver. So in <b>${sig}</b> the beat is a <b>${unit}</b>. (The bottom is a power of two because every note value is reached by halving the semibreve.)`,
+      explanation: `The bottom number names the beat by how many fill a semibreve: ${mapStr}. So in <b>${sig}</b> the beat is a <b>${unit}</b>. (The bottom is a power of two because every note value is reached by halving the semibreve.)`,
       meta: { type: "timesig" },
     };
   }
+  const GRADE2_TIME_SIGS = [...GRADE1_TIME_SIGS, "2/2", "3/2", "4/2", "3/8"];
 
   // Grade 5: irregular (asymmetric) metre. A prime top number won't split into
   // equal 2s or 3s, so the bar falls into unequal groups - the lopsided lilt of
@@ -1159,6 +1179,12 @@
           questions: (rng) => (rng.bool(0.6) ? keySigSubset(rng, ["G", "D", "A", "F", "Bb", "Eb"]) : keySigSubset(rng, ["A", "E", "D"], "minor")),
         },
         {
+          id: "g2-time", title: "Minim-beat & quaver-beat metres, and triplets",
+          why: "The beat isn't always a crotchet. A minim can be the beat (2/2, 3/2, 4/2) or a quaver can (3/8) - the bottom number tells you which. And a triplet lets three notes share the space of two, borrowing a moment of the compound feel inside simple time.",
+          what: "<p>The <b>bottom</b> number still names the beat by how many fill a semibreve: 2 = minim, 4 = crotchet, 8 = quaver. So <b>2/2</b> is two minim beats, <b>3/2</b> three, <b>4/2</b> four, and <b>3/8</b> three quaver beats. A <b>triplet</b> fits three equal notes into the time of two, marked with a small <b>3</b>.</p>",
+          questions: (rng) => (rng.bool(0.75) ? simpleTimeQuestion(rng, GRADE2_TIME_SIGS) : tupletQuestion(rng, TRIPLET_ONLY)),
+        },
+        {
           id: "g2-intervals", title: "Intervals by number",
           why: "Before quality comes counting: name the size of an interval just by counting letter names, inclusively.",
           what: "<p>Count the lower note as 1 and step up the letters to the higher note. C up to G is C-D-E-F-G = a 5th. The same count works regardless of any sharps or flats.</p>",
@@ -1192,6 +1218,12 @@
           why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap. The three forms exist to solve one problem: natural minor has no leading note (its 7th sits a whole tone below the tonic), so it lacks the semitone pull that makes a cadence feel final. Harmonic minor raises the 7th to recover that pull - but that leaves an awkward augmented 2nd to the 6th. Melodic minor smooths the gap by raising the 6th too when ascending, then relaxes back to the natural form coming down, where the leading note isn't needed.",
           what: "<p><b>Natural</b> minor uses the key signature as-is; <b>harmonic</b> minor raises the 7th (making an augmented 2nd); <b>melodic</b> minor raises the 6th and 7th ascending, reverting descending.</p>",
           questions: (rng) => (rng.int(0, 3) === 0 ? melodicMinorDescendingQuestion(rng) : minorFormQuestion(rng)),
+        },
+        {
+          id: "g3-keys", title: "Keys up to 4 sharps and flats",
+          why: "The circle of fifths keeps turning: past the three-accidental keys of Grade 2 lie the four-accidental keys, majors and their relative minors alike. E major and A♭ major, C♯ and F minor - each one step further round.",
+          what: "<p>All major and minor keys up to <b>four sharps or flats</b>: the majors C, G, D, A, E and F, B♭, E♭, A♭, and the minors A, E, B, F♯, C♯ and D, G, C, F. A minor key takes the key signature of its relative major, a minor 3rd below it.</p>",
+          questions: (rng) => (rng.bool() ? keySigSubset(rng, GRADE3_MAJOR_KEYS) : keySigSubset(rng, GRADE3_MINOR_KEYS, "minor")),
         },
         {
           id: "g3-compound", title: "Simple & compound time",
@@ -1439,10 +1471,10 @@
   // Link topics to a relevant "Why" explainer so the answer reveal can offer a
   // "dig deeper" thread into the science behind the question.
   const EXPLAINER_FOR = {
-    "g1-keys": "circle-of-fifths", "g2-keys": "circle-of-fifths",
+    "g1-keys": "circle-of-fifths", "g2-keys": "circle-of-fifths", "g3-keys": "circle-of-fifths",
     "g4-key-signatures": "circle-of-fifths", "g5-key-id": "circle-of-fifths",
     "g3-melodic": "three-minors",
-    "g1-time": "metre", "g3-compound": "metre", "g4-time": "metre", "g5-irregular": "metre",
+    "g1-time": "metre", "g2-time": "metre", "g3-compound": "metre", "g4-time": "metre", "g5-irregular": "metre",
     "g4-chromatic": "keyboard",
     "g2-intervals": "monochord",
     "g3-quality": "consonance", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
