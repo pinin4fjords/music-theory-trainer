@@ -46,6 +46,82 @@ describe("srs - Leitner promotion/demotion", () => {
   });
 });
 
+describe("srs - guess guard on brand-new cards (issue #50)", () => {
+  it("a sub-second correct on a new card does not graduate it on its own", () => {
+    const c = srs.update(srs.defaultCard(), { correct: true, responseMs: 300, now: 0 });
+    expect(c.box).toBe(0); // held: too fast to trust as knowledge
+    expect(c.correct).toBe(1); // still recorded as a correct
+    expect(c.streak).toBe(1);
+  });
+
+  it("two consecutive corrects leave box 0 even when both are fast", () => {
+    let c = srs.update(srs.defaultCard(), { correct: true, responseMs: 300, now: 0 });
+    c = srs.update(c, { correct: true, responseMs: 300, now: 1 });
+    expect(c.box).toBe(1);
+    expect(c.streak).toBe(2);
+  });
+
+  it("a correct on a two-choice question needs confirming before it promotes", () => {
+    let c = srs.update(srs.defaultCard(), { correct: true, choices: 2, now: 0 });
+    expect(c.box).toBe(0); // a coin-flip could have landed it
+    c = srs.update(c, { correct: true, choices: 2, now: 1 });
+    expect(c.box).toBe(1);
+  });
+
+  it("a correct on a many-choice question promotes on the first try", () => {
+    const c = srs.update(srs.defaultCard(), { correct: true, choices: 5, now: 0 });
+    expect(c.box).toBe(1);
+  });
+
+  it("a plain correct with no guess signals still promotes immediately", () => {
+    const c = srs.update(srs.defaultCard(), { correct: true, now: 0 });
+    expect(c.box).toBe(1);
+  });
+
+  it("the guard only applies at box 0 - a fast correct higher up promotes", () => {
+    let c = srs.update(srs.defaultCard(), { correct: true, now: 0 }); // box 1
+    c = srs.update(c, { correct: true, responseMs: 200, choices: 2, now: 1 });
+    expect(c.box).toBe(2);
+  });
+});
+
+describe("srs - graded quality (issue #47)", () => {
+  it("a near-perfect take promotes like a clean correct", () => {
+    const c = srs.update(srs.defaultCard(), { quality: 0.8, now: 0 });
+    expect(c.box).toBe(1);
+    expect(c.correct).toBe(1);
+    expect(c.streak).toBe(1);
+  });
+
+  it("a near miss holds the box without counting as a lapse", () => {
+    let c = srs.defaultCard();
+    for (let i = 0; i < 2; i++) c = srs.update(c, { correct: true, now: i }); // box 2
+    const held = srs.update(c, { quality: 0.6, now: 3 });
+    expect(held.box).toBe(2); // unchanged
+    expect(held.lapses).toBe(0);
+    expect(held.correct).toBe(c.correct); // not credited as a clean success
+    expect(held.streak).toBe(0);
+  });
+
+  it("a poor take demotes like an outright miss", () => {
+    let c = srs.defaultCard();
+    for (let i = 0; i < 2; i++) c = srs.update(c, { correct: true, now: i }); // box 2
+    const missed = srs.update(c, { quality: 0.2, now: 3 });
+    expect(missed.box).toBe(1);
+    expect(missed.lapses).toBe(1);
+    expect(missed.streak).toBe(0);
+  });
+
+  it("a graded 4-of-5 take records differently from an empty take", () => {
+    const good = srs.update(srs.defaultCard(), { quality: 0.8, responseMs: 4000, now: 0 });
+    const empty = srs.update(srs.defaultCard(), { quality: 0, responseMs: 4000, now: 0 });
+    expect(good.box).toBeGreaterThan(empty.box);
+    expect(good.correct).toBe(1);
+    expect(empty.correct).toBe(0);
+    expect(empty.lapses).toBe(1);
+  });
+});
+
 describe("srs - due logic", () => {
   it("an unscheduled card is always due", () => {
     expect(srs.isDue(srs.defaultCard(), 0)).toBe(true);

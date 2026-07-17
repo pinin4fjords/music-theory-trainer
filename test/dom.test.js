@@ -760,3 +760,84 @@ describe("DOM - clap-back falls back to match-the-notation without a mic", () =>
     expect(reveal.textContent).toMatch(/Correct/);
   });
 });
+
+describe("DOM - graded singing credit (issue #47)", () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  // Drive one sight-sing take: feed `readingMidis` as sung pitches then trailing
+  // silence, click "Score it", and report the reveal verdict plus the recorded
+  // SRS card. Widely-spaced targets keep note segmentation deterministic.
+  async function sightSingTake(readingMidis) {
+    scaffold();
+    sessionStorage.clear();
+    const inst = app.boot({ document, storage: fakeStore(RETURNING), now: () => NOW, seed: "sing-grade" });
+    const topic = inst.ctx.content.auralGrades.flatMap((ag) => ag.topics)
+      .find((t) => t.id === "g4-aural-sight-sing");
+    const base = topic.questions(globalThis.MTT.rng.create("sightsing-fixed"));
+    const targets = [
+      { midi: 60, name: "C4" }, { midi: 64, name: "E4" }, { midi: 67, name: "G4" },
+      { midi: 71, name: "B4" }, { midi: 74, name: "D5" },
+    ];
+    const fixedQuestion = Object.assign({}, base, {
+      micTask: Object.assign({}, base.micTask, { targets, toleranceSemitones: 1.0 }),
+    });
+    const fixedTopic = Object.assign({}, topic, { questions: () => fixedQuestion });
+
+    const ai = globalThis.MTT.audioInput;
+    const realIsAvailable = ai.isAvailable;
+    const realStart = ai.startPitchDetection;
+    let capturedCallback = null;
+    ai.isAvailable = () => true;
+    ai.startPitchDetection = async (cb) => { capturedCallback = cb; return () => {}; };
+    try {
+      inst.router.navigate("quiz", { single: fixedTopic });
+      document.querySelector(".mic-start-btn").click();
+      await new Promise((r) => setTimeout(r, 0)); // let the mic open (beginListening)
+      expect(capturedCallback).toBeTruthy();
+      readingMidis.forEach((m) => capturedCallback({ midi: m, cents: 0, clarity: 0.9 }));
+      for (let i = 0; i < 18; i++) capturedCallback({ midi: null, cents: 0, clarity: 0 });
+
+      const scoreBtn = [...document.querySelectorAll(".seq-btn-row button")]
+        .find((b) => /Score it/.test(b.textContent));
+      expect(scoreBtn).toBeTruthy();
+      scoreBtn.click();
+
+      return {
+        revealText: document.querySelector(".reveal").textContent,
+        card: inst.store.srsMap()["g4-aural-sight-sing"],
+      };
+    } finally {
+      ai.isAvailable = realIsAvailable;
+      ai.startPitchDetection = realStart;
+    }
+  }
+
+  it("a 4-of-5 take is credited as correct, unlike a take that matches nothing", async () => {
+    // Four target pitches sung, one (the middle) off, final note landing.
+    const four = [
+      60, 60, 60, 60, 64, 64, 64, 64, 69, 69, 69, 69, 71, 71, 71, 71, 74, 74, 74, 74,
+    ];
+    const none = new Array(20).fill(69); // one off-key pitch throughout: 0 of 5
+
+    const good = await sightSingTake(four);
+    const bad = await sightSingTake(none);
+
+    expect(good.revealText).toMatch(/Correct/);
+    expect(good.card.correct).toBe(1);
+    expect(good.card.streak).toBe(1);
+
+    expect(bad.revealText).toMatch(/Not quite/);
+    expect(bad.card.correct).toBe(0);
+    expect(bad.card.lapses).toBe(1);
+  });
+
+  it("paints a within-tolerance-but-inexact note as close, not a full match", async () => {
+    // Slot 4 sung a semitone sharp (75 vs 74): within ±1 tolerance yet inexact.
+    const closeFinal = [
+      60, 60, 60, 60, 64, 64, 64, 64, 67, 67, 67, 67, 71, 71, 71, 71, 75, 75, 75, 75,
+    ];
+    await sightSingTake(closeFinal);
+    const sung = [...document.querySelectorAll(".mic-seq-result .seq-note.close")];
+    expect(sung.length).toBeGreaterThanOrEqual(1);
+  });
+});
