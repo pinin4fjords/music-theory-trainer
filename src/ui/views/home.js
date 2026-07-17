@@ -87,6 +87,7 @@
             : "Daily mix: spaced review across your current grade and everything below it."}</p>
           <p class="muted" style="margin-top:0">${done ? "Today's practice is done - come back tomorrow to keep the streak going." : "Ready for today's set?"}</p>
         </div>
+        <div id="aural-nudge-area"></div>
         <div id="focus-area"></div>
         <div class="grid" id="home-cards"></div>
         <div class="card data-card">
@@ -135,6 +136,28 @@
         panel.remove();
       }, { className: "ghost" }));
       panel.appendChild(row);
+      area.appendChild(panel);
+    }
+
+    // Aural due nudge: aural practice lives on its own tab, outside the daily
+    // session, so due aural topics can quietly pile up. Surface a count linking
+    // to the tab when any are due.
+    renderAuralNudge();
+    function renderAuralNudge() {
+      const area = view.querySelector("#aural-nudge-area");
+      if (!area) return;
+      const now = ctx.now();
+      const srsMap = store.srsMap();
+      const due = ctx.session.auralTopics(ctx.content).filter((t) => {
+        const c = srsMap[t.id];
+        return c && c.seen > 0 && c.dueAt != null && c.dueAt <= now;
+      }).length;
+      if (!due) return;
+      const label = due === 1
+        ? "1 aural topic is due for review"
+        : `${due} aural topics are due for review`;
+      const panel = C.el(`<div class="why-box aural-nudge" role="note"><p style="margin:0 0 10px">👂 ${label}.</p></div>`);
+      panel.appendChild(C.button("Go to Aural training", () => ctx.router.navigate("aural")));
       area.appendChild(panel);
     }
 

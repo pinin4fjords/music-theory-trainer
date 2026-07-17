@@ -78,8 +78,10 @@
   }
 
   // Order the candidate pool by urgency. Unseen and weak/overdue topics come
-  // first (see srs.priority). In "path" mode, current-grade topics get a boost so
-  // the learner is led through new material while weak lower topics still recur.
+  // first (see srs.priority). In "path" mode, current-grade topics get a boost
+  // that lifts them above lower-grade topics inside a mixed-grade pool (recipe
+  // assembly draws each domain from grades at once, so the boost is what makes
+  // that pool lead with the current grade).
   function orderPool(topics, srsMap, now, grade, mode) {
     const S = srs();
     const map = srsMap || {};
@@ -90,6 +92,32 @@
     });
     scored.sort((a, b) => b.p - a.p);
     return scored.map((x) => x.t);
+  }
+
+  // Current-grade ordering for "path" (learning-path) mode: a curriculum walk.
+  // Never-seen topics come first in their declared (syllabus) order so the
+  // learner progresses through new material in sequence; already-seen topics
+  // follow for reinforcement, also in syllabus order. Daily mode instead orders
+  // the same topics purely by SRS urgency (weakest/most-overdue first), so the
+  // two modes sequence the current grade differently even before their quotas
+  // diverge.
+  function progressionOrder(topics, srsMap) {
+    const map = srsMap || {};
+    const isSeen = (t) => !!(map[t.id] && map[t.id].seen);
+    return topics.filter((t) => !isSeen(t)).concat(topics.filter(isSeen));
+  }
+
+  // Ordering for the Aural quota: honour the SRS schedule. Aural skills decay
+  // fast, so topics that are actually due (dueAt reached, or never scheduled)
+  // come ahead of topics not yet due, even when a not-yet-due topic looks weaker
+  // by box - a topic scheduled into the future should not jump its slot. Each
+  // group is still ordered by urgency within itself.
+  function orderAural(topics, srsMap, now) {
+    const S = srs();
+    const map = srsMap || {};
+    const due = [], notDue = [];
+    topics.forEach((t) => (S.isDue(map[t.id], now) ? due : notDue).push(t));
+    return orderPool(due, map, now).concat(orderPool(notDue, map, now));
   }
 
   // A stable signature so a session never shows the same question twice.
@@ -139,6 +167,10 @@
   // they're struggling with grade-level material.
   const LOWER_GRADE_FRACTION = 0.3;
 
+  // A learning path leads with the current grade, so it reserves only a minimal
+  // diagnostic slice of earlier-grade review rather than the daily-mix fraction.
+  const PATH_LOWER_SLICE = 2;
+
   // Spread the (minority) lower-grade picks evenly through the current-grade
   // picks, starting with a current-grade question. Deterministic.
   function interleave(current, lower) {
@@ -172,7 +204,10 @@
       if (remaining <= 0) return;
       const want = Math.min(recipe[domain] || 0, remaining);
       if (!want) return;
-      const forDomain = orderPool(pool.filter((t) => t.domain === domain), srsMap, now, grade, mode);
+      const domainPool = pool.filter((t) => t.domain === domain);
+      const forDomain = domain === "Aural"
+        ? orderAural(domainPool, srsMap, now)
+        : orderPool(domainPool, srsMap, now, grade, mode);
       picks = picks.concat(assemble(forDomain, want, rng, seen));
     });
     if (picks.length < length) {
@@ -210,8 +245,11 @@
 
   /**
    * Build a full practice session. For grade >= 2 a diagnostic slice of
-   * lower-grade questions is guaranteed alongside the grade-level questions; in
-   * "path" mode the session still leads with the current grade. Passing a
+   * lower-grade questions is guaranteed alongside the grade-level questions.
+   * "daily" mode ranks the current grade by SRS urgency with a ~30% lower-grade
+   * slice; "path" mode walks the current grade as a curriculum progression
+   * (unseen topics first, in syllabus order) with only a minimal lower-grade
+   * slice, so the two modes assemble genuinely different sessions. Passing a
    * `recipe` (domain name -> desired count, e.g. DEFAULT_RECIPE) switches to
    * domain-quota assembly instead of the plain priority mix. Either way, the
    * result is passed through cognitive-load balancing before it's returned.
@@ -229,23 +267,31 @@
       return loadBalance(buildByDomain(opts, recipe), srsMap).slice(0, length);
     }
 
+    const isPath = mode === "path";
     const all = gradeTopics(content, grade);
+    // Path mode walks the current grade as a curriculum progression; daily mode
+    // ranks it by SRS urgency. This ordering difference, together with the wider
+    // current-grade quota below, is what makes the two modes assemble genuinely
+    // different sessions.
+    const orderCurrent = (pool) => isPath ? progressionOrder(pool, srsMap) : orderPool(pool, srsMap, now, grade, mode);
     const lowerTopics = orderPool(all.filter((t) => t.grade < grade), srsMap, now, grade, mode);
-    const currentTopics = orderPool(all.filter((t) => t.grade === grade), srsMap, now, grade, mode);
+    const currentTopics = orderCurrent(all.filter((t) => t.grade === grade));
 
     let picks;
-    // No lower grades available (Grade 1, or nothing seen below): original mix.
+    // No lower grades available (Grade 1, or nothing seen below): single pool.
     if (grade <= 1 || !lowerTopics.length || !currentTopics.length) {
-      picks = assemble(orderPool(all, srsMap, now, grade, mode), length, rng);
+      picks = assemble(orderCurrent(all), length, rng);
     } else {
       const seen = new Set();
-      const lowerQuota = Math.min(length - 1, Math.max(2, Math.round(length * LOWER_GRADE_FRACTION)));
+      const lowerQuota = isPath
+        ? Math.min(length - 1, PATH_LOWER_SLICE)
+        : Math.min(length - 1, Math.max(2, Math.round(length * LOWER_GRADE_FRACTION)));
       const current = assemble(currentTopics, length - lowerQuota, rng, seen);
       const lower = assemble(lowerTopics, length - current.length, rng, seen);
       picks = interleave(current, lower);
       // Backfill from the full pool if a sub-pool ran dry on a small curriculum.
       if (picks.length < length) {
-        picks = picks.concat(assemble(orderPool(all, srsMap, now, grade, mode), length - picks.length, rng, seen));
+        picks = picks.concat(assemble(orderCurrent(all), length - picks.length, rng, seen));
       }
       picks = picks.slice(0, length);
     }
@@ -260,8 +306,8 @@
   const api = {
     SESSION_LEN, DOMAINS, DEFAULT_RECIPE, HIGH_EFFORT_MS,
     allTopics, quizableTopics, auralTopics, gradeTopics, domainTopics,
-    orderPool, assemble, build, buildByDomain, buildSingle, qSig, setWarn,
-    isHighEffort, loadBalance,
+    orderPool, progressionOrder, orderAural, assemble, build, buildByDomain,
+    buildSingle, qSig, setWarn, isHighEffort, loadBalance,
   };
 
   global.MTT = global.MTT || {};
