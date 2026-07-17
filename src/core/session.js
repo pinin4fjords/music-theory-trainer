@@ -68,9 +68,13 @@
   }
 
   // The combined domain pool a recipe draws from: theory topics plus aural
-  // topics, both restricted to the chosen grade and below.
+  // topics, both restricted to the chosen grade and below. Initial Grade
+  // (aural grade 0) is a standalone entry section, not foundation review, so it
+  // only enters the pool when the session itself is Initial Grade.
   function domainTopics(content, grade) {
-    return gradeTopics(content, grade).concat(auralTopics(content).filter((t) => t.grade <= (grade || 4)));
+    const g = grade || 4;
+    return gradeTopics(content, grade)
+      .concat(auralTopics(content).filter((t) => t.grade <= g && (t.grade > 0 || g === 0)));
   }
 
   // Order the candidate pool by urgency. Unseen and weak/overdue topics come

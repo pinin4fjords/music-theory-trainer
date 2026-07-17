@@ -66,6 +66,8 @@
     g4SightSing: { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g5SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
     g6SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    // Initial Grade echo: a single-bar tonic-mediant phrase, the simplest possible.
+    initEcho: { keys: ["C"], mode: "major", range: { above: 2, below: 0 }, bars: 1, beatsPerBar: 2, rhythmPalette: [[1, 1]], maxLeap: 2, startsOn: ["tonic", "mediant"], endsOn: "free" },
   };
 
   // Notation helpers — render a treble-clef staff snippet inline in a prompt.
@@ -241,6 +243,40 @@
     return vel;
   }
 
+  // Milliseconds a rhythmic phrase sounds for, plus a small buffer, used to
+  // time when the mic opens for a clap-back response.
+  function echoRespondMs(durations, beatSec) {
+    const total = durations.reduce(function (s, d) { return s + d; }, 0);
+    return Math.round(total * beatSec * 1000 + 350);
+  }
+
+  // micTask payload for a tap-the-pulse interaction (quiz.js type "pulse"). The
+  // pulse plays via `playFn`; quiz.js captures taps and grades stability, tempo,
+  // and downbeat accents through MTT.rhythmGrade.gradeTaps.
+  function buildPulseMicTask(beatsPerBar, bars, beatSec, notes, velocities) {
+    return {
+      type: "pulse",
+      beatsPerBar: beatsPerBar,
+      totalBeats: beatsPerBar * bars,
+      beatMs: beatSec * 1000,
+      playFn: function () { audio().sequence(notes, beatSec, 0.12, velocities); },
+    };
+  }
+
+  // micTask payload for a clap-back interaction (quiz.js type "clap"). The target
+  // rhythm plays via the question's top-level `audio` (so the match-the-notation
+  // fallback still hears it when no mic is available); quiz.js detects the clapped
+  // onsets and grades the inter-onset intervals against `targetIOIs` (in ms). The
+  // final note carries no following onset, so only the gaps between notes count.
+  function buildClapMicTask(durations, beatSec, beatsPerBar) {
+    return {
+      type: "clap",
+      beatsPerBar: beatsPerBar,
+      targetIOIs: durations.slice(0, -1).map(function (d) { return d * beatSec * 1000; }),
+      autoPlayAndRespondMs: echoRespondMs(durations, beatSec),
+    };
+  }
+
   // Grades 4-6 sight-sing phrases are generated (see MELODY_SPECS.g4SightSing
   // /g5SightSing/g6SightSing) rather than drawn from a fixed bank.
 
@@ -259,6 +295,23 @@
       choices: choices(rng, label, ["2", "3", "4"], 2),
       answer: label,
       explanation: `That was in <b>${beats}/4</b> time — ${beats} beats per bar. The first beat of each bar has a stronger accent. Tap along and count: "ONE two, ONE two" for 2, or "ONE two three" for 3.`,
+    };
+  }
+
+  // Test 1A (the exam's actual task): tap the pulse. A steady pulse plays and
+  // the learner taps every beat, accenting the first beat of each bar. Graded on
+  // tempo stability, tempo accuracy, and accent placement (no mic needed).
+  function g1PulseTapQuestion(rng) {
+    const beats = pick(rng, [2, 3]);
+    const bars = 4;
+    const beatSec = 0.6;
+    const { notes, velocities } = meterNotes(beats, bars);
+    return {
+      prompt: `Tap along with the pulse: a steady <strong>tap on every beat</strong>, and a firmer <strong>accent tap on the first beat of each bar</strong>. Keep the gaps even.`,
+      micTask: buildPulseMicTask(beats, bars, beatSec, notes, velocities),
+      choices: ["I tapped the pulse", "I lost the pulse"],
+      answer: "I tapped the pulse",
+      explanation: `That pulse was in <b>${beats}/4</b>: ${beats} beats per bar, with the accent on beat 1. Feeling the pulse and marking the downbeat is the foundation of every aural test: "ONE two" for 2, "ONE two three" for 3.`,
     };
   }
 
@@ -345,13 +398,7 @@
 
   // Test 1B: Echo a short melody (Grade 1 - 3 notes, C major, C4-E4).
   // Phrase plays once, then the mic opens automatically for an immediate response.
-  // Milliseconds until a rhythmic phrase finishes sounding, plus a buffer before
-  // the mic opens for the echo response.
-  function echoRespondMs(durations, beatSec) {
-    const total = durations.reduce(function (s, d) { return s + d; }, 0);
-    return Math.round(total * beatSec * 1000 + 350);
-  }
-
+  //
   // Multi-phrase echo generator: presents PHRASE_COUNT distinct phrases in
   // sequence, matching the real exam-board exam format where the examiner plays
   // three different phrases and the candidate sings each one back immediately.
@@ -582,10 +629,11 @@
   }
 
   // Test 4C part 2: clap back the rhythm, then say whether it's in 2, 3, or 4
-  // time. The app can't grade a clap, so it plays a one-bar rhythm (mixed note
-  // values, repeated over two bars on a single pitch, since a clapped rhythm
-  // carries no pitch of its own) and asks which notated pattern matches —
-  // folding "which rhythm" and "which time signature" into one answer.
+  // time. With a microphone the clapped rhythm is graded directly (energy-envelope
+  // onset detection vs the target inter-onset intervals). Without one, the same
+  // one-bar rhythm (mixed note values, repeated over two bars on a single pitch,
+  // since a clapped rhythm carries no pitch of its own) is offered as a
+  // match-the-notation question folding "which rhythm" and "which metre" into one.
   function g4RhythmTimeSigQuestion(rng) {
     const beatsPerBar = pick(rng, [2, 3, 4]);
     const patterns = CLAP_RHYTHM_PATTERNS[beatsPerBar];
@@ -607,8 +655,9 @@
     if (isIsochronous(pattern)) otherPool = otherPool.filter((p) => !isIsochronous(p));
     const otherDistractor = patternLabel(otherMeter, pick(rng, otherPool));
     return {
-      prompt: `Listen to this rhythm, clapped on a single note (the first beat of each bar is accented). Which pattern matches what you heard, and how many beats are in each bar?`,
+      prompt: `Listen to this rhythm, clapped on a single note (the first beat of each bar is accented), then <strong>clap it back</strong>. No mic? Pick the pattern that matches what you heard, and how many beats are in each bar.`,
       audio: function () { audio().sequenceRhythm(notes, durations, 0.5, velocities); },
+      micTask: buildClapMicTask(durations, 0.5, beatsPerBar),
       choices: choices(rng, ans, [...sameMeterDistractors, otherDistractor], 3),
       answer: ans,
       explanation: `That was <b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}, repeated over two bars. Count the beats between the accented downbeats to fix the metre, then the pattern of long and short notes within the bar gives the rhythm.`,
@@ -1452,10 +1501,90 @@
   }
 
   // =========================================================================
+  // Initial Grade generators (specs are subsets of Grade 1)
+  // =========================================================================
+
+  // Initial Test A: clap the pulse. Reuses the Grade 1 tap-the-pulse interaction.
+  function g0PulseClapQuestion(rng) { return g1PulseTapQuestion(rng); }
+
+  // Initial Test B: echo a one-bar rhythm by clapping it back (2/4, simple
+  // patterns). Match-the-notation is the mic-unavailable fallback.
+  function g0EchoClapQuestion(rng) {
+    const beatsPerBar = 2;
+    const beatSec = 0.6;
+    const patterns = CLAP_RHYTHM_PATTERNS[beatsPerBar];
+    const pattern = pick(rng, patterns);
+    const notes = pattern.map(function () { return MIDI.E4; });
+    const durations = pattern.slice();
+    const velocities = rhythmAccents(durations, beatsPerBar);
+    const ans = patternLabel(beatsPerBar, pattern);
+    const distractors = patterns.filter(function (p) { return p !== pattern; }).map(function (p) { return patternLabel(beatsPerBar, p); });
+    return {
+      prompt: `Listen to this one-bar rhythm in 2 time, then <strong>clap it back</strong>. No mic? Pick the pattern you heard instead.`,
+      audio: function () { audio().sequenceRhythm(notes, durations, beatSec, velocities); },
+      micTask: buildClapMicTask(durations, beatSec, beatsPerBar),
+      choices: choices(rng, ans, distractors, 3),
+      answer: ans,
+      explanation: `That rhythm was ${patternGlyphs(pattern)} in ${beatsPerBar}/4. Clap the long and short notes exactly as you heard them, feeling the accent on beat 1.`,
+    };
+  }
+
+  // Initial Test C: sing back three one-bar tonic-mediant echoes.
+  function g0EchoSingQuestion(rng) {
+    return multiEchoMelodyQuestion(rng, "initEcho", {
+      prompt: `Listen to each short phrase, then <strong>sing it back immediately</strong>. Three one-bar phrases in turn; the notes stay hidden until you're done.`,
+      explanation: `Initial Grade echo singing: the examiner plays three short one-bar phrases (moving between the first and third notes of C major) and you sing each one straight back. Match the shape: up, down, or the same.`,
+    });
+  }
+
+  // Initial Test D: one feature question (loud/quiet or smooth/detached).
+  function g0FeatureQuestion(rng) {
+    return rng.bool() ? g1DynamicsQuestion(rng) : g1ArticulationQuestion(rng);
+  }
+
+  // =========================================================================
   // Inject topics into MTT.content.grades
   // =========================================================================
 
   const auralTopics = [
+    {
+      grade: 0,
+      title: "Initial Grade",
+      topics: [
+        {
+          id: "g0-aural-pulse",
+          title: "Aural: clap the pulse",
+          why: "In the Initial Grade aural test you clap the steady pulse of a piece the examiner plays, giving a stronger clap on the first beat of each bar. This is the very first listening skill.",
+          what: "<p>Find the <b>steady beat</b> you could march or walk to, and tap it evenly. Give the <b>first beat of each bar</b> a firmer tap, where the music feels heaviest.</p>",
+          questions: g0PulseClapQuestion,
+          tags: ["aural"],
+        },
+        {
+          id: "g0-aural-clap",
+          title: "Aural: echo-clap rhythms",
+          why: "In the Initial Grade aural test the examiner claps a short one-bar rhythm and you clap it straight back, the first step towards reading and reproducing rhythm.",
+          what: "<p>Listen to the pattern of <b>long and short</b> claps, then copy it exactly. Keep the same speed, and put a little weight on the first clap of the bar.</p>",
+          questions: g0EchoClapQuestion,
+          tags: ["aural"],
+        },
+        {
+          id: "g0-aural-sing",
+          title: "Aural: echo singing",
+          why: "In the Initial Grade aural test the examiner sings or plays three very short phrases in turn and you sing each one back. The phrases move between the first and third notes of the scale.",
+          what: "<p>Listen for whether the second note is <b>higher, lower, or the same</b> as the first, then sing it back on 'lah'. The phrases are one bar long and stay close to the starting note.</p>",
+          questions: g0EchoSingQuestion,
+          tags: ["aural"],
+        },
+        {
+          id: "g0-aural-feature",
+          title: "Aural: one feature",
+          why: "In the Initial Grade aural test the examiner asks one simple question about the music, usually whether it was loud or quiet, or smooth or detached.",
+          what: "<p><b>Dynamics:</b> loud (forte) or quiet (piano). <b>Articulation:</b> smooth and joined (legato) or short and separated (staccato). Listen for the one feature that stands out.</p>",
+          questions: g0FeatureQuestion,
+          tags: ["aural"],
+        },
+      ],
+    },
     {
       grade: 1,
       topics: [
@@ -1464,7 +1593,7 @@
           title: "Aural: pulse & time signature",
           why: "In the Grade 1 aural test the examiner plays a short piece and you clap the pulse, then say whether it is in 2 or 3 beats per bar. This is the foundation of all rhythmic awareness.",
           what: "<p>Listen for the <b>strong beat</b> — the beat that sounds slightly heavier or more accented. Count how many beats pass before the next strong beat arrives. That count is the time signature's top number.</p><p class=\"muted\" style=\"font-size:.9em\">In 2/4 the pattern feels like a <em>march</em> (ONE two, ONE two). In 3/4 it feels like a <em>waltz</em> (ONE two three, ONE two three).</p>",
-          questions: g1TimeSigQuestion,
+          questions: (rng) => rng.bool() ? g1PulseTapQuestion(rng) : g1TimeSigQuestion(rng),
           tags: ["aural"],
         },
         {
@@ -1501,7 +1630,7 @@
           title: "Aural: pulse & time signature",
           why: "Grade 2 tests the same two-beat/three-beat recognition as Grade 1 — the skill needs to become automatic before new time signatures are added at Grade 3.",
           what: "<p>Keep listening for the <b>strong beat</b> and counting how many beats pass before it repeats. This should now feel quick and confident, since new tasks this grade — tempo changes and pitch/rhythm change spotting — need that spare attention.</p>",
-          questions: g1TimeSigQuestion,
+          questions: (rng) => rng.bool() ? g1PulseTapQuestion(rng) : g1TimeSigQuestion(rng),
           tags: ["aural"],
         },
         {
@@ -1835,7 +1964,7 @@
   // Store aural topics separately so they don't appear in regular theory quiz
   // sessions. The dedicated Aural view accesses MTT.content.auralGrades directly.
   global.MTT.content.auralGrades = auralTopics.map(function (ag) {
-    return { grade: ag.grade, title: "Grade " + ag.grade, topics: ag.topics };
+    return { grade: ag.grade, title: ag.title || ("Grade " + ag.grade), topics: ag.topics };
   });
 
 })(typeof globalThis !== "undefined" ? globalThis : this);
