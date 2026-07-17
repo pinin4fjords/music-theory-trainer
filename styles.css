@@ -297,6 +297,12 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .choice.correct { border-color: var(--good); background: var(--good-soft); box-shadow: none; }
 .choice.wrong { border-color: var(--bad); background: var(--bad-soft); box-shadow: none; }
 .choice:disabled { cursor: default; }
+/* Glyphs so correct/wrong reads without relying on colour. */
+.choice.correct::after, .choice.wrong::after {
+  margin-left: auto; padding-left: 12px; font-weight: 700; font-size: 1.05rem; flex: 0 0 auto;
+}
+.choice.correct::after { content: "✓"; color: var(--good); }
+.choice.wrong::after { content: "✗"; color: var(--bad); }
 .choice-key {
   display: inline-flex; align-items: center; justify-content: center;
   width: 22px; height: 22px; margin-right: 11px; border-radius: 5px; flex: 0 0 auto;

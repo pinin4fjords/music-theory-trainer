@@ -81,10 +81,14 @@
     return b;
   }
 
+  const FOCUSABLE_SELECTOR =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
   // Open an explainer in a floating panel without leaving the current view.
   // Returns { body, close } where `body` is the container to render into and
-  // `close()` tears down the overlay and returns focus to the trigger element.
+  // `close()` tears down the overlay and returns focus to the opener.
   function openExplainerModal(trigger) {
+    const opener = trigger || document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "explainer-modal-overlay";
     overlay.setAttribute("role", "dialog");
@@ -109,13 +113,31 @@
     document.body.appendChild(overlay);
 
     function close() {
+      document.removeEventListener("keydown", onKeydown);
       overlay.remove();
-      if (trigger) { try { trigger.focus(); } catch { /* ignore */ } }
+      if (opener) { try { opener.focus(); } catch { /* ignore */ } }
+    }
+
+    // Tab is trapped within the panel (wrap-around); Escape lives on `document`
+    // for the modal's whole lifetime so it fires no matter where focus has drifted.
+    function onKeydown(e) {
+      if (e.key === "Escape") { e.stopPropagation(); close(); return; }
+      if (e.key !== "Tab") return;
+      const items = panel.querySelectorAll(FOCUSABLE_SELECTOR);
+      if (!items.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault(); first.focus();
+      }
     }
 
     closeBtn.addEventListener("click", close);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-    overlay.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.stopPropagation(); close(); } });
+    document.addEventListener("keydown", onKeydown);
+
+    closeBtn.focus();
 
     return { body, close };
   }
