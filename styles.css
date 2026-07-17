@@ -556,6 +556,9 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 }
 .grade-pick:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .grade-pick:active { transform: translateY(1px); }
+.grade-pick.on { border-color: var(--accent); background: var(--accent); color: var(--btn-fg); }
+.onboard-or { text-align: center; }
+.placement-skip { margin-top: 12px; }
 
 /* --- Quiz: dominant prompt, counter, confident I-don't-know ------------- */
 .quiz-prompt { font-size: clamp(1.4rem, 3.2vw, 1.65rem); font-weight: 650; line-height: 1.3; margin: 6px 0 14px; }

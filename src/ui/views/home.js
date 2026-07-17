@@ -44,6 +44,8 @@
             <h3 style="margin-top:0">What grade are you working towards?</h3>
             <p class="muted" style="margin-top:0">It sets your daily session. You can change it any time in the header.</p>
             <div class="grade-picker" role="group" aria-label="Choose your grade"></div>
+            <p class="muted onboard-or" style="margin:18px 0 8px">Not sure which to pick?</p>
+            <div id="placement-cta"></div>
           </div>
         </div>`);
       main.appendChild(view);
@@ -62,6 +64,16 @@
         });
         picker.appendChild(b);
       });
+
+      // Optional placement check: a short adaptive diagnostic that suggests a
+      // starting grade. The manual picker above stays the default/override.
+      const placement = global.MTT.ui.views.placement;
+      if (placement) {
+        const cta = view.querySelector("#placement-cta");
+        const btn = C.button("Take a quick placement check", () => placement.render(main, ctx), { className: "ghost" });
+        cta.appendChild(btn);
+      }
+
       C.focus(view.querySelector("h1"));
     }
 

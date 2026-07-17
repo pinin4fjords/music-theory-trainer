@@ -460,6 +460,62 @@ describe("DOM - first-run onboarding", () => {
     expect(document.querySelector(".grade-pick")).toBeFalsy(); // onboarding picker gone
     expect(document.querySelector("button")).toBeTruthy(); // home view rendered (has Start button)
   });
+
+  it("keeps the manual grade picker working when the placement CTA is present", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(), now: () => NOW, seed: "ob-manual" });
+    expect(document.querySelector("#placement-cta button")).toBeTruthy(); // optional placement offered
+    [...document.querySelectorAll(".grade-pick")][4].click(); // Grade 5, manual override
+    expect(inst.store.settings().grade).toBe(5);
+    expect(inst.store.settings().gradeChosen).toBe(true);
+    expect(document.querySelector(".grade-pick")).toBeFalsy(); // proceeded past onboarding
+  });
+
+  // Answer the placement, clicking through until the suggestion screen appears.
+  function runPlacement() {
+    document.querySelector("#placement-cta button").click();
+    expect(document.querySelector(".placement-view")).toBeTruthy();
+    for (let i = 0; i < 40 && !document.querySelector(".placement-result"); i++) {
+      const choice = document.querySelector("#main .choice");
+      if (!choice) break;
+      choice.click(); // reveal + record
+      [...document.querySelectorAll("#main .btn")].pop().click(); // Next
+    }
+  }
+
+  it("takes the placement check, suggests a grade, and seeds the SRS map", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(), now: () => NOW, seed: "place-run" });
+    runPlacement();
+
+    const heading = document.querySelector(".placement-result h1");
+    expect(heading).toBeTruthy();
+    expect(heading.textContent).toMatch(/We suggest Grade [1-8]/);
+
+    // Placement answers were recorded honestly, seeding the SRS map.
+    expect(inst.store.get().totalAnswered).toBeGreaterThan(0);
+    expect(Object.keys(inst.store.srsMap()).length).toBeGreaterThan(0);
+
+    // The suggestion is not yet committed - onboarding only ends on accept/override.
+    expect(inst.store.settings().gradeChosen).toBeFalsy();
+
+    // Accepting the suggestion sets the grade and lands on the home dashboard.
+    document.querySelector(".placement-result .start-card .btn").click();
+    expect(inst.store.settings().gradeChosen).toBe(true);
+    expect(document.querySelector("#main h1").textContent).toMatch(/few minutes of theory/i);
+  });
+
+  it("lets the learner override the placement suggestion with any grade", () => {
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(), now: () => NOW, seed: "place-override" });
+    runPlacement();
+    const picker = document.querySelector(".placement-result .grade-picker");
+    expect(picker).toBeTruthy();
+    [...picker.querySelectorAll(".grade-pick")][6].click(); // Grade 7, overriding the suggestion
+    expect(inst.store.settings().grade).toBe(7);
+    expect(inst.store.settings().gradeChosen).toBe(true);
+    expect(document.querySelector("#main h1").textContent).toMatch(/few minutes of theory/i);
+  });
 });
 
 describe("DOM - reset", () => {

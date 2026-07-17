@@ -43,6 +43,7 @@ if (typeof document !== "undefined") {
   src("ui/views/home.js");
   src("ui/views/learn.js");
   src("ui/views/quiz.js");
+  src("ui/views/placement.js");
   src("ui/views/explainer.js");
   src("ui/views/playground.js");
   src("ui/views/progress.js");
