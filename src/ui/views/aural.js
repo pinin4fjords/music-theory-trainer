@@ -20,11 +20,23 @@
     }
   }
 
+  // Due only for topics that have been practised and whose review interval has
+  // elapsed - a never-seen topic reads as "New", not "Due for review".
+  function isDueForReview(card, now) {
+    return !!(card && card.seen > 0 && card.dueAt != null && card.dueAt <= now);
+  }
+
+  function topicDueChip(srsMap, topicId, now) {
+    if (!isDueForReview(srsMap[topicId], now)) return "";
+    return `<span class="pill aural-due-chip" aria-label="Due for review">Due for review</span>`;
+  }
+
   function render(main, ctx) {
     const C = ctx.C;
     const auralGrades = (ctx.content && ctx.content.auralGrades) || [];
     const currentGrade = ctx.store.settings().grade;
     const srsMap = ctx.store.srsMap();
+    const now = ctx.now ? ctx.now() : Date.now();
 
     const view = C.el(
       `<div class="view">` +
@@ -58,13 +70,22 @@
       view.appendChild(C.el(`<h2 style="margin-top:28px">${gradeLabel}</h2>`));
 
       const grid = C.el(`<div class="grid"></div>`);
-      ag.topics.forEach(function (t) {
+      // Surface due topics first within a grade so the ones the schedule says to
+      // revisit lead; sort is stable, so the rest keep their syllabus order.
+      const orderedTopics = ag.topics.slice().sort(function (a, b) {
+        const aDue = isDueForReview(srsMap[a.id], now);
+        const bDue = isDueForReview(srsMap[b.id], now);
+        if (aDue !== bDue) return aDue ? -1 : 1;
+        return 0;
+      });
+      orderedTopics.forEach(function (t) {
         // Strip leading "Aural: " from the title for display.
         const shortTitle = t.title.replace(/^Aural:\s*/i, "");
         const icon = global.MTT.ui.icons.iconHtml(t.id);
         const accuracyChip = topicAccuracyChip(srsMap, t.id);
+        const dueChip = topicDueChip(srsMap, t.id, now);
         const card = C.cardButton(
-          `<div class="topic-head">${icon}<h3>${shortTitle}</h3>${accuracyChip}</div>` +
+          `<div class="topic-head">${icon}<h3>${shortTitle}</h3>${accuracyChip}</div>${dueChip}` +
           `<div class="why">${t.why || ""}</div>`,
           function () { ctx.router.navigate("quiz", { single: Object.assign({}, t, { grade: ag.grade }) }); }
         );

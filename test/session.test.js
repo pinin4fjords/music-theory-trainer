@@ -62,6 +62,37 @@ describe("session - assembly", () => {
     expect(s[0].topic.grade).toBe(5);
   });
 
+  it("daily and learning-path modes assemble genuinely different sessions", () => {
+    const opts = (mode) => ({
+      content, settings: { grade: 5, mode }, srsMap: {}, rng: rng.create("mode-diff"), now: 0,
+    });
+    const daily = session.build(opts("daily"));
+    const path = session.build(opts("path"));
+    const sig = (s) => s.map((x) => session.qSig(x.q));
+    expect(sig(daily)).not.toEqual(sig(path));
+    // Path leads harder with the current grade, so it carries strictly more
+    // current-grade questions than the daily mix from the same seed and state.
+    const atGrade = (s) => s.filter((x) => x.topic.grade === 5).length;
+    expect(atGrade(path)).toBeGreaterThan(atGrade(daily));
+  });
+
+  it("learning-path mode walks the current grade in curriculum order, daily by urgency", () => {
+    // Two current-grade topics seen with differing strength: daily should lead
+    // with the weaker one (SRS urgency), path should keep syllabus order.
+    const current = session.gradeTopics(content, 5).filter((t) => t.grade === 5);
+    expect(current.length).toBeGreaterThanOrEqual(2);
+    const first = current[0].id, second = current[1].id;
+    const now = 100 * srs.DAY;
+    const srsMap = {};
+    // The syllabus-later topic is the weaker/more-overdue one.
+    srsMap[first] = Object.assign(srs.defaultCard(), { seen: 6, correct: 5, box: 4, dueAt: now });
+    srsMap[second] = Object.assign(srs.defaultCard(), { seen: 6, correct: 1, box: 1, dueAt: now - 5 * srs.DAY });
+    const dailyOrder = session.orderPool(current, srsMap, now, 5, "daily").map((t) => t.id);
+    const pathOrder = session.progressionOrder(current, srsMap).map((t) => t.id);
+    expect(dailyOrder.indexOf(second)).toBeLessThan(dailyOrder.indexOf(first)); // weaker first
+    expect(pathOrder.indexOf(first)).toBeLessThan(pathOrder.indexOf(second)); // syllabus order
+  });
+
   it("a higher-grade session interleaves lower-grade diagnostic questions", () => {
     for (const mode of ["daily", "path"]) {
       const s = session.build({
@@ -165,6 +196,32 @@ describe("session - domain recipes", () => {
     const a = session.build(opts()).map((x) => session.qSig(x.q));
     const b = session.build(opts()).map((x) => session.qSig(x.q));
     expect(a).toEqual(b);
+  });
+
+  it("fills the Aural quota due-first, honouring the schedule over raw weakness", () => {
+    // Every aural topic in the eligible range is seen and not yet due except one
+    // deliberately-due topic, so due-ness (not box weakness) must pick it. The
+    // due topic is made stronger by box than a not-due decoy, so plain priority
+    // ordering (which would rank the weaker decoy first) can't produce it.
+    const now = 20 * srs.DAY;
+    const eligible = session.auralTopics(content).filter((t) => t.grade > 0 && t.grade <= 4);
+    expect(eligible.length).toBeGreaterThanOrEqual(2);
+    const srsMap = {};
+    eligible.forEach((t) => {
+      srsMap[t.id] = Object.assign(srs.defaultCard(), { seen: 5, correct: 4, box: 3, dueAt: now + 3 * srs.DAY });
+    });
+    const g4 = eligible.filter((t) => t.grade === 4);
+    expect(g4.length).toBeGreaterThanOrEqual(2);
+    const decoyNotDue = g4[0].id, dueTopic = g4[1].id;
+    srsMap[decoyNotDue] = Object.assign(srs.defaultCard(), { seen: 6, correct: 1, box: 1, dueAt: now + srs.DAY });
+    srsMap[dueTopic] = Object.assign(srs.defaultCard(), { seen: 8, correct: 7, box: 4, dueAt: now - srs.DAY });
+    const s = session.build({
+      content, settings: { grade: 4, mode: "daily" }, srsMap, rng: rng.create("aural-due"), now,
+      length: 1, recipe: { Aural: 1 },
+    });
+    expect(s.length).toBe(1);
+    expect(s[0].topic.domain).toBe("Aural");
+    expect(s[0].topic.id).toBe(dueTopic);
   });
 });
 
