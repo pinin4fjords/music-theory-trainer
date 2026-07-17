@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 const { content, session, validate, rng } = globalThis.MTT;
+const music = globalThis.MTT.music;
 
 const topics = session.quizableTopics(content);
 
@@ -223,6 +224,158 @@ describe("content generators - property/smoke tests", () => {
     expect(modesSeen.has("major")).toBe(true);
     expect(modesSeen.has("minor")).toBe(true);
     expect(sawFive).toBe(true);
+  });
+
+  it("g5-chords cadence-harmony: the answer harmonises both melody notes, every distractor fails", () => {
+    const topic = topics.find((t) => t.id === "g5-chords");
+    const romanToDegree = { I: 1, ii: 2, IV: 4, V: 5 };
+    const pcOfNote = (name) => music.spelledToMidi(music.parseSpelled(name)) % 12;
+    const triadPcs = (key, degree) =>
+      music.triad(key, "major", degree, 0).map((n) => music.spelledToMidi(n) % 12);
+    const chordHasNote = (key, roman, pc) => triadPcs(key, romanToDegree[roman]).includes(pc);
+    const r = rng.create("g5-cadence-harmony");
+    let sawCadenceHarmony = false;
+    for (let i = 0; i < 400; i++) {
+      const q = topic.questions(r);
+      if (!/best harmonises the cadence/.test(q.prompt)) continue;
+      sawCadenceHarmony = true;
+      const key = q.prompt.match(/<b>([A-G][#b]?) major<\/b>/)[1];
+      const [m1, m2] = q.a11yText.match(/major: ([A-G][#b]?) then ([A-G][#b]?)\./).slice(1);
+      const pc1 = pcOfNote(m1);
+      const pc2 = pcOfNote(m2);
+      const consistent = q.choices.filter((choice) => {
+        const [c1, c2] = choice.split(" - ");
+        return chordHasNote(key, c1, pc1) && chordHasNote(key, c2, pc2);
+      });
+      expect(consistent).toEqual([q.answer]);
+    }
+    expect(sawCadenceHarmony).toBe(true);
+  });
+
+  it("g5-ornaments: every answer is a multi-note ornament, and all four appear", () => {
+    const topic = content.grades.find((g) => g.grade === 5).topics.find((t) => t.id === "g5-ornaments");
+    expect(topic).toBeTruthy();
+    const realised = new Set(["trill", "upper mordent", "lower mordent", "turn"]);
+    const seen = new Set();
+    const r = rng.create("g5-ornaments");
+    for (let i = 0; i < 80; i++) {
+      const q = topic.questions(r);
+      expect(q.prompt).toContain("written out in full");
+      expect(realised.has(q.answer)).toBe(true);
+      seen.add(q.answer);
+    }
+    expect(seen).toEqual(realised);
+  });
+
+  it("g6-chords: supertonic 7th is only ever root position (7) or first inversion (6/5)", () => {
+    const topic = topics.find((t) => t.id === "g6-chords");
+    const allowed = new Set(["ii7 (root position)", "ii7b (first inversion)", "7", "6/5"]);
+    const r = rng.create("g6-supertonic");
+    let sawSupertonic = false;
+    let sawDominant = false;
+    for (let i = 0; i < 300; i++) {
+      const q = topic.questions(r);
+      if (/supertonic 7th/.test(q.prompt)) {
+        sawSupertonic = true;
+        expect(allowed.has(q.answer), `unexpected ii7 answer: ${q.answer}`).toBe(true);
+        expect(q.prompt).not.toMatch(/second inversion|third inversion/);
+      } else if (/dominant 7th/.test(q.prompt)) {
+        sawDominant = true;
+      }
+    }
+    expect(sawSupertonic).toBe(true);
+    expect(sawDominant).toBe(true);
+  });
+
+  it("g6-modulation: the tell-tale accidental and pivot function match the target key", () => {
+    const topic = content.grades.find((g) => g.grade === 6).topics.find((t) => t.id === "g6-modulation");
+    expect(topic).toBeTruthy();
+    const r = rng.create("g6-modulation");
+    let sawAccidental = false;
+    let sawPivot = false;
+    for (let i = 0; i < 400; i++) {
+      const q = topic.questions(r);
+      const home = q.prompt.match(/in <b>([A-G][#b]?) major<\/b>|from <b>([A-G][#b]?) major<\/b>/);
+      if (/introduces the note <b>/.test(q.prompt)) {
+        sawAccidental = true;
+        const key = home[1];
+        const sc = music.scale(key, "major");
+        const dom = music.spelledName(sc[4]) + " major";
+        const sub = music.spelledName(sc[3]) + " major";
+        const rel = music.relativeMinorOf(key) + " minor";
+        const acc = q.prompt.match(/introduces the note <b>([^<]+)<\/b>/)[1];
+        const shift = (n, by) => music.spelledName(music.spelled(n.letter, n.accidental + by, n.octave));
+        const expected =
+          q.answer === dom ? shift(sc[3], +1) :
+          q.answer === sub ? shift(sc[6], -1) :
+          q.answer === rel ? shift(sc[4], +1) : null;
+        expect(q.answer === dom || q.answer === sub || q.answer === rel).toBe(true);
+        expect(acc).toBe(expected);
+      } else if (/as the pivot/.test(q.prompt)) {
+        sawPivot = true;
+        const key = home[2];
+        const sc = music.scale(key, "major");
+        const dom = music.spelledName(sc[4]) + " major";
+        const sub = music.spelledName(sc[3]) + " major";
+        const rel = music.relativeMinorOf(key) + " minor";
+        const target = q.prompt.match(/to <b>([^<]+)<\/b> \(/)[1];
+        const expected =
+          target === dom ? "IV (subdominant)" :
+          target === sub ? "V (dominant)" :
+          target === rel ? "III (mediant)" : null;
+        expect(q.answer).toBe(expected);
+      }
+    }
+    expect(sawAccidental).toBe(true);
+    expect(sawPivot).toBe(true);
+  });
+
+  it("g7-secondary-sevenths: qualities match first-principles, and V7 is never the answer", () => {
+    const topic = content.grades.find((g) => g.grade === 7).topics.find((t) => t.id === "g7-secondary-sevenths");
+    expect(topic).toBeTruthy();
+    const degreeOf = { tonic: 1, supertonic: 2, mediant: 3, subdominant: 4, dominant: 5, submediant: 6, "leading note": 7 };
+    const seventhQuality = (degree) => {
+      const sc = music.scale("C", "major");
+      const at = (k) => ({ letter: sc[k % 7].letter, accidental: sc[k % 7].accidental, octave: sc[k % 7].octave + Math.floor(k / 7) });
+      const idx = degree - 1;
+      const t = music.interval(at(idx), at(idx + 2)).quality;
+      const f = music.interval(at(idx), at(idx + 4)).quality;
+      const s = music.interval(at(idx), at(idx + 6)).quality;
+      if (t === "major" && f === "perfect" && s === "major") return "major 7th";
+      if (t === "major" && f === "perfect" && s === "minor") return "dominant 7th";
+      if (t === "minor" && f === "perfect" && s === "minor") return "minor 7th";
+      if (t === "minor" && f === "diminished" && s === "minor") return "half-diminished 7th";
+      return "?";
+    };
+    const r = rng.create("g7-secondary");
+    let sawQuality = false;
+    let sawLabel = false;
+    for (let i = 0; i < 300; i++) {
+      const q = topic.questions(r);
+      const qm = q.prompt.match(/on the <b>([a-z ]+)<\/b> \(<b>/);
+      if (qm) {
+        sawQuality = true;
+        expect(q.answer).toBe(seventhQuality(degreeOf[qm[1]]));
+      }
+      if (/name this diatonic 7th chord by Roman numeral/.test(q.prompt)) {
+        sawLabel = true;
+        expect(q.answer).not.toBe("V7");
+      }
+    }
+    expect(sawQuality).toBe(true);
+    expect(sawLabel).toBe(true);
+  });
+
+  it("g7-figured-bass: suspension figures 4-3, 7-6 and 9-8 are all asked", () => {
+    const topic = topics.find((t) => t.id === "g7-figured-bass");
+    const r = rng.create("g7-suspensions");
+    const figuresSeen = new Set();
+    const suspFigures = ["4-3", "7-6", "9-8"];
+    for (let i = 0; i < 300; i++) {
+      const q = topic.questions(r);
+      if (/suspension/.test(q.prompt) && suspFigures.includes(q.answer)) figuresSeen.add(q.answer);
+    }
+    for (const fig of suspFigures) expect(figuresSeen.has(fig), `never saw ${fig} as answer`).toBe(true);
   });
 
   it("interval-quality topics always carry diagnostic meta", () => {

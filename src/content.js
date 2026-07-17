@@ -574,12 +574,12 @@
   }
 
   const ORNAMENTS = [
-    { name: "trill", desc: "a rapid alternation between the written note and the note above", ety: "from Italian <i>trillo</i>, a warble", play: ["C5", "D5", "C5", "D5", "C5", "D5", "C5"] },
-    { name: "upper mordent", desc: "a single quick alternation with the note above, then back", ety: "from Italian <i>mordere</i>, to bite - it 'bites' at the note", play: ["C5", "D5", "C5"] },
-    { name: "lower mordent", desc: "a single quick alternation with the note below, then back", ety: "from Italian <i>mordere</i>, to bite", play: ["C5", "B4", "C5"] },
-    { name: "turn", desc: "the note above, the written note, the note below, then the note again", ety: "also called by its Italian name <i>gruppetto</i>, a 'little group'", play: ["D5", "C5", "B4", "C5"] },
-    { name: "acciaccatura", desc: "a very quick 'crushed' grace note just before the main note", ety: "from Italian <i>acciaccare</i>, to crush", play: ["B4", "C5"] },
-    { name: "appoggiatura", desc: "a leaning grace note that takes part of the main note's value", ety: "from Italian <i>appoggiare</i>, to lean", play: ["D5", "C5"] },
+    { name: "trill", desc: "a rapid alternation between the written note and the note above", ety: "from Italian <i>trillo</i>, a warble", sign: "<b>tr</b> (often with a wavy line) above the note", play: ["C5", "D5", "C5", "D5", "C5", "D5", "C5"] },
+    { name: "upper mordent", desc: "a single quick alternation with the note above, then back", ety: "from Italian <i>mordere</i>, to bite - it 'bites' at the note", sign: "a short unbroken zigzag above the note", play: ["C5", "D5", "C5"] },
+    { name: "lower mordent", desc: "a single quick alternation with the note below, then back", ety: "from Italian <i>mordere</i>, to bite", sign: "a short zigzag with a vertical stroke through it", play: ["C5", "B4", "C5"] },
+    { name: "turn", desc: "the note above, the written note, the note below, then the note again", ety: "also called by its Italian name <i>gruppetto</i>, a 'little group'", sign: "a sideways S above or after the note", play: ["D5", "C5", "B4", "C5"] },
+    { name: "acciaccatura", desc: "a very quick 'crushed' grace note just before the main note", ety: "from Italian <i>acciaccare</i>, to crush", sign: "a small grace note with a stroke through its stem", play: ["B4", "C5"] },
+    { name: "appoggiatura", desc: "a leaning grace note that takes part of the main note's value", ety: "from Italian <i>appoggiare</i>, to lean", sign: "a small grace note (no stroke) before the main note", play: ["D5", "C5"] },
   ];
   function ornamentQuestion(rng) {
     const o = pick(rng, ORNAMENTS);
@@ -601,6 +601,31 @@
       answer: o.desc,
       explanation: `A <b>${o.name}</b> is ${o.desc}.${ety} ${ornHist}`,
       audio: playIt,
+    };
+  }
+
+  // Read a note-name string that carries its own octave (e.g. "C5", "B4").
+  function parsePlayed(name) {
+    const m = /^([A-G][#b]?)(\d)$/.exec(name);
+    return M.parseSpelled(m[1], Number(m[2]));
+  }
+
+  // Grade 5: recognising a written-out ornament and naming the sign it replaces.
+  // Restricted to the multi-note ornaments, whose realisations are distinctive on
+  // the staff; the grace-note signs (acciaccatura/appoggiatura) are told apart by
+  // how the small note is written, not by a multi-note realisation.
+  const REALISED_ORNAMENTS = ORNAMENTS.filter((o) => o.play.length >= 3);
+  function ornamentSignQuestion(rng) {
+    const o = pick(rng, REALISED_ORNAMENTS);
+    const notes = o.play.map(parsePlayed);
+    const spec = { clef: "treble", notes };
+    return {
+      prompt: `This ornament is written out in full below. Which ornament sign does it stand for?` + staffBlock(spec),
+      a11yText: a11y(`A written-out ornament played as ${o.play.join(", ")}. Name the ornament sign it replaces.`, spec),
+      choices: choices(rng, o.name, ORNAMENTS.map((x) => x.name)),
+      answer: o.name,
+      explanation: `Written out, that run of notes is a <b>${o.name}</b>: ${o.desc}. A composer marks it with ${o.sign} rather than notating every note.`,
+      audio: () => audio().sequence(o.play, 0.13, 0.16),
     };
   }
 
@@ -762,6 +787,38 @@
       choices: choices(rng, c.name, CADENCES.map((x) => x.name)),
       answer: c.name,
       explanation: `${r1} - ${r2} is a <b>${c.name} cadence</b>: ${c.why}. ${c.nameNote}`,
+      audio: () => { audio().chord(chord1); setTimeout(() => audio().chord(chord2), 950); },
+    };
+  }
+
+  // Choosing suitable chords to harmonise a melodic cadence (C, G, D, F major).
+  // The two melody notes shown are chord tones of the answering chords; each
+  // distractor pair has at least one chord that does NOT contain its melody note,
+  // so it cannot harmonise the melody. Degrees below are scale degrees; the triad
+  // pitch classes are I{1,3,5}, ii{2,4,6}, IV{4,6,1}, V{5,7,2}.
+  const CADENCE_HARMONY = [
+    { name: "perfect", chords: [5, 1], mel: [7, 1], fails: [[4, 1], [2, 5], [4, 5]] },
+    { name: "plagal", chords: [4, 1], mel: [6, 3], fails: [[5, 1], [2, 5], [5, 4]] },
+    { name: "imperfect", chords: [1, 5], mel: [3, 7], fails: [[4, 5], [2, 1], [4, 1]] },
+  ];
+  const CADENCE_HARMONY_KEYS = ["C", "G", "D", "F"];
+  const ROMAN_HARMONY = { 1: "I", 2: "ii", 4: "IV", 5: "V" };
+  function cadenceHarmonyQuestion(rng) {
+    const key = pick(rng, CADENCE_HARMONY_KEYS);
+    const c = pick(rng, CADENCE_HARMONY);
+    const sc = M.scale(key, "major");
+    const mel = c.mel.map((deg) => sc[deg - 1]);
+    const label = (pair) => pair.map((d) => ROMAN_HARMONY[d]).join(" - ");
+    const correct = label(c.chords);
+    const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: mel };
+    const chord1 = M.triad(key, "major", c.chords[0], 0);
+    const chord2 = M.triad(key, "major", c.chords[1], 0);
+    return {
+      prompt: `These are the last two notes of a melody in <b>${key} major</b>. Which pair of chords best harmonises the cadence?` + staffBlock(spec),
+      a11yText: a11y(`The last two melody notes of a phrase in ${key} major: ${M.spelledName(mel[0], { unicode: false })} then ${M.spelledName(mel[1], { unicode: false })}. Choose the chord pair that harmonises the cadence.`, spec),
+      choices: choices(rng, correct, c.fails.map(label)),
+      answer: correct,
+      explanation: `The melody ends ${M.spelledName(mel[0])}-${M.spelledName(mel[1])}. Only <b>${correct}</b> harmonises both notes and forms a ${c.name} cadence, because each chord contains the melody note above it. The other pairs fail: at least one of their chords does not contain its melody note.`,
       audio: () => { audio().chord(chord1); setTimeout(() => audio().chord(chord2), 950); },
     };
   }
@@ -1047,6 +1104,114 @@
     };
   }
 
+  // Diatonic 7th chord on a scale degree, as four ascending spelled notes, with
+  // the same inversion handling as M.triad.
+  function diatonicSeventh(key, mode, degree, inversion = 0) {
+    const sc = M.scale(key, mode === "minor" ? "harmonicMinor" : "major");
+    const at = (k) => {
+      const n = sc[k % 7];
+      return M.spelled(n.letter, n.accidental, n.octave + Math.floor(k / 7));
+    };
+    const idx = degree - 1;
+    const notes = [at(idx), at(idx + 2), at(idx + 4), at(idx + 6)];
+    for (let i = 0; i < inversion; i++) {
+      const low = notes.shift();
+      notes.push(M.spelled(low.letter, low.accidental, low.octave + 1));
+    }
+    return notes;
+  }
+
+  // Supertonic 7th (ii7): Grade 6 covers root position (figure 7) and first
+  // inversion (figure 6/5) only.
+  function supertonic7thQuestion(rng) {
+    const key = pick(rng, ["C", "G", "D", "F", "Bb"]);
+    const inv = pick(rng, [0, 1]);
+    const figures = ["7", "6/5"];
+    const labels = ["ii7 (root position)", "ii7b (first inversion)"];
+    const positionPool = ["ii7 (root position)", "ii7b (first inversion)", "ii7c (second inversion)", "ii7d (third inversion)"];
+    const figurePool = ["7", "6/5", "4/3", "4/2"];
+    const notes = diatonicSeventh(key, "major", 2, inv);
+    const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: [notes] };
+    const bass = M.spelledName(notes[0]);
+    if (rng.bool()) {
+      return {
+        prompt: `In <b>${key} major</b>, this supertonic 7th chord (ii7) is figured <b>${figures[inv]}</b>. Which position is it?` + staffBlock(spec),
+        a11yText: a11y(`In ${key} major, a supertonic 7th chord figured ${figures[inv]}.`, spec),
+        choices: choices(rng, labels[inv], positionPool),
+        answer: labels[inv],
+        explanation: `The figure <b>${figures[inv]}</b> on a supertonic 7th means <b>${labels[inv]}</b>, with <b>${bass}</b> in the bass. ii7 adds a minor 7th above the supertonic triad and usually leads to V; at Grade 6 it is met in root position (7) and first inversion (6/5).`,
+        audio: () => audio().chord(notes),
+      };
+    }
+    return {
+      prompt: `In <b>${key} major</b>, what is the figured bass of this supertonic 7th (<b>${labels[inv]}</b>)?` + staffBlock(spec),
+      a11yText: a11y(`In ${key} major, name the figured bass of a supertonic 7th in ${inv === 0 ? "root position" : "first inversion"}.`, spec),
+      choices: choices(rng, figures[inv], figurePool),
+      answer: figures[inv],
+      explanation: `A ${labels[inv]} is figured <b>${figures[inv]}</b>: the figures count the intervals above the bass note <b>${bass}</b>. ii7 most often precedes V.`,
+      audio: () => audio().chord(notes),
+    };
+  }
+
+  // Principles of modulation: reading a move to a closely related key from its
+  // tell-tale new accidental, naming the closely related keys, and reading a
+  // pivot chord's function in the new key.
+  const MOD_KEYS = ["C", "G", "D", "F", "Bb"];
+  function modulationQuestion(rng) {
+    const home = pick(rng, MOD_KEYS);
+    const sc = M.scale(home, "major");
+    const dom = M.spelledName(sc[4]);
+    const sub = M.spelledName(sc[3]);
+    const rel = M.relativeMinorOf(home);
+    const shift = (n, by) => M.spelledName(M.spelled(n.letter, n.accidental + by, n.octave));
+    const toDom = shift(sc[3], +1);   // raised 4th: leading note of the dominant
+    const toSub = shift(sc[6], -1);   // flattened 7th: signals the subdominant
+    const toRel = shift(sc[4], +1);   // raised 5th: leading note of the relative minor
+    const form = rng.int(0, 2);
+    if (form === 0) {
+      const targets = [
+        { accidental: toDom, key: `${dom} major`, rel: "the dominant" },
+        { accidental: toSub, key: `${sub} major`, rel: "the subdominant" },
+        { accidental: toRel, key: `${rel} minor`, rel: "the relative minor" },
+      ];
+      const t = pick(rng, targets);
+      return {
+        prompt: `A piece in <b>${home} major</b> introduces the note <b>${t.accidental}</b>, not in its key signature. To which closely related key has it most likely modulated?`,
+        choices: choices(rng, t.key, [`${dom} major`, `${sub} major`, `${rel} minor`, `${home} major`]),
+        answer: t.key,
+        explanation: `A new <b>${t.accidental}</b> is the tell-tale of a move to <b>${t.rel}</b> (${t.key}). Modulating to the dominant raises the 4th degree (a new leading note); to the subdominant flattens the 7th; to the relative minor raises the 5th (its leading note).`,
+      };
+    }
+    if (form === 1) {
+      const rels = [
+        { q: "dominant", key: `${dom} major` },
+        { q: "subdominant", key: `${sub} major` },
+        { q: "relative minor", key: `${rel} minor` },
+      ];
+      const r = pick(rng, rels);
+      const pool = [`${dom} major`, `${sub} major`, `${rel} minor`, `${home} major`, `${M.relativeMinorOf(dom)} minor`];
+      return {
+        prompt: `Which key is the <b>${r.q}</b> of <b>${home} major</b>?`,
+        choices: choices(rng, r.key, pool),
+        answer: r.key,
+        explanation: `The ${r.q} of ${home} major is <b>${r.key}</b>. The dominant lies a 5th above the tonic, the subdominant a 4th above, and the relative minor a minor 3rd below - the three most closely related keys.`,
+      };
+    }
+    const pivots = [
+      { target: `${dom} major`, func: "IV (subdominant)", rel: "the dominant" },
+      { target: `${sub} major`, func: "V (dominant)", rel: "the subdominant" },
+      { target: `${rel} minor`, func: "III (mediant)", rel: "the relative minor" },
+    ];
+    const p = pick(rng, pivots);
+    const funcPool = ["IV (subdominant)", "V (dominant)", "III (mediant)", "I (tonic)", "ii (supertonic)", "vi (submediant)"];
+    return {
+      prompt: `A piece modulates from <b>${home} major</b> to <b>${p.target}</b> (${p.rel}), using the <b>${home} major</b> chord as the pivot. What is that chord in the new key?`,
+      choices: choices(rng, p.func, funcPool),
+      answer: p.func,
+      explanation: `${home} major is I in ${home} major, but in ${p.target} the same chord functions as <b>${p.func}</b>. A pivot chord belongs to both keys, so the music can slip from one to the other without a jolt.`,
+    };
+  }
+
   // Non-chord (melodic decoration) notes.
   const NON_CHORD = [
     { name: "passing note", desc: "fills the gap between two different chord notes by step", why: "it bridges a leap smoothly, so the line walks rather than jumps - and being unaccented, the ear hears it as melodic motion, not a clash" },
@@ -1067,6 +1232,82 @@
   }
 
   // === Grade 7-8 drillable identification ================================
+
+  // Suspensions figured by held-interval and its downward step of resolution.
+  const SUSPENSIONS = [
+    { fig: "4-3", desc: "a 4th above the bass, held over then resolving down by step to the 3rd" },
+    { fig: "7-6", desc: "a 7th above the bass, held over then resolving down by step to the 6th" },
+    { fig: "9-8", desc: "a 9th above the bass, held over then resolving down by step to the octave" },
+  ];
+  const NOT_SUSPENSIONS = [
+    "a note of the following chord sounded early, before the bass changes",
+    "a note filling the gap between two chord notes by step",
+  ];
+  function suspensionQuestion(rng) {
+    const s = pick(rng, SUSPENSIONS);
+    const suspHist = " A suspension has three stages: preparation (the note is consonant), suspension (it is held as the harmony changes beneath it, turning dissonant) and resolution (it falls a step to a consonance). The two figures give the held interval above the bass and its resolution.";
+    if (rng.bool()) {
+      return {
+        prompt: `In figured bass, what does the suspension figure <b>${s.fig}</b> indicate?`,
+        choices: choices(rng, s.desc, SUSPENSIONS.map((x) => x.desc).concat(NOT_SUSPENSIONS)),
+        answer: s.desc,
+        explanation: `<b>${s.fig}</b> means ${s.desc}.${suspHist}`,
+      };
+    }
+    return {
+      prompt: `Which figured-bass suspension is <b>${s.desc}</b>?`,
+      choices: choices(rng, s.fig, SUSPENSIONS.map((x) => x.fig).concat(["5-4", "8-7", "6-5"])),
+      answer: s.fig,
+      explanation: `That is the <b>${s.fig}</b> suspension.${suspHist}`,
+    };
+  }
+
+  // Diatonic 7th chords of a major key. The secondary 7ths are all of these
+  // except the dominant 7th (V7).
+  const DIATONIC_SEVENTHS = [
+    { degree: 1, label: "Imaj7", degName: "tonic", quality: "major 7th", make: "a major triad with a major 7th" },
+    { degree: 2, label: "ii7", degName: "supertonic", quality: "minor 7th", make: "a minor triad with a minor 7th" },
+    { degree: 3, label: "iii7", degName: "mediant", quality: "minor 7th", make: "a minor triad with a minor 7th" },
+    { degree: 4, label: "IVmaj7", degName: "subdominant", quality: "major 7th", make: "a major triad with a major 7th" },
+    { degree: 5, label: "V7", degName: "dominant", quality: "dominant 7th", make: "a major triad with a minor 7th" },
+    { degree: 6, label: "vi7", degName: "submediant", quality: "minor 7th", make: "a minor triad with a minor 7th" },
+    { degree: 7, label: "viiø7", degName: "leading note", quality: "half-diminished 7th", make: "a diminished triad with a minor 7th" },
+  ];
+  const SECONDARY_SEVENTHS = DIATONIC_SEVENTHS.filter((d) => d.degree !== 5);
+  function secondarySeventhQuestion(rng) {
+    const key = pick(rng, ["C", "G", "D", "F", "Bb"]);
+    const d = pick(rng, SECONDARY_SEVENTHS);
+    const form = rng.int(0, 2);
+    if (form === 0) {
+      const notes = diatonicSeventh(key, "major", d.degree, 0);
+      const spec = { clef: "treble", keySignature: M.keySignature(key, "major"), notes: [notes] };
+      return {
+        prompt: `In <b>${key} major</b>, name this diatonic 7th chord by Roman numeral.` + staffBlock(spec),
+        a11yText: a11y(`In ${key} major, name this root-position diatonic 7th chord by Roman numeral.`, spec),
+        choices: choices(rng, d.label, DIATONIC_SEVENTHS.map((x) => x.label)),
+        answer: d.label,
+        explanation: `Built on degree ${d.degree} (the ${d.degName}), this is <b>${d.label}</b> - ${d.make}.`,
+        audio: () => audio().chord(notes),
+      };
+    }
+    if (form === 1) {
+      return {
+        prompt: `In a major key, what is the quality of the diatonic 7th chord on the <b>${d.degName}</b> (<b>${d.label}</b>)?`,
+        choices: choices(rng, d.quality, DIATONIC_SEVENTHS.map((x) => x.quality)),
+        answer: d.quality,
+        explanation: `<b>${d.label}</b> is ${d.make}, so it is a <b>${d.quality}</b> chord.`,
+      };
+    }
+    const inv = pick(rng, [1, 2, 3]);
+    const figures = ["7", "6/5", "4/3", "4/2"];
+    const invNames = ["root position", "first inversion", "second inversion", "third inversion"];
+    return {
+      prompt: `The diatonic 7th chord <b>${d.label}</b> appears in <b>${invNames[inv]}</b>. What is its figured bass?`,
+      choices: choices(rng, figures[inv], figures),
+      answer: figures[inv],
+      explanation: `Any 7th chord in ${invNames[inv]} is figured <b>${figures[inv]}</b>; the figures count intervals above the bass, whatever degree the 7th is built on.`,
+    };
+  }
 
   const CHROMATIC_CHORDS = [
     { name: "diminished 7th", desc: "four notes stacked in minor 3rds, often built on the leading note (vii°7), very tense", why: "stacking equal minor 3rds makes it symmetrical - it divides the octave into four equal parts, so it has no clear root and the same four notes can resolve to several different keys, which is exactly why composers use it to pivot between distant keys" },
@@ -1338,7 +1579,16 @@
           id: "g5-chords", title: "Chords & cadences",
           why: "Naming chords by Roman numeral and inversion, and hearing the cadences at phrase-ends, is the gateway to all the harmony in Grades 6-8.",
           what: "<p>Identify the triads on <b>I, ii, IV and V</b> in root position and first/second inversion. Recognise the four cadences: <b>perfect</b> (V-I), <b>plagal</b> (IV-I), <b>imperfect</b> (ending on V) and <b>interrupted</b> (V-vi).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why these names?</b> 'Perfect' (V-I) is the most conclusive landing - both chords root-position, ending on the 'perfect' stability of the tonic. 'Plagal' (IV-I) comes from Greek <i>plagios</i> (oblique); it was the 'Amen' cadence of church music, approaching home from the subdominant below rather than the dominant above - quieter and less forceful. 'Interrupted' (V-vi) tricks the ear: the dominant sets up an expected resolution to I, then goes somewhere else instead.</p>",
-          questions: (rng) => (rng.bool(0.6) ? chordIdQuestion(rng) : cadenceQuestion(rng)),
+          questions: (rng) => {
+            const r = rng.next();
+            return r < 0.45 ? chordIdQuestion(rng) : r < 0.75 ? cadenceQuestion(rng) : cadenceHarmonyQuestion(rng);
+          },
+        },
+        {
+          id: "g5-ornaments", title: "Ornament signs", domain: "History",
+          why: "A single squiggle can stand for a whole flurry of notes. Recognising an ornament from its written-out realisation - and knowing the sign it replaces - lets you read at a glance what a composer wants decorated.",
+          what: "<p>The common signs and their realisations: the <b>trill</b> (a long alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), and the <b>turn</b> (above, main note, below, main note). Grade 5 asks you to recognise the written-out version and name the sign it stands for.</p>",
+          questions: (rng) => ornamentSignQuestion(rng),
         },
         {
           id: "g5-clefs", title: "The four clefs", domain: "History",
@@ -1384,14 +1634,20 @@
         {
           id: "g6-chords", title: "Dominant & supertonic 7ths",
           why: "The dominant 7th (V7) is the engine of tonal harmony. In C major it is G-B-D-F: the tritone B-F wants to resolve inward by contrary motion (B rises a semitone to C, F falls a semitone to E), landing squarely on the tonic chord. No other interval has that built-in directional pull.",
-          what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four positions - root position plus three inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V.</p>",
-          questions: (rng) => dominant7thQuestion(rng),
+          what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four positions - root position plus three inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V; at Grade 6 it appears in root position (figure 7) and first inversion (figure 6/5).</p>",
+          questions: (rng) => (rng.bool() ? dominant7thQuestion(rng) : supertonic7thQuestion(rng)),
         },
         {
           id: "g6-non-chord", title: "Melodic decoration",
           why: "Not every note belongs to the chord beneath it. Naming passing notes, suspensions and the rest is how you analyse and write expressive melodic lines.",
           what: "<p>The non-chord notes: <b>passing</b> and <b>auxiliary</b> notes (stepwise), the <b>suspension</b> (held over and resolved down), the <b>appoggiatura</b> (leant on, by leap then step), the <b>anticipation</b> and the <b>changing note</b>.</p>",
           questions: (rng) => nonChordToneQuestion(rng),
+        },
+        {
+          id: "g6-modulation", title: "Principles of modulation",
+          why: "Modulation is how a piece changes key mid-flight. It turns on a pivot chord shared by both keys, and the ear catches it through a new accidental - typically the leading note of the key being moved to.",
+          what: "<p>Music most often modulates to <b>closely related keys</b>: the <b>dominant</b> (a 5th above), the <b>subdominant</b> (a 4th above) and the <b>relative minor</b>. A move to the dominant is signalled by a <b>raised 4th</b> (a new leading note); to the subdominant by a <b>flattened 7th</b>; to the relative minor by a <b>raised 5th</b>. A <b>pivot chord</b> belongs to both keys and eases the change - the same chord has a function in each key.</p>",
+          questions: (rng) => modulationQuestion(rng),
         },
         {
           id: "g6-harmony-write", title: "Harmonising a melody",
@@ -1412,10 +1668,16 @@
           questions: (rng) => chromaticChordQuestion(rng),
         },
         {
+          id: "g7-secondary-sevenths", title: "Secondary 7th chords",
+          why: "Beyond the dominant 7th, every degree of the scale carries its own diatonic 7th chord. Recognising these secondary 7ths - and telling a minor 7th from a major or half-diminished 7th - opens up the richer harmony of Grade 7.",
+          what: "<p>The diatonic 7ths of a major key: <b>Imaj7</b> and <b>IVmaj7</b> (major 7ths); <b>ii7, iii7, vi7</b> (minor 7ths); <b>V7</b> (dominant 7th); and <b>viiø7</b> (half-diminished). All but V7 are the <b>secondary 7ths</b>. Each has four positions, figured <b>7, 6/5, 4/3, 4/2</b> like any 7th chord.</p>",
+          questions: (rng) => secondarySeventhQuestion(rng),
+        },
+        {
           id: "g7-figured-bass", title: "Suspensions in figured bass",
           why: "Reading the figures for suspensions (4-3, 7-6, 9-8) lets you follow - and realise - the expressive clashes that drive Baroque and Classical part-writing.",
-          what: "<p>A suspension is figured by the dissonance resolving to the consonance: <b>4-3</b>, <b>7-6</b>, <b>9-8</b>. The first figure is the held, clashing note; the second is its stepwise resolution.</p>",
-          questions: (rng) => figuredBassQuestion(rng),
+          what: "<p>A suspension is figured by the dissonance resolving to the consonance: <b>4-3</b>, <b>7-6</b>, <b>9-8</b>. The first figure is the held, clashing note; the second is its stepwise resolution. The other c.1620-1790 bass figures give the inversions of triads and 7th chords.</p>",
+          questions: (rng) => (rng.bool() ? suspensionQuestion(rng) : figuredBassQuestion(rng)),
         },
         {
           id: "g7-composition", title: "Figured bass & melody writing",
@@ -1647,6 +1909,12 @@
     { id: "figured", group: "Chords & harmony", title: "Figured bass", type: "glossary",
       note: "Figured bass is Baroque shorthand. From roughly 1600 to 1750 a keyboard or lute player (the <i>continuo</i>) improvised the inner harmony live from just the bass line and these numbers; the composer wrote only melody and bass. Fully written-out accompaniments became standard only later.",
       items: FIGURED.map((f) => ({ term: f.fig, def: f.inv })) },
+    { id: "suspensions", group: "Chords & harmony", title: "Suspensions", type: "glossary",
+      note: "A suspension holds a note over from one chord into the next, where it clashes, then resolves down by step. The pair of figures names the held interval above the bass and its resolution.",
+      items: SUSPENSIONS.map((s) => ({ term: s.fig, def: cap(s.desc) })) },
+    { id: "diatonic7ths", group: "Chords & harmony", title: "Diatonic 7th chords", type: "glossary",
+      note: "Every degree of a major scale carries a 7th chord. All but the dominant 7th (V7) are the secondary 7ths.",
+      items: DIATONIC_SEVENTHS.map((d) => ({ term: `${d.label} (on the ${d.degName})`, def: cap(d.make) + `, a ${d.quality} chord` })) },
     { id: "chromatic", group: "Chords & harmony", title: "Chromatic chords", type: "glossary", items: CHROMATIC_CHORDS.concat(AUG_SIXTHS).map((c) => ({ term: c.name, def: c.desc + ". " + cap(c.why) + "." })) },
     // Rhythm & metre
     { id: "values", group: "Rhythm & metre", title: "Note values", type: "table",
