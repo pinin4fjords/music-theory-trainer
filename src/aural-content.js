@@ -53,11 +53,18 @@
   // Per-grade generator specs (see aural-generators.js). These encode the exam-board
   // constraints for each task so echo/memory/spot-change stimuli are generated
   // fresh each time instead of being drawn from a memorisable fixed bank.
+  // Grade 7/8 two-part sight-singing: the sung line begins and ends on the tonic,
+  // moves by step apart from the rising dominant-below-to-tonic 4th, and stays
+  // within an octave, in a major key up to 4 sharps or flats. generateCompanion
+  // supplies the second part; only which voice the learner sings differs between
+  // the two grades, so both share this spec.
+  const SIGHT_SING_78 = { keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } };
+
   const MELODY_SPECS = {
     g1Echo: { keys: ["C"], mode: "major", range: { above: 2, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: ["tonic", "mediant"], endsOn: "free" },
     g2Echo: { keys: ["C", "G", "F"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
     g3Echo: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
-    memory: { keys: ["C", "G", "D"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 3, rhythmPalette: [[1, 1, 1], [2, 1], [1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
+    memory: { keys: ["C", "G", "D", "A", "F", "Bb", "Eb"], minorKeys: ["A", "E", "B", "F#", "D", "G", "C"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 3, rhythmPalette: [[1, 1, 1], [2, 1], [1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g1Change: { keys: ["C"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
     g3Change: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 4, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
     // Sight-singing (exam-board 4B/5B/6B): begins and ends on the tonic, per the
@@ -66,6 +73,8 @@
     g4SightSing: { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g5SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
     g6SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    g7SightSing: SIGHT_SING_78,
+    g8SightSing: SIGHT_SING_78,
     // Initial Grade echo: a single-bar tonic-mediant phrase, the simplest possible.
     initEcho: { keys: ["C"], mode: "major", range: { above: 2, below: 0 }, bars: 1, beatsPerBar: 2, rhythmPalette: [[1, 1]], maxLeap: 2, startsOn: ["tonic", "mediant"], endsOn: "free" },
   };
@@ -784,26 +793,6 @@
   // Human-readable names for display in prompts.
   const MINOR_KEY_NAMES = { Am: "A minor", Em: "E minor", Dm: "D minor", Bm: "B minor" };
 
-  // Diatonic "3rd below" within an arbitrary major key. The sight-singing
-  // accompaniment must stay in the phrase's own key (a plain -3 semitones or a
-  // C-major lookup would sound out-of-key against G, D or B♭ major). Builds the
-  // major scale of `tonicMidi`'s key across octaves and steps two scale-degrees
-  // down from the given note.
-  function majorScaleMidis(tonicPc) {
-    const steps = [0, 2, 4, 5, 7, 9, 11];
-    const out = [];
-    for (let oct = 24; oct <= 96; oct += 12) {
-      steps.forEach((s) => { const m = oct + tonicPc + s; if (m >= 24 && m <= 96) out.push(m); });
-    }
-    return out.sort((a, b) => a - b);
-  }
-  function diatonicThirdBelow(midi, tonicMidi) {
-    const scale = majorScaleMidis(((tonicMidi % 12) + 12) % 12);
-    const idx = scale.indexOf(midi);
-    if (idx < 2) return midi - 3;
-    return scale[idx - 2];
-  }
-
   // Diatonic triads (root position) transposed to any of CHORD_KEYS by shifting
   // the C-major voicing wholesale — the voicing (spacing/register) stays fixed,
   // only the absolute pitch moves, which is all that matters for audio-only
@@ -1250,53 +1239,26 @@
     return pick(rng, pool)(rng);
   }
 
-  // Grade 7/8 sight-sing phrases: a two-part texture (the companion part comes
-  // from diatonicThirdBelow below), so these stay a hand-written bank rather
-  // than a single generated line - keys up to 4 sharps/flats.
-  const G7_SIGHT_PHRASES = [
-    { root: MIDI.C4, name: "C major", phrases: [
-      [MIDI.C4, MIDI.D4, 65, MIDI.E4, MIDI.D4, MIDI.C4],     // C D F E D C
-      [MIDI.G4, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.B3, MIDI.C4], // G E D C B C
-      [MIDI.C4, MIDI.E4, 65, MIDI.G4, MIDI.E4, MIDI.C4],      // C E F G E C
-      [MIDI.C4, MIDI.B3, MIDI.A3, MIDI.G3, MIDI.A3, MIDI.C4], // C B A G A C
-    ]},
-    { root: 65, name: "F major", phrases: [
-      [65, 67, MIDI.A4, 72, MIDI.A4, 65],                         // F G A C' A F
-      [65, MIDI.E4, MIDI.D4, MIDI.C4, MIDI.D4, 65],               // F E D C D F
-      [72, MIDI.A4, 67, 65, 67, MIDI.A4],                         // C' A G F G A
-    ]},
-    { root: MIDI.G4, name: "G major", phrases: [
-      [MIDI.G4, MIDI.A4, MIDI.B4, MIDI.D5, MIDI.B4, MIDI.G4],  // G A B D' B G
-      [MIDI.G4, 66, MIDI.E4, MIDI.D4, MIDI.E4, MIDI.G4],        // G F# E D E G
-    ]},
-    { root: 62, name: "D major", phrases: [
-      [62, 64, 66, 69, 66, 64, 62],   // D E F# A F# E D
-      [69, 66, 64, 62, 61, 62, 69],   // A F# E D C# D A (leading tone C#)
-      [62, 66, 69, 71, 69, 66, 62],   // D F# A B A F# D
-    ]},
-    { root: 70, name: "B♭ major", phrases: [
-      [70, 72, 74, 75, 74, 72, 70],   // Bb C D Eb D C Bb
-      [70, 74, 77, 79, 77, 74, 70],   // Bb D F G F D Bb
-      [77, 75, 74, 72, 70, 72, 77],   // F Eb D C Bb C F
-    ]},
-  ];
-
+  // Grade 7 sight-singing: the learner sings the generated upper line while the
+  // first-species companion below plays as the second part.
   function g7SightSingQuestion(rng) {
-    const keyDef = pick(rng, G7_SIGHT_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
-    const bass = phrase.map(function (m) { return diatonicThirdBelow(m, keyDef.root); });
-    const useFlats = keyUsesFlats(keyDef.name);
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g7SightSing);
+    const lower = auralGen().generateCompanion(rng, m, { direction: "below" });
+    const beatSec = 0.6;
+    const tonicDurSec = 1.2;
+    const accompDelayMs = tonicDurSec * 1000 + 100;
+    const useFlats = keyUsesFlats(m.key);
     return {
-      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.${sequenceStaff(phrase)}`,
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.${sequenceStaff(m.notes)}`,
       audio: function () {
         const a = audio();
-        a.note(keyDef.root, 1.0);
-        later(function () { a.sequence(bass, 0.6, 0.55); }, 1100);
+        a.note(m.tonicMidi, tonicDurSec);
+        later(function () { a.sequenceRhythm(lower, m.durations, beatSec); }, accompDelayMs);
       },
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(phrase, useFlats),
+        targets: makeSequenceTargets(m.notes, useFlats),
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
@@ -1351,24 +1313,29 @@
   function g8ModulationQuestion(rng) { return rng.bool() ? minorModulationQuestion(rng) : modulationQuestion(rng); }
   function g8EchoThreePartQuestion(rng) { return threePartEchoQuestion(rng); }
 
+  // Grade 8 sight-singing: same two-part generation as Grade 7, but the learner
+  // sings the lower (companion) line while the generated upper line plays above.
   function g8SightSingQuestion(rng) {
-    const keyDef = pick(rng, G7_SIGHT_PHRASES);
-    const phrase = pick(rng, keyDef.phrases);
-    // A line a 6th above each target note (an octave up, then a diatonic 3rd
-    // back down), kept in the phrase's own key.
-    const upper = phrase.map(function (m) { return diatonicThirdBelow(m + 12, keyDef.root); });
-    const useFlats = keyUsesFlats(keyDef.name);
+    const m = auralGen().generateMelody(rng, MELODY_SPECS.g8SightSing);
+    // The sung lower line is never sounded against the upper here (only the
+    // upper plays), so it is refit into the singing register for readable
+    // notation without affecting any harmonic interval.
+    const lower = auralGen().fitRegister(auralGen().generateCompanion(rng, m, { direction: "below" }));
+    const beatSec = 0.6;
+    const tonicDurSec = 1.2;
+    const accompDelayMs = tonicDurSec * 1000 + 100;
+    const useFlats = keyUsesFlats(m.key);
     return {
-      prompt: `Listen to the tonic of <b>${keyDef.name}</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(phrase)}`,
+      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(lower)}`,
       audio: function () {
         const a = audio();
-        a.note(keyDef.root, 1.0);
-        later(function () { a.sequence(upper, 0.6, 0.55); }, 1100);
+        a.note(m.tonicMidi, tonicDurSec);
+        later(function () { a.sequenceRhythm(m.notes, m.durations, beatSec); }, accompDelayMs);
       },
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(phrase, useFlats),
+        targets: makeSequenceTargets(lower, useFlats),
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
@@ -1651,9 +1618,9 @@
         },
         {
           id: "g2-aural-sing",
-          title: "Aural: echo singing (major & minor)",
-          why: "Grade 2 echo-singing (Test B) introduces minor-key phrases. The examiner plays three different phrases in turn; each spans up to the dominant (5th of the scale) and can be in major or minor.",
-          what: "<p>Listen for the <b>3rd note</b> — in minor phrases it will feel lower or darker than you might expect. Sing back on any syllable ('lah', 'dah') in any comfortable octave. Hold each note briefly before moving to the next.</p>",
+          title: "Aural: echo singing (to the dominant)",
+          why: "Grade 2 echo-singing (Test B) widens the phrases from Grade 1: the examiner plays three different phrases in turn, each in a major key and spanning up to the dominant (the 5th of the scale). Minor-key phrases wait until Grade 3.",
+          what: "<p>Phrases now reach up to the 5th, so listen for how high each one climbs above its starting note. Sing back on any syllable ('lah', 'dah') in any comfortable octave, holding each note briefly before moving to the next.</p>",
           questions: g2EchoMelodyQuestion,
           tags: ["aural"],
         },

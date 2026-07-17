@@ -13,7 +13,13 @@
  *
  * A `spec` looks like:
  *   {
- *     keys: ["C", "G", "F"],            // key names; one is chosen per call
+ *     keys: ["C", "G", "F"],            // major key centres; one is chosen per call
+ *     minorKeys: ["A", "E", "D"],       // optional; the key is drawn from here
+ *                                        // instead of `keys` whenever the mode
+ *                                        // resolves to minor, so a spec can offer
+ *                                        // different major and minor key centres
+ *                                        // (e.g. flat majors without their
+ *                                        // out-of-range parallel minors).
  *     mode: "major" | "minor" | "either",
  *     range: { above: 2, below: 0 },    // scale degrees relative to the tonic
  *     bars: 2, beatsPerBar: 4,
@@ -153,7 +159,8 @@
 
   function generateMelody(rng, spec) {
     const mode = spec.mode === "either" ? (rng.bool() ? "major" : "minor") : (spec.mode || "major");
-    const key = rng.pick(spec.keys);
+    const keyList = (mode === "minor" && spec.minorKeys) ? spec.minorKeys : spec.keys;
+    const key = rng.pick(keyList);
     const durations = chooseRhythm(rng, spec);
     const n = durations.length;
     const degrees = walkDegrees(rng, n, spec, mode);
@@ -272,6 +279,7 @@
     generateMelody: generateMelody,
     generateChange: generateChange,
     generateCompanion: generateCompanion,
+    fitRegister: fitRegister,
     scalePcSet: scalePcSet,
     CONSONANT_SEMIS: CONSONANT_SEMIS,
     degreeSemitone: degreeSemitone,
