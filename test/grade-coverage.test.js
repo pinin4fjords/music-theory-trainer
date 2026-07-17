@@ -77,23 +77,23 @@ const CURRICULUM_CHECKLIST = [
   { grade: 5, text: "All simple and compound intervals from any note", topicIds: ["g5-intervals"] },
   { grade: 5, text: "Root position (a), 1st inversion (b), 2nd inversion (c) of tonic, supertonic, subdominant, dominant chords", topicIds: ["g5-chords"] },
   { grade: 5, text: "Perfect, plagal and imperfect cadences in the major keys of C, G, D or F", topicIds: ["g5-chords"] },
-  { grade: 5, text: "Choice of suitable chords at cadential points of a simple melody (C, G, D or F major)", topicIds: [] },
-  { grade: 5, text: "Recognition of ornaments, incl. replacing written-out ornamentation with the correct sign", topicIds: [] },
+  { grade: 5, text: "Choice of suitable chords at cadential points of a simple melody (C, G, D or F major)", topicIds: ["g5-chords"] },
+  { grade: 5, text: "Recognition of ornaments, incl. replacing written-out ornamentation with the correct sign", topicIds: ["g5-ornaments"] },
   { grade: 5, text: "Types of voice, instrument names, clefs they use, family groups, how they produce sound", topicIds: ["g5-instruments"] },
   { grade: 5, text: "More terms and signs", topicIds: ["g5-terms"] },
 
   // --- Grade 6 (as preceding grades; harmonic vocabulary adds:) -----------
   { grade: 6, text: "5/3, 6/3, 6/4 chords on any degree of the major/minor scale, with figuring", topicIds: ["g6-figured-bass"] },
   { grade: 6, text: "Dominant 7th chord: root position + 1st/2nd/3rd inversion, any major or minor key, with figuring", topicIds: ["g6-chords"] },
-  { grade: 6, text: "Supertonic 7th chord: root position + 1st inversion, any major or minor key, with figuring", topicIds: [] },
-  { grade: 6, text: "Principles of modulation", topicIds: [] },
+  { grade: 6, text: "Supertonic 7th chord: root position + 1st inversion, any major or minor key, with figuring", topicIds: ["g6-chords"] },
+  { grade: 6, text: "Principles of modulation", topicIds: ["g6-modulation"] },
   { grade: 6, text: "Melodic decoration: passing notes, auxiliary notes, appoggiaturas, changing notes, anticipation", topicIds: ["g6-non-chord"] },
   { grade: 6, text: "Writing: chords in 4 parts above a given bass; suitable chords/figured bass for a melody; melody composition with modulation", topicIds: ["g6-harmony-write"] },
 
   // --- Grade 7 (as preceding grades, plus:) -------------------------------
-  { grade: 7, text: "Recognition of all diatonic secondary 7th chords and their inversions", topicIds: [] },
+  { grade: 7, text: "Recognition of all diatonic secondary 7th chords and their inversions", topicIds: ["g7-secondary-sevenths"] },
   { grade: 7, text: "The Neapolitan 6th and diminished 7th chords", topicIds: ["g7-chromatic"] },
-  { grade: 7, text: "Figuring suspensions (4-3, 7-6, 9-8) and other c.1620-1790 bass figures", topicIds: [] },
+  { grade: 7, text: "Figuring suspensions (4-3, 7-6, 9-8) and other c.1620-1790 bass figures", topicIds: ["g7-figured-bass"] },
   { grade: 7, text: "Writing: figuring inner-part movement over a given melody+bass; rewriting with suspensions/decoration; continuing a solo part or composing a melody", topicIds: ["g7-composition"] },
 
   // --- Grade 8 (as preceding grades; harmonic vocabulary adds:) -----------
