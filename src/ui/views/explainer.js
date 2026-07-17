@@ -700,7 +700,6 @@
           btns.appendChild(clearBtn);
           return;
         }
-        const toLabel = midiLabel(toMidi);
         const semis = Math.abs(toMidi - fromMidi);
         const loMidi = Math.min(fromMidi, toMidi), hiMidi = Math.max(fromMidi, toMidi);
         const loLabel = midiLabel(loMidi), hiLabel = midiLabel(hiMidi);
@@ -898,7 +897,7 @@
     const toY = (hz) => TOP + (1 - (Math.log2(hz) - logMin) / (logMax - logMin)) * HEIGHT;
     const r2 = (n) => Math.round(n * 10) / 10;
 
-    const X_AXIS = 52, X_TICK_END = 60, X_DOT = 60, X_NOTE = 44, X_BRACKET = 72, X_GAP_LABEL = 108, X_HZ = 170;
+    const X_AXIS = 52, X_TICK_END = 60, X_DOT = 60, X_NOTE = 44, X_BRACKET = 72, X_HZ = 170;
 
     let rows = "";
     partials.forEach(({ note, hz }, i) => {

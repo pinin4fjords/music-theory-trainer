@@ -346,3 +346,34 @@ describe("session - placement diagnostic (issue #51)", () => {
     expect(session.placementSuggestion([pass(1), fail(2), fail(3)])).toBe(1);
   });
 });
+
+describe("session - due aural folding (issue #48)", () => {
+  it("folds a spaced-repetition-due aural card into a daily session", () => {
+    const auralTopic = session.auralTopics(content).find((t) => t.grade === 1);
+    const now = 60 * 86400000; // well past any Leitner interval
+    const card = srs.update(undefined, { correct: true, now: 0 }); // seen, dueAt set before `now`
+    const srsMap = { [auralTopic.id]: card };
+    const s = session.build({
+      content, settings: { grade: 3, mode: "daily" }, srsMap, rng: rng.create("aural-due"), now,
+    });
+    expect(s.length).toBe(session.SESSION_LEN);
+    expect(s.some((x) => x.topic.id === auralTopic.id)).toBe(true);
+  });
+
+  it("a learner with no aural history gets an unchanged theory-only session", () => {
+    const auralIds = new Set(session.auralTopics(content).map((t) => t.id));
+    const s = session.build({
+      content, settings: { grade: 3, mode: "daily" }, srsMap: {}, rng: rng.create("no-aural"), now: 0,
+    });
+    expect(s.every((x) => !auralIds.has(x.topic.id))).toBe(true);
+  });
+
+  it("never-scheduled aural cards are not folded in (only strictly-due ones)", () => {
+    const auralTopic = session.auralTopics(content).find((t) => t.grade === 1);
+    const srsMap = { [auralTopic.id]: { seen: 0, box: 0, dueAt: null } };
+    const s = session.build({
+      content, settings: { grade: 3, mode: "daily" }, srsMap, rng: rng.create("unseen-aural"), now: 1000,
+    });
+    expect(s.some((x) => x.topic.id === auralTopic.id)).toBe(false);
+  });
+});
