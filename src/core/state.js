@@ -15,6 +15,10 @@
   "use strict";
 
   const DAY = 86400000;
+  // Answers needed in a day before the streak is credited, whether or not a
+  // session ever calls finish() - matches the session-length gate finish()
+  // itself used to apply alone.
+  const DAY_CREDIT_THRESHOLD = 5;
   const storage = () => global.MTT.storage;
   const srs = () => global.MTT.srs;
 
@@ -93,8 +97,20 @@
         now,
       });
       state.totalAnswered = (state.totalAnswered || 0) + 1;
+
+      // Streak credit for the day is earned as answers are recorded, not only
+      // by finishing a session - so quitting after enough answers still
+      // counts. recordSessionDay() is idempotent per day, so a session that
+      // later does call finish() cannot double-count today's credit.
+      const today = dayStr(now);
+      state.answersToday = state.answersTodayDay === today ? (state.answersToday || 0) + 1 : 1;
+      state.answersTodayDay = today;
+      const creditToday = state.answersToday >= DAY_CREDIT_THRESHOLD;
+
       persist();
       notify();
+
+      if (creditToday) recordSessionDay(now);
     }
 
     // Advance the daily streak. Returns true if this is the first session today.

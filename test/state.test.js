@@ -57,4 +57,38 @@ describe("state - store", () => {
     expect(b.get().streak).toBe(1);
     expect(b.cardFor("g1-notes").box).toBe(1);
   });
+
+  it("credits the day once 5 answers are recorded, even without finish() ever running (issue #52)", () => {
+    const store = state.create({ storage: fakeStore() });
+    for (let i = 0; i < 4; i++) store.recordAnswer("g1-notes", { correct: true, now: 0 });
+    expect(store.get().streak).toBe(0); // not yet - only 4 recorded
+    expect(store.get().lastDay).toBeNull();
+    store.recordAnswer("g1-notes", { correct: true, now: 0 }); // 5th answer
+    expect(store.get().streak).toBe(1);
+    expect(store.get().lastDay).toBe(state.dayStr(0));
+    // A 6th answer the same day must not credit again.
+    store.recordAnswer("g1-notes", { correct: false, now: 0 });
+    expect(store.get().streak).toBe(1);
+  });
+
+  it("a session that finishes after the day was already credited by recorded answers does not double-count", () => {
+    const store = state.create({ storage: fakeStore() });
+    for (let i = 0; i < 5; i++) store.recordAnswer("g1-notes", { correct: true, now: 0 });
+    expect(store.get().streak).toBe(1); // credited by the 5th recorded answer
+    // finish() calls recordSessionDay directly; it must be a no-op for a day
+    // already credited.
+    expect(store.recordSessionDay(0)).toBe(false);
+    expect(store.get().streak).toBe(1);
+    expect(store.get().bestStreak).toBe(1);
+  });
+
+  it("resets the daily answer count on a new day so the next day needs its own 5 answers", () => {
+    const store = state.create({ storage: fakeStore() });
+    for (let i = 0; i < 5; i++) store.recordAnswer("g1-notes", { correct: true, now: 0 });
+    expect(store.get().streak).toBe(1);
+    for (let i = 0; i < 4; i++) store.recordAnswer("g1-notes", { correct: true, now: DAY });
+    expect(store.get().streak).toBe(1); // still only 4 answers on the new day
+    store.recordAnswer("g1-notes", { correct: true, now: DAY });
+    expect(store.get().streak).toBe(2);
+  });
 });

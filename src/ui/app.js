@@ -92,7 +92,22 @@
     if (gradeSelect) {
       gradeSelect.value = String(store.settings().grade);
       gradeSelect.addEventListener("change", () => {
-        store.setSetting("grade", parseInt(gradeSelect.value, 10));
+        const newGrade = parseInt(gradeSelect.value, 10);
+        // A quiz in progress (including a resumed one) has its own resume
+        // snapshot; router.refresh() would silently rebuild it for the new
+        // grade and overwrite that snapshot on the first question. Confirm
+        // first so the learner isn't surprised into losing the session.
+        if (router.getCurrent() === "quiz") {
+          const ok = typeof confirm === "function"
+            ? confirm("Changing grade now will end your current quiz session. Continue?")
+            : true;
+          if (!ok) {
+            gradeSelect.value = String(store.settings().grade);
+            return;
+          }
+          global.MTT.quizResume.clear(ctx.sessionStore);
+        }
+        store.setSetting("grade", newGrade);
         store.setSetting("gradeChosen", true); // changing grade is a deliberate choice
         router.refresh();
       });

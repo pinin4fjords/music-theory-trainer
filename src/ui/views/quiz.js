@@ -874,6 +874,44 @@
       return null;
     }
 
+    // A button that opens the topic's "Why" explainer in a modal, falling back
+    // to its Learn page lesson. Returns null if the topic has neither (e.g. an
+    // aural topic with no matching theory lesson).
+    function makeDigDeeperButton(topic, label) {
+      if (topic.explainer) {
+        const ex = (ctx.content.explainers || []).find((e) => e.id === topic.explainer);
+        if (ex) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "dig-deeper";
+          btn.innerHTML = `${label}: ${ex.title} <span aria-hidden="true">→</span>`;
+          btn.addEventListener("click", () => {
+            const m = ctx.C.openExplainerModal(btn);
+            const modalCtx = Object.assign({}, ctx, {
+              router: Object.assign({}, ctx.router, {
+                navigate: function (view, arg) {
+                  m.close();
+                  if (view !== "explore" || arg) ctx.router.navigate(view, arg);
+                },
+              }),
+            });
+            global.MTT.ui.views.explainer.render(m.body, modalCtx, topic.explainer);
+          });
+          return btn;
+        }
+      }
+      const lesson = findLearnTopic(topic.id);
+      if (lesson) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "dig-deeper";
+        btn.innerHTML = `${label}: ${lesson.title} <span aria-hidden="true">→</span>`;
+        btn.addEventListener("click", () => ctx.router.navigate("learn", lesson.id));
+        return btn;
+      }
+      return null;
+    }
+
     if (!session.length) {
       if (resuming) ctx.quizResume.clear(ctx.sessionStore);
       main.appendChild(C.el(`
@@ -934,6 +972,7 @@
       C.clear(main);
       const { topic, q } = session[idx];
       let answered = false;
+      let newTopicBanner = null;
       questionStart = ctx.now();
       let stopMic = null; // cleanup function for mic sessions
 
@@ -947,6 +986,23 @@
         + `<span class="progress-count">${idx + 1} / ${session.length}</span></div>`));
       const gradeName = topic.grade === 0 ? "Initial Grade" : `Grade ${topic.grade}`;
       view.appendChild(C.el(`<div class="topic-label">${gradeName} · ${topic.title}</div>`));
+
+      // First-ever exposure to this topic (no recorded attempts yet): a bare
+      // exam-style question is demoralising as an introduction, so show a
+      // primer above it. Repeat exposures (card already has attempts) skip
+      // this so the pretesting effect isn't lost.
+      if (ctx.store.cardFor(topic.id).seen === 0) {
+        newTopicBanner = C.el(`
+          <div class="why-box new-topic-banner" role="note">
+            <p style="margin:0 0 8px"><strong>New topic</strong>${topic.why ? " — " + topic.why : ""}</p>
+          </div>`);
+        const bannerRow = C.el(`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"></div>`);
+        const lessonBtn = makeDigDeeperButton(topic, "Read the lesson first");
+        if (lessonBtn) bannerRow.appendChild(lessonBtn);
+        bannerRow.appendChild(C.button("Dismiss", () => { if (newTopicBanner) newTopicBanner.remove(); newTopicBanner = null; }, { className: "ghost" }));
+        newTopicBanner.appendChild(bannerRow);
+        view.appendChild(newTopicBanner);
+      }
 
       const prompt = C.el(`<div class="quiz-prompt"></div>`);
       try {
@@ -1062,6 +1118,7 @@
       function reveal(kind, pickedBtn, scoreDetail) {
         if (answered) return;
         answered = true;
+        if (newTopicBanner) { newTopicBanner.remove(); newTopicBanner = null; }
         detachKeyHandler();
         if (stopMic) { try { stopMic(); } catch { /* ok */ } stopMic = null; activeStopMic = null; }
         const correct = kind === "correct";
@@ -1104,38 +1161,7 @@
         const revealEl = C.el(`<div class="reveal ${cls}" role="status">${verdict}${diagLine}${why}${micStaff}</div>`);
         // Dig deeper: prefer the matching "Why" explainer, otherwise fall back to
         // the topic's Learn page when this is a drillable theory topic.
-        let dig = null;
-        if (topic.explainer) {
-          const ex = (ctx.content.explainers || []).find((e) => e.id === topic.explainer);
-          if (ex) {
-            dig = document.createElement("button");
-            dig.type = "button";
-            dig.className = "dig-deeper";
-            dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
-            dig.addEventListener("click", () => {
-              const m = ctx.C.openExplainerModal(dig);
-              const modalCtx = Object.assign({}, ctx, {
-                router: Object.assign({}, ctx.router, {
-                  navigate: function (view, arg) {
-                    m.close();
-                    if (view !== "explore" || arg) ctx.router.navigate(view, arg);
-                  },
-                }),
-              });
-              global.MTT.ui.views.explainer.render(m.body, modalCtx, topic.explainer);
-            });
-          }
-        }
-        if (!dig) {
-          const lesson = findLearnTopic(topic.id);
-          if (lesson) {
-            dig = document.createElement("button");
-            dig.type = "button";
-            dig.className = "dig-deeper";
-            dig.innerHTML = `Dig deeper: ${lesson.title} <span aria-hidden="true">→</span>`;
-            dig.addEventListener("click", () => ctx.router.navigate("learn", lesson.id));
-          }
-        }
+        const dig = makeDigDeeperButton(topic, "Dig deeper");
         if (dig) revealEl.appendChild(dig);
         view.appendChild(revealEl);
 
