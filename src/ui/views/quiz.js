@@ -21,6 +21,11 @@
 (function (global) {
   "use strict";
 
+  // Fraction of a sung phrase's notes that must match (with the final note
+  // landing) for the take to count as correct - graded credit so near-success
+  // is rewarded rather than scored identically to singing nothing.
+  const PASS_FRACTION = 0.8;
+
   // A recovery-oriented message for a getUserMedia failure, keyed on the DOM
   // exception name so the user is told what to actually do.
   function micErrorMessage(err) {
@@ -244,11 +249,14 @@
     // higher grades (0.5 semitone) are actually graded more strictly than lower
     // ones (1.0) rather than everything grading like Grade 1.
     const tolerance = task.toleranceSemitones != null ? task.toleranceSemitones : 1;
-    function pcMatch(detMidi, expMidi) {
+    function pcDistance(detMidi, expMidi) {
       const det = ((detMidi % 12) + 12) % 12;
       const exp = ((expMidi % 12) + 12) % 12;
       const diff = Math.abs(det - exp);
-      return Math.min(diff, 12 - diff) <= tolerance;
+      return Math.min(diff, 12 - diff);
+    }
+    function pcMatch(detMidi, expMidi) {
+      return pcDistance(detMidi, expMidi) <= tolerance;
     }
 
     function showResult(detected) {
@@ -282,8 +290,15 @@
         html += `<span class="muted" style="font-style:italic">not enough detected — try again</span>`;
       } else {
         detected.forEach(function (midi, i) {
-          const match = expected[i] != null && pcMatch(midi, expected[i]);
-          html += `<span class="seq-note ${match ? "match" : "miss"}">${noteLabel(midi)}</span>`;
+          // Exact = spot on; close = within the grading tolerance but not exact
+          // (e.g. a semitone off), so leniency reads as "nearly", not "correct";
+          // miss = outside tolerance.
+          let cls = "miss";
+          if (expected[i] != null) {
+            const dist = pcDistance(midi, expected[i]);
+            cls = dist === 0 ? "match" : dist <= tolerance ? "close" : "miss";
+          }
+          html += `<span class="seq-note ${cls}">${noteLabel(midi)}</span>`;
           if (i < detected.length - 1) html += `<span class="seq-arrow">→</span>`;
         });
       }
@@ -306,7 +321,16 @@
       resultEl.innerHTML = html;
       resultEl.hidden = false;
 
-      const allGood = detected && exact === expected.length;
+      // Graded credit: near-success earns the same "correct" the mastery model
+      // records for a perfect take, so a 4-of-5 attempt promotes rather than
+      // being punished like singing nothing. The final note must land (it anchors
+      // the phrase) and enough of the phrase must match. `quality` (0..1) is the
+      // proportion matched, passed on so the scheduler can grade proportionally.
+      const frac = expected.length ? exact / expected.length : 0;
+      const finalCorrect = !!(detected && detected[expected.length - 1] != null
+        && pcMatch(detected[expected.length - 1], expected[expected.length - 1]));
+      const pass = !!(detected && frac >= PASS_FRACTION && finalCorrect);
+      const quality = detected ? frac : 0;
       const actRow = C.el(`<div class="seq-btn-row"></div>`);
       actRow.appendChild(C.button("↺ Try again", function () {
         resultEl.hidden = true;
@@ -326,9 +350,9 @@
         // step compares this against q.answer to grade the question. On a wrong
         // result also pass the note/interval score so the reveal can explain
         // *why* it was wrong instead of echoing the self-report sentinel answer.
-        const scoreDetail = allGood ? null : [noteScoreText, intScoreText].filter(Boolean).join(", ");
-        onResult(allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }), scoreDetail);
-      }, { className: allGood ? "" : "ghost" }));
+        const scoreDetail = pass ? null : [noteScoreText, intScoreText].filter(Boolean).join(", ");
+        onResult(pass ? q.answer : q.choices.find(function (c) { return c !== q.answer; }), scoreDetail, quality);
+      }, { className: pass ? "" : "ghost" }));
       panel.appendChild(actRow);
     }
 
@@ -454,7 +478,7 @@
     }
 
     let activeStop = null;
-    const phraseResults = []; // { correct: bool, scoreDetail: string|null }
+    const phraseResults = []; // { correct: bool, scoreDetail: string|null, quality: number }
 
     function stopActive() {
       if (activeStop) { try { activeStop(); } catch { /* ok */ } activeStop = null; }
@@ -483,10 +507,11 @@
         },
       });
 
-      activeStop = renderMicSequence(panel, subQ, C, ctx, function (phraseAnswer, scoreDetail) {
+      activeStop = renderMicSequence(panel, subQ, C, ctx, function (phraseAnswer, scoreDetail, quality) {
         phraseResults.push({
           correct: phraseAnswer === q.answer,
           scoreDetail: scoreDetail || null,
+          quality: typeof quality === "number" ? quality : (phraseAnswer === q.answer ? 1 : 0),
         });
         stopActive();
 
@@ -503,6 +528,11 @@
           // All phrases done — show summary and final "Score it".
           const correct = phraseResults.filter(function (r) { return r.correct; }).length;
           const allGood = correct === N;
+          // Graded credit across phrases: enough of them correct (with the last
+          // one landing) counts, rather than demanding every phrase be perfect.
+          const lastCorrect = phraseResults.length === N && phraseResults[N - 1].correct;
+          const pass = N > 0 && (correct / N) >= PASS_FRACTION && lastCorrect;
+          const quality = phraseResults.reduce(function (s, r) { return s + r.quality; }, 0) / N;
           panel.appendChild(C.el(
             `<p class="seq-score ${allGood ? "ok" : correct > 0 ? "part" : "bad"}">${correct} of ${N} phrases correct</p>`
           ));
@@ -511,10 +541,11 @@
             .filter(Boolean).join("; ");
           row.appendChild(C.button("Score it", function () {
             onResult(
-              allGood ? q.answer : q.choices.find(function (c) { return c !== q.answer; }),
-              details || null
+              pass ? q.answer : q.choices.find(function (c) { return c !== q.answer; }),
+              details || null,
+              quality
             );
-          }, { className: allGood ? "" : "ghost" }));
+          }, { className: pass ? "" : "ghost" }));
         }
 
         if (!actRow) panel.appendChild(row);
@@ -1047,8 +1078,8 @@
       let idkBtn = null;
 
       if (q.micTask) {
-        stopMic = renderMicTask(view, q, C, ctx, function (detected, scoreDetail) {
-          if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail);
+        stopMic = renderMicTask(view, q, C, ctx, function (detected, scoreDetail, quality) {
+          if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail, quality);
         });
         activeStopMic = stopMic;
         const selfReport = C.el(`<div class="mic-self-report"></div>`);
@@ -1115,7 +1146,7 @@
         document.addEventListener("keydown", onKeydown);
       }
 
-      function reveal(kind, pickedBtn, scoreDetail) {
+      function reveal(kind, pickedBtn, scoreDetail, quality) {
         if (answered) return;
         answered = true;
         if (newTopicBanner) { newTopicBanner.remove(); newTopicBanner = null; }
@@ -1124,7 +1155,14 @@
         const correct = kind === "correct";
         if (correct) score++;
         const responseMs = ctx.now() - questionStart;
-        ctx.store.recordAnswer(topic.id, { correct, responseMs, now: ctx.now() });
+        // `quality` (sung takes) grades a partial attempt; `choices` feeds the
+        // guess guard so a lucky answer on a two-way question is treated warily.
+        // Mic tasks are graded by pitch, not the two-option self-report sentinel,
+        // so their choice count would misfire the guard - omit it there.
+        const answerRecord = { correct, responseMs, now: ctx.now() };
+        if (!q.micTask && q.choices) answerRecord.choices = q.choices.length;
+        if (typeof quality === "number") answerRecord.quality = quality;
+        ctx.store.recordAnswer(topic.id, answerRecord);
 
         const t = tally[topic.id] || (tally[topic.id] = { title: topic.title, grade: topic.grade, correct: 0, total: 0 });
         t.total++;

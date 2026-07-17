@@ -30,6 +30,25 @@
   // Response times above this are treated as "walked away", not slow recall.
   const MAX_RESPONSE_MS = 60000;
 
+  // Guess guard: a brand-new topic (box 0) must be answered correctly twice in a
+  // row to graduate when the answer looks like a coin-flip - a sub-second reply
+  // (likely a misclick or lucky stab) or a question with very few options, where
+  // a blind guess already carries a high chance of landing. Cards past box 0 have
+  // survived earlier reviews, so a single lucky answer there matters far less.
+  const GUESS_MS = 900;
+  const GUESS_MAX_CHOICES = 2;
+  const CONFIRM_STREAK = 2;
+
+  // Graded quality bands (used when a caller passes a 0..1 `quality`): a full
+  // success promotes, a near miss holds the box (neither reward nor punish the
+  // schedule), and a poor attempt demotes like an outright miss.
+  const QUALITY_PASS = 0.8;
+  const QUALITY_HOLD = 0.5;
+
+  function clamp01(x) {
+    return Math.max(0, Math.min(1, x));
+  }
+
   function defaultCard() {
     return {
       box: 0, seen: 0, correct: 0, streak: 0, lapses: 0,
@@ -47,20 +66,46 @@
 
   /**
    * Apply an answer to a card, returning a NEW card (no mutation).
+   *
+   * `quality` (optional, 0..1) grades a partial attempt - e.g. a sung phrase
+   * where most but not all notes matched - so a near miss holds the card's box
+   * rather than being scored as an outright failure. When omitted the boolean
+   * `correct` decides the outcome, exactly as a two-way answer does.
+   *
+   * `choices` (optional) is the number of options the answer was picked from; a
+   * small count feeds the guess guard on brand-new cards.
+   *
    * @param {Card} card
-   * @param {{ correct: boolean, responseMs?: number, now: number }} result
+   * @param {{ correct: boolean, responseMs?: number, now: number,
+   *   quality?: number, choices?: number }} result
    * @returns {Card}
    */
   function update(card, result) {
     const c = Object.assign(defaultCard(), card || {});
     const now = result.now;
-    const correct = !!result.correct;
+
+    const hasQuality = typeof result.quality === "number" && isFinite(result.quality);
+    const quality = hasQuality ? clamp01(result.quality) : null;
+    const outcome = hasQuality
+      ? (quality >= QUALITY_PASS ? "pass" : quality >= QUALITY_HOLD ? "hold" : "miss")
+      : (result.correct ? "pass" : "miss");
+
+    const responseMs = (typeof result.responseMs === "number" && result.responseMs >= 0)
+      ? Math.min(result.responseMs, MAX_RESPONSE_MS) : null;
 
     c.seen += 1;
-    if (correct) {
+
+    if (outcome === "pass") {
       c.correct += 1;
       c.streak += 1;
-      c.box = clampBox(c.box + 1);
+      const fewChoices = typeof result.choices === "number" && result.choices <= GUESS_MAX_CHOICES;
+      const looksLikeGuess = (responseMs != null && responseMs < GUESS_MS) || fewChoices;
+      const unconfirmedNewCard = c.box === 0 && c.streak < CONFIRM_STREAK;
+      if (!(unconfirmedNewCard && looksLikeGuess)) {
+        c.box = clampBox(c.box + 1);
+      }
+    } else if (outcome === "hold") {
+      c.streak = 0;
     } else {
       c.streak = 0;
       c.lapses += 1;
@@ -69,9 +114,8 @@
       c.box = c.box <= 1 ? 0 : clampBox(c.box - 1);
     }
 
-    if (typeof result.responseMs === "number" && result.responseMs >= 0) {
-      const ms = Math.min(result.responseMs, MAX_RESPONSE_MS);
-      c.avgMs = c.avgMs == null ? ms : Math.round(c.avgMs * 0.7 + ms * 0.3);
+    if (responseMs != null) {
+      c.avgMs = c.avgMs == null ? responseMs : Math.round(c.avgMs * 0.7 + responseMs * 0.3);
     }
 
     c.lastSeen = now;
