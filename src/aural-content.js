@@ -17,9 +17,9 @@
  *   Grade 1: pulse & time sig, echo sing, spot change, dynamics/articulation
  *   Grade 2: 2 or 3 time, echo sing, pitch or rhythm change, dynamics/tempo/articulation
  *   Grade 3: 2/3/4 time, echo sing, spot change longer phrase, tonality/dynamics/tempo
- *   Grade 4: echo 4-bar, sight-sing 5 notes, features + time sig
- *   Grade 5: echo 4-bar, sight-sing 6 notes, features + style/period
- *   Grade 6: two-part echo (upper), sight-sing, cadences, texture
+ *   Grade 4: echo 4-bar, sight-sing 5 notes, character, features + time sig
+ *   Grade 5: echo 4-bar, sight-sing 6 notes, features + style/texture description
+ *   Grade 6: two-part echo (upper), sight-sing, cadences, texture, structure
  *   Grade 7: two-part echo (lower), sight-sing w/ accompaniment, cadences +
  *            interrupted, chord/modulation ID, time sig incl. 6/8
  *   Grade 8: three-part echo (lowest), sight-sing, cadences + plagal,
@@ -664,8 +664,9 @@
     };
   }
 
-  // Test 4C part 1: character / features questions.
-  function g4CharacterQuestion(rng) {
+  // Test 4C part 1: single-feature questions (tonality, dynamics, articulation).
+  // The genuine "describe the character" question lives in characterQuestion.
+  function g4FeaturesQuestion(rng) {
     const questions = [
       {
         prompt: `Listen — is this passage played <strong>smoothly</strong> or <strong>detached</strong>?`,
@@ -687,36 +688,27 @@
   // Grade 5 generators
   // =========================================================================
 
-  // Test 5C: Style and period identification.
-  //
-  // Each option plays one genuine, textbook device of its period (a Baroque
-  // ornamented sequence, a Classical Alberti bass, Romantic rubato +
-  // chromaticism, a 20th-century whole-tone scale) rather than an arbitrary
-  // scale run with a period label attached. These aren't quotations from real
-  // pieces, but the technique itself is authentically diagnostic of the era,
-  // so what's heard genuinely supports the answer instead of just asserting it.
-  function g5StyleQuestion(rng) {
-    const periods = [
+  // Test 5C in the exam asks for style and period, but a handful of notes can't
+  // honestly pin down a historical period. Rather than fabricate excerpts of
+  // named works, this drill asks which *description* matches the audible texture
+  // and devices. Each option plays a genuine textbook device and the answer
+  // describes what that device sounds like - no period label is claimed over an
+  // invented tune. The explanation names the associated era as context, always
+  // caveated that a few notes cannot identify a period on their own.
+  function styleDescriptionQuestion(rng) {
+    const devices = [
       {
-        name: "Baroque",
-        label: "Baroque (c.1600-1750)",
-        device: "a melodic <b>sequence</b> built from a <b>turn</b> ornament (upper neighbour - main note - lower neighbour - main note), repeated a step lower each time, at a strict unwavering tempo",
-        audio: function () {
-          audio().sequence([76, 77, 76, 74, 76, 74, 76, 74, 72, 74, 72, 74, 72, 71, 72], 0.22, 0.2);
-        },
+        desc: "A melody decorated with a <b>turn</b> ornament, each little figure a step lower than the last (a descending <b>sequence</b>), at a strict, even tempo",
+        audio: function () { audio().sequence([76, 77, 76, 74, 76, 74, 76, 74, 72, 74, 72, 74, 72, 71, 72], 0.22, 0.2); },
+        era: "the ornamented, sequential writing common in Baroque music",
       },
       {
-        name: "Classical",
-        label: "Classical (c.1750-1820)",
-        device: "an <b>Alberti bass</b> - the broken-chord low-high-middle-high accompaniment pattern named for and typical of the Classical era - moving through a clean I-IV-V-I cadence",
-        audio: function () {
-          audio().sequence([60, 67, 64, 67, 65, 72, 69, 72, 67, 74, 71, 74, 60, 67, 64, 67], 0.22, 0.2);
-        },
+        desc: "A tune over a broken-chord <b>Alberti bass</b> (a low-high-middle-high accompaniment figure) moving through a clear cadence",
+        audio: function () { audio().sequence([60, 67, 64, 67, 65, 72, 69, 72, 67, 74, 71, 74, 60, 67, 64, 67], 0.22, 0.2); },
+        era: "the Alberti-bass accompaniment common in Classical-era music",
       },
       {
-        name: "Romantic",
-        label: "Romantic (c.1820-1900)",
-        device: "a wide-ranging melody with a chromatic passing note, played with <b>rubato</b> (the tempo stretches and pulls rather than staying even) and a broad dynamic swell",
+        desc: "A flowing melody with a <b>chromatic</b> passing note, stretching and relaxing the tempo (<b>rubato</b>) under a broad dynamic swell",
         audio: function () {
           audio().sequenceRhythm(
             [60, 64, 67, 72, 71, 69, 66, 67, 64, 62, 60],
@@ -725,11 +717,10 @@
             [0.3, 0.45, 0.65, 1.0, 0.85, 0.6, 0.5, 0.45, 0.5, 0.6, 0.35]
           );
         },
+        era: "the chromatic, rubato-driven melody common in Romantic music",
       },
       {
-        name: "20th century",
-        label: "20th century (after 1900)",
-        device: "a <b>whole-tone scale</b> (six equal whole-steps, the signature scale of early-20th-century composers) played with deliberately irregular note lengths and accents",
+        desc: "A scale of equal <b>whole-tone</b> steps (no semitones at all), played with deliberately irregular note-lengths and accents",
         audio: function () {
           audio().sequenceRhythm(
             [60, 62, 64, 66, 68, 70, 72, 70, 66, 62, 60],
@@ -738,15 +729,16 @@
             [0.5, 0.4, 0.5, 0.4, 0.9, 0.5, 0.6, 0.9, 0.5, 0.4, 0.6]
           );
         },
+        era: "the whole-tone colour explored by early-twentieth-century composers",
       },
     ];
-    const p = pick(rng, periods);
+    const d = pick(rng, devices);
     return {
-      prompt: `Listen to this short passage. Which <strong>musical period</strong> does it most likely come from?`,
-      audio: p.audio,
-      choices: choices(rng, p.label, periods.map((x) => x.label), 4),
-      answer: p.label,
-      explanation: `That passage demonstrates ${p.device} - a genuine hallmark of the <b>${p.name}</b> period, not just an arbitrary tune with a label attached. Grade 5 Test C asks you to identify whether a piece is Baroque, Classical, Romantic, or 20th-century based on its style.`,
+      prompt: `Listen to this short passage. Which <strong>description</strong> best matches what you hear?`,
+      audio: d.audio,
+      choices: choices(rng, d.desc, devices.map((x) => x.desc), 4),
+      answer: d.desc,
+      explanation: `You heard ${d.desc.charAt(0).toLowerCase() + d.desc.slice(1)}. That kind of writing is associated with ${d.era}, but describing the texture is what trains your ear - a few notes can't identify a period on their own, so listen to full repertoire to hear how the eras really sound.`,
     };
   }
 
@@ -1191,7 +1183,7 @@
 
   function g6FeaturesQuestion(rng) {
     if (rng.bool()) return textureQuestion(rng);
-    const pool = [g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, g5StyleQuestion];
+    const pool = [structureQuestion, characterQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, styleDescriptionQuestion];
     return pick(rng, pool)(rng);
   }
 
@@ -1254,7 +1246,7 @@
   function g7EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "bottom", "Grade 7"); }
 
   function g7FeaturesQuestion(rng) {
-    const pool = [textureQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, g5StyleQuestion];
+    const pool = [textureQuestion, structureQuestion, characterQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, styleDescriptionQuestion];
     return pick(rng, pool)(rng);
   }
 
@@ -1359,11 +1351,6 @@
   function g8ModulationQuestion(rng) { return rng.bool() ? minorModulationQuestion(rng) : modulationQuestion(rng); }
   function g8EchoThreePartQuestion(rng) { return threePartEchoQuestion(rng); }
 
-  function g8FeaturesQuestion(rng) {
-    const pool = [textureQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, g5StyleQuestion];
-    return pick(rng, pool)(rng);
-  }
-
   function g8SightSingQuestion(rng) {
     const keyDef = pick(rng, G7_SIGHT_PHRASES);
     const phrase = pick(rng, keyDef.phrases);
@@ -1388,6 +1375,128 @@
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
       explanation: `Grade 8 sight-singing: you sing the lower part of a two-part phrase while the upper part is played above — up to 4 sharps or flats. Trust your own line rather than following the part above it.`,
+    };
+  }
+
+  // =========================================================================
+  // Character, structure and describe-the-features (issue #6)
+  // =========================================================================
+  // These families are driven by controllable stimulus parameters, so what is
+  // heard genuinely supports the answer: tempo maps to playback speed,
+  // articulation to note length, mode to the generated scale, register to an
+  // octave shift. The learner decodes the description from the sound rather
+  // than from a label asserted over an arbitrary tune.
+
+  const TEMPO_STEP = { slow: 0.62, moderate: 0.44, fast: 0.26 };
+  const ARTIC_DUR = { legato: 1.05, detached: 0.55, staccato: 0.26 };
+  const ARTIC_WORD = { legato: "smoothly connected (legato)", detached: "lightly detached", staccato: "crisply separated (staccato)" };
+  const REGISTER_SHIFT = { low: -12, mid: 0, high: 12 };
+
+  const CHARACTER_SPEC = { keys: ["C", "G", "F"], mode: "major", range: { above: 4, below: 2 }, bars: 2, beatsPerBar: 4, rhythmPalette: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" };
+
+  // Each character is a point in {tempo, articulation, mode, register} space,
+  // chosen so the four are mutually distinguishable by ear.
+  const CHARACTERS = [
+    { name: "march-like", tempo: "moderate", articulation: "detached", mode: "major", register: "mid",
+      why: "a steady moderate tempo with firm, detached notes in a major key - the even tread of a march" },
+    { name: "playful", tempo: "fast", articulation: "staccato", mode: "major", register: "high",
+      why: "a quick tempo, light staccato notes and a high, bright register - skipping and impish" },
+    { name: "songful", tempo: "moderate", articulation: "legato", mode: "major", register: "mid",
+      why: "a flowing moderate tempo with smooth, connected notes in a warm major key - like a sung melody" },
+    { name: "solemn", tempo: "slow", articulation: "legato", mode: "minor", register: "low",
+      why: "a slow tempo, smoothly connected notes, a low register and a minor key - grave and weighty" },
+  ];
+
+  // Play a generated phrase at a named tempo/articulation/register so the
+  // stimulus embodies the feature vector being asked about.
+  function playFeatures(notes, tempo, articulation, register) {
+    const step = TEMPO_STEP[tempo];
+    const dur = step * ARTIC_DUR[articulation];
+    const shift = REGISTER_SHIFT[register] || 0;
+    const shifted = shift ? notes.map((n) => n + shift) : notes;
+    return function () { audio().sequence(shifted, step, dur); };
+  }
+
+  // Grade 4+: "describe the character". The phrase is generated, then played
+  // back with the tempo, articulation, register and mode of the chosen
+  // character, so the word is earned by what is heard.
+  function characterQuestion(rng) {
+    const ch = pick(rng, CHARACTERS);
+    const m = auralGen().generateMelody(rng, Object.assign({}, CHARACTER_SPEC, { mode: ch.mode }));
+    return {
+      prompt: `Listen to this short passage. Which word best describes its <strong>character</strong>?`,
+      audio: playFeatures(m.notes, ch.tempo, ch.articulation, ch.register),
+      choices: choices(rng, ch.name, CHARACTERS.map((c) => c.name), 4),
+      answer: ch.name,
+      explanation: `That was <b>${ch.name}</b>: ${ch.why}. Character comes from the combination of tempo, articulation, register and mode - describe the whole effect, not just one feature.`,
+    };
+  }
+
+  // Grade 6+: micro-form structure. Two contrasting phrases (A in mid register,
+  // B an octave lower) are assembled into AB, ABA or AABA and the learner names
+  // the form - i.e. hears whether and how the opening returns.
+  const STRUCTURE_A_SPEC = { keys: ["C", "G", "F"], mode: "major", range: { above: 4, below: 0 }, bars: 1, beatsPerBar: 4, rhythmPalette: [[1, 1, 1, 1], [2, 1, 1], [1, 1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" };
+  const STRUCTURE_B_SPEC = { range: { above: 4, below: 0 }, bars: 1, beatsPerBar: 4, rhythmPalette: [[1, 1, 1, 1], [1, 2, 1], [0.5, 0.5, 1, 1, 1]], maxLeap: 2, startsOn: "dominant", endsOn: "free" };
+  const STRUCTURE_FORMS = [
+    { name: "AB (binary)", seq: ["A", "B"], gloss: "two different phrases one after the other, with no return - <b>binary</b> form", returned: false },
+    { name: "ABA (ternary)", seq: ["A", "B", "A"], gloss: "the opening phrase, a contrasting middle, then the opening again - <b>ternary</b> form", returned: true },
+    { name: "AABA (song form)", seq: ["A", "A", "B", "A"], gloss: "the opening stated twice, a contrasting bridge, then the opening once more - the 32-bar <b>song form</b>", returned: true },
+  ];
+
+  // Concatenate phrases into one note/duration stream with a one-beat rest
+  // between them, so a single sequenceRhythm call plays the whole form.
+  function assembleForm(parts, gapBeats) {
+    const notes = [];
+    const durations = [];
+    parts.forEach(function (p, i) {
+      if (i > 0) { notes.push(null); durations.push(gapBeats); }
+      p.notes.forEach(function (n, k) { notes.push(n); durations.push(p.durations[k]); });
+    });
+    return { notes: notes, durations: durations };
+  }
+
+  function structureQuestion(rng) {
+    const a = auralGen().generateMelody(rng, STRUCTURE_A_SPEC);
+    const bRaw = auralGen().generateMelody(rng, Object.assign({}, STRUCTURE_B_SPEC, { keys: [a.key], mode: a.mode }));
+    const b = { notes: bRaw.notes.map((n) => n - 12), durations: bRaw.durations };
+    const form = pick(rng, STRUCTURE_FORMS);
+    const asm = assembleForm(form.seq.map((s) => (s === "A" ? a : b)), 1);
+    return {
+      prompt: `Listen to this passage, built from short phrases with a brief gap between them. What is its <strong>structure</strong>?`,
+      audio: function () { audio().sequenceRhythm(asm.notes, asm.durations, 0.5); },
+      choices: choices(rng, form.name, STRUCTURE_FORMS.map((f) => f.name), 3),
+      answer: form.name,
+      explanation: `That was <b>${form.name}</b>: ${form.gloss}. Label each phrase as you hear it and ask whether the opening comes back - here the opening ${form.returned ? "did return" : "did not return"}.`,
+    };
+  }
+
+  // Grade 8: one richer stimulus, then a single combined description covering
+  // three features at once - the drillable approximation of the open-ended
+  // "describe the piece". Every distractor is itself a valid full description,
+  // so the learner must decode key, tempo and articulation together.
+  function featureDescription(v) {
+    return `${v.mode === "minor" ? "Minor" : "Major"} key, ${v.tempo} tempo, ${ARTIC_WORD[v.articulation]}`;
+  }
+  function describeFeaturesQuestion(rng) {
+    const mode = pick(rng, ["major", "minor"]);
+    const tempo = pick(rng, ["slow", "moderate", "fast"]);
+    const articulation = pick(rng, ["legato", "detached", "staccato"]);
+    const m = auralGen().generateMelody(rng, Object.assign({}, CHARACTER_SPEC, { mode: mode }));
+    const correct = featureDescription({ mode: mode, tempo: tempo, articulation: articulation });
+    const all = [];
+    ["major", "minor"].forEach(function (mo) {
+      ["slow", "moderate", "fast"].forEach(function (te) {
+        ["legato", "detached", "staccato"].forEach(function (ar) {
+          all.push(featureDescription({ mode: mo, tempo: te, articulation: ar }));
+        });
+      });
+    });
+    return {
+      prompt: `Listen to this passage, then pick the description that matches <strong>all three</strong> of its features - key, tempo and articulation.`,
+      audio: playFeatures(m.notes, tempo, articulation, "mid"),
+      choices: choices(rng, correct, all, 4),
+      answer: correct,
+      explanation: `It was in a ${correct.charAt(0).toLowerCase() + correct.slice(1)}. Check each feature in turn - major or minor, how fast, and whether the notes are joined or separated - and find the option that gets all three right.`,
     };
   }
 
@@ -1599,11 +1708,19 @@
           tags: ["aural"],
         },
         {
+          id: "g4-aural-character",
+          title: "Aural: describe the character",
+          why: "Grade 4 Test C (part 1) asks you to describe a piece's character — march-like, playful, songful, solemn. The character is not a mood pulled from nowhere: it is created by concrete features you can hear.",
+          what: "<p>Listen for four things at once: <b>tempo</b> (fast or slow), <b>articulation</b> (smooth or detached), <b>register</b> (high or low) and <b>mode</b> (major or minor). A march is moderate, firm and major; something playful is fast, light and high; a songful passage flows smoothly; a solemn one is slow, low and minor. Describe the whole effect, not just one feature.</p>",
+          questions: characterQuestion,
+          tags: ["aural"],
+        },
+        {
           id: "g4-aural-features",
-          title: "Aural: musical character",
-          why: "Grade 4 Test C (part 1) asks two questions about a piece's character and features — things like tonality, dynamics, tempo, and articulation. These are now combined questions where you describe what creates the character.",
-          what: "<p>At Grade 4 you are expected to go beyond just naming 'loud' or 'staccato' and begin to describe <em>how</em> the musical feature contributes to the character. E.g.: 'the staccato notes and fast tempo make it sound playful and light.'</p>",
-          questions: g4CharacterQuestion,
+          title: "Aural: musical features",
+          why: "Grade 4 Test C (part 1) also asks single-feature questions — tonality, dynamics, tempo, and articulation — as the building blocks of the character description above.",
+          what: "<p>Practise naming each feature quickly and on its own: major or minor, loud or quiet, getting faster or slower, smooth or detached. Reliable recognition of each one is what lets you describe the combined character with confidence.</p>",
+          questions: g4FeaturesQuestion,
           tags: ["aural"],
         },
         {
@@ -1637,10 +1754,10 @@
         },
         {
           id: "g5-aural-style",
-          title: "Aural: musical style & period",
-          why: "Grade 5 Test C introduces style and period identification: Baroque, Classical, Romantic, or 20th century. Each period has characteristic textures, rhythms, and expressive devices.",
-          what: "<p><b>Baroque</b>: steady rhythms, ornamental melodic lines (Bach, Handel). <b>Classical</b>: balanced phrases, clear dynamics (Haydn, Mozart). <b>Romantic</b>: expressive, wide dynamics, rubato (Chopin, Schumann). <b>20th century</b>: chromatic or dissonant, irregular rhythms (Bartók, Shostakovich). This app's audio for each option plays one genuine textbook device of that period (a Baroque ornamented sequence, a Classical Alberti bass, Romantic rubato, a 20th-century whole-tone scale) rather than a full piece - the actual exam plays a real piano recording, so also listen to real repertoire from each period to train your ear properly.</p>",
-          questions: g5StyleQuestion,
+          title: "Aural: style & texture (describe what you hear)",
+          why: "Grade 5 Test C asks about style and period, but a period cannot honestly be identified from a few notes. This drill instead trains the underlying skill: describing the audible texture and devices — an ornamented sequence, an Alberti bass, a chromatic rubato melody, a whole-tone scale — that inform a style judgement.",
+          what: "<p>Each option plays a genuine textbook device and you choose the <b>description</b> that matches what you hear, rather than guessing a period from an invented snippet. Learn the sound of these devices — the ornamentation and sequences common in <b>Baroque</b> writing, the Alberti-bass accompaniment of the <b>Classical</b> era, the chromatic rubato of the <b>Romantic</b> period, the whole-tone colour of the early <b>twentieth century</b> — then listen to full recordings of real repertoire to hear how the eras actually sound.</p>",
+          questions: styleDescriptionQuestion,
           tags: ["aural"],
         },
         {
@@ -1649,9 +1766,10 @@
           why: "Grade 5 continues all the listening-feature questions from earlier grades. Regular practice across dynamics, articulation, tempo, and tonality means you can handle any two questions the examiner chooses.",
           what: "<p>By Grade 5 you should be able to answer feature questions quickly and confidently, leaving more mental energy for the new style/period question and the sight-singing task.</p>",
           questions: (rng) => {
-            const type = rng.int(0, 2);
-            if (type === 0) return g3TonalityQuestion(rng);
-            if (type === 1) return g1DynamicsQuestion(rng);
+            const type = rng.int(0, 3);
+            if (type === 0) return characterQuestion(rng);
+            if (type === 1) return g3TonalityQuestion(rng);
+            if (type === 2) return g1DynamicsQuestion(rng);
             return g1ArticulationQuestion(rng);
           },
           tags: ["aural"],
@@ -1699,6 +1817,14 @@
           why: "Grade 6 adds a texture question — is it a single line, a melody with accompaniment, or two independent lines? — alongside the dynamics, articulation, tempo, tonality, and style questions from earlier grades.",
           what: "<p><b>Texture</b> is about how many independent musical things are happening at once, not which notes are played. Listen for whether you can follow more than one moving line, or whether there's a tune sitting over a static accompaniment.</p>",
           questions: g6FeaturesQuestion,
+          tags: ["aural"],
+        },
+        {
+          id: "g6-aural-structure",
+          title: "Aural: musical structure",
+          why: "From Grade 6 the features question can ask about structure — how a piece is put together from repeated and contrasting phrases. Recognising when the opening returns is the core skill.",
+          what: "<p>Label each phrase as you hear it: call the first one A, and a clearly different one B. Then track the order. <b>AB</b> (binary) is two different phrases with no return; <b>ABA</b> (ternary) brings the opening back after a contrasting middle; <b>AABA</b> (song form) states the opening twice, then a contrasting bridge, then the opening once more. The key question is always: did the opening come back?</p>",
+          questions: structureQuestion,
           tags: ["aural"],
         },
         {
@@ -1786,9 +1912,9 @@
         {
           id: "g8-aural-features",
           title: "Aural: describe the features",
-          why: "Grade 8's final feature question is fully open-ended: describe the characteristic features of a piece — texture, structure, character, style and period — rather than answering a single fixed prompt.",
-          what: "<p>Run through the checklist mentally: texture (how many lines?), tonality (major or minor?), tempo and dynamics, articulation, and style/period. A confident Grade 8 answer touches more than one of these.</p>",
-          questions: g8FeaturesQuestion,
+          why: "Grade 8's final feature question is open-ended: describe several characteristic features of a piece at once, rather than answering a single fixed prompt. This drill plays one richer stimulus and asks for the description that gets key, tempo and articulation all correct together.",
+          what: "<p>Run a mental checklist on the single passage: is it <b>major or minor</b>, is the tempo <b>slow, moderate or fast</b>, are the notes <b>smoothly connected or separated</b>? Every option is a full, plausible description — only one matches all three features, so you cannot get there by spotting a single feature alone.</p>",
+          questions: describeFeaturesQuestion,
           tags: ["aural"],
         },
         {

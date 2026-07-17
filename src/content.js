@@ -1200,7 +1200,7 @@
           questions: (rng) => timeClassifyQuestion(rng),
         },
         {
-          id: "g3-quality", title: "Interval quality",
+          id: "g3-quality", title: "Interval quality", domain: "Physics",
           why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the intervals early music came to rest on. Everything else was 'imperfect' - pleasant but unsettled.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
           questions: (rng) => intervalQuestion(rng),
@@ -1241,7 +1241,7 @@
           questions: (rng) => keySignatureQuestion(rng),
         },
         {
-          id: "g4-alto-clef", title: "The alto (C) clef",
+          id: "g4-alto-clef", title: "The alto (C) clef", domain: "History",
           why: "The viola lives mostly between the treble and bass staves; the alto clef centres middle C on the middle line so it needs almost no ledger lines. The clef symbol itself is a stylised letter C - in medieval manuscripts, pitch was shown by marking a letter on the relevant line. The treble clef is a stylised G (it loops around the G line), the bass clef a stylised F (with two dots flanking the F line). The C clef simply moved to different lines for different instruments, giving us the alto and tenor variants.",
           what: "<p>The alto clef is a <b>C clef</b>: its centre marks <b>middle C (C4)</b>, which sits on the <b>middle line</b>. From there, read up and down in line/space steps just like any clef. The lines from bottom to top are <b>F A C E G</b>; the spaces are <b>G B D F</b>.</p>",
           questions: (rng) => altoClefQuestion(rng),
@@ -1265,7 +1265,7 @@
           questions: (rng) => triadFunctionQuestion(rng),
         },
         {
-          id: "g4-ornaments", title: "Ornaments",
+          id: "g4-ornaments", title: "Ornaments", domain: "History",
           why: "Ornaments are shorthand for decorations performers once improvised. The harpsichord was the culprit: its strings are plucked, not struck, so notes decay immediately with no sustain. Players ornamented notes to prolong and emphasise them - rapid alternation (trill, mordent) kept the sound alive on long notes. The piano sustains naturally, so ornaments became purely expressive. Baroque performers improvised far more of this than is written down.",
           what: "<p>The common ornaments: the <b>trill</b> (rapid alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), the <b>turn</b> (above-note-below-note), and the grace notes - the crushed <b>acciaccatura</b> and the leaning <b>appoggiatura</b>.</p>",
           questions: (rng) => ornamentQuestion(rng),
@@ -1309,13 +1309,13 @@
           questions: (rng) => (rng.bool(0.6) ? chordIdQuestion(rng) : cadenceQuestion(rng)),
         },
         {
-          id: "g5-clefs", title: "The four clefs",
+          id: "g5-clefs", title: "The four clefs", domain: "History",
           why: "Treble, bass, alto and tenor between them keep almost every instrument's part near the staff, with few ledger lines. Reading all four fluently is a Grade 5 staple. All four are descended from a single idea: a scribe writing a letter on a staff line to fix its pitch. The G, F and C clefs are those letters, stylised over centuries. The C clef in particular was movable - placed on whichever line kept a given voice or instrument off the ledger lines - which is why it survives in two positions: alto (middle line, for the viola) and tenor (fourth line, for the upper cello, bassoon and trombone).",
           what: "<p>The <b>tenor clef</b> is a C clef centring middle C on the <b>fourth line up</b> (used for higher cello, bassoon and trombone passages). With the alto clef (middle C on the centre line) you can now read all four common clefs.</p>",
           questions: (rng) => fourClefQuestion(rng),
         },
         {
-          id: "g5-transposition", title: "Transposition",
+          id: "g5-transposition", title: "Transposition", domain: "History",
           why: "Transposing instruments sound at a different pitch from what's written - and the reason is historical. 18th-century natural horns and clarinets were built for a single key; to change key a player would swap a crook (a tube of different length that changed the instrument's pitch). When valves and keywork were invented, the notation convention stayed because players had trained with it. A B♭ clarinet player uses the same fingering for every 'written C' regardless of the actual key - what pitch comes out is the arranger's problem.",
           what: "<p>Transpose a melody by a named interval, up or down. Know the common transposing instruments: instruments <b>in B♭</b> sound a major 2nd lower than written, <b>in A</b> a minor 3rd lower, <b>in F</b> a perfect 5th lower. To sound a given concert pitch you write that interval <i>higher</i>.</p>",
           questions: (rng) => (rng.bool() ? transposeInstrumentQuestion(rng) : transposeIntervalQuestion(rng)),
@@ -1344,7 +1344,7 @@
       grade: 6, title: "Grade 6", role: "practice",
       topics: [
         {
-          id: "g6-figured-bass", title: "Figured bass & inversions",
+          id: "g6-figured-bass", title: "Figured bass & inversions", domain: "History",
           why: "Figured bass is harmony's shorthand: a few numbers under a bass note tell you the whole chord and its inversion. It developed from Baroque continuo practice (c.1600-1750), where keyboard players - harpsichordists, organists, lutenists - improvised the middle harmony from just a bass line and chord-number clues. The composer wrote the melody and bass; the continuo player filled in the chords on the fly. Full written-out accompaniments only became standard gradually.",
           what: "<p>The figures count intervals above the bass. A triad: <b>5/3</b> (root), <b>6</b> (first inversion), <b>6/4</b> (second inversion). A 7th chord: <b>7</b>, <b>6/5</b>, <b>4/3</b>, <b>4/2</b> for its four positions.</p>",
           questions: (rng) => (rng.bool() ? figuredBassQuestion(rng) : dominant7thQuestion(rng)),
