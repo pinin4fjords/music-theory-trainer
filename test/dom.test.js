@@ -275,6 +275,134 @@ describe("DOM - quiz session resume", () => {
   });
 });
 
+describe("DOM - grade change mid-quiz (issue #46)", () => {
+  beforeEach(() => { sessionStorage.clear(); });
+
+  it("declining the confirmation leaves the running quiz and its resume snapshot untouched", () => {
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+
+    const sel = document.getElementById("grade-select");
+    sel.value = "2";
+    const origConfirm = window.confirm;
+    window.confirm = () => false;
+    try {
+      sel.dispatchEvent(new window.Event("change"));
+    } finally {
+      window.confirm = origConfirm;
+    }
+
+    expect(instance.store.settings().grade).toBe(4); // unchanged
+    expect(sel.value).toBe("4"); // the dropdown reverts too
+    expect(instance.router.getCurrent()).toBe("quiz"); // never re-rendered
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+
+    const saved = instance.ctx.quizResume.load(instance.ctx.sessionStore);
+    expect(saved).toBeTruthy();
+    expect(saved.idx).toBe(1); // the original session's snapshot survives
+  });
+
+  it("confirming ends the session and starts a fresh one for the new grade", () => {
+    instance.router.navigate("quiz");
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click();
+    expect(document.querySelector(".progress-count").textContent).toBe("2 / 10");
+
+    const sel = document.getElementById("grade-select");
+    sel.value = "2";
+    const origConfirm = window.confirm;
+    window.confirm = () => true;
+    try {
+      sel.dispatchEvent(new window.Event("change"));
+    } finally {
+      window.confirm = origConfirm;
+    }
+
+    expect(instance.store.settings().grade).toBe(2);
+    expect(instance.router.getCurrent()).toBe("quiz");
+    expect(document.querySelector(".progress-count").textContent).toBe("1 / 10"); // a fresh session
+
+    const saved = instance.ctx.quizResume.load(instance.ctx.sessionStore);
+    expect(saved.settings.grade).toBe(2); // the new session's own snapshot
+  });
+
+  it("grade changes outside the quiz proceed without asking", () => {
+    instance.router.navigate("home");
+    const sel = document.getElementById("grade-select");
+    sel.value = "3";
+    let confirmCalled = false;
+    const origConfirm = window.confirm;
+    window.confirm = () => { confirmCalled = true; return true; };
+    try {
+      sel.dispatchEvent(new window.Event("change"));
+    } finally {
+      window.confirm = origConfirm;
+    }
+    expect(confirmCalled).toBe(false);
+    expect(instance.store.settings().grade).toBe(3);
+  });
+});
+
+describe("DOM - new topic banner (issue #49)", () => {
+  it("shows a dismissible primer with the topic's why hook and an explainer link on first exposure", () => {
+    const topic = instance.ctx.content.grades[0].topics.find((t) => t.id === "g1-keys");
+    instance.router.navigate("quiz", { single: topic });
+
+    const banner = document.querySelector(".new-topic-banner");
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toMatch(/New topic/);
+    expect(banner.textContent).toMatch(new RegExp(topic.why.slice(0, 20).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+
+    const lessonLink = banner.querySelector(".dig-deeper");
+    expect(lessonLink).toBeTruthy();
+    expect(lessonLink.textContent).toMatch(/Read the lesson first/);
+
+    const dismiss = [...banner.querySelectorAll("button")].find((b) => b.textContent === "Dismiss");
+    expect(dismiss).toBeTruthy();
+    dismiss.click();
+    expect(document.querySelector(".new-topic-banner")).toBeFalsy();
+
+    // Dismissing must not affect answering the question itself.
+    document.querySelector(".choice").click();
+    expect(document.querySelector(".reveal")).toBeTruthy();
+  });
+
+  it("falls back to the Learn page link when the topic has no explainer", () => {
+    const topic = instance.ctx.content.grades[0].topics.find((t) => t.id === "g1-triad");
+    instance.router.navigate("quiz", { single: topic });
+    const lessonLink = document.querySelector(".new-topic-banner .dig-deeper");
+    expect(lessonLink).toBeTruthy();
+    expect(lessonLink.textContent).toMatch(/Read the lesson first: The tonic triad/);
+  });
+
+  it("does not show on a repeat exposure to a topic already answered once", () => {
+    const topic = instance.ctx.content.grades[0].topics.find((t) => t.id === "g1-keys");
+    instance.router.navigate("quiz", { single: topic });
+    expect(document.querySelector(".new-topic-banner")).toBeTruthy();
+
+    document.querySelector(".choice").click();
+    [...document.querySelectorAll("#main .btn")].pop().click(); // -> question 2, same topic
+
+    expect(document.querySelector(".topic-label").textContent).toMatch(topic.title);
+    expect(document.querySelector(".new-topic-banner")).toBeFalsy();
+  });
+
+  it("does not show once the SRS card already has recorded attempts", () => {
+    const seeded = {
+      stateVersion: 2,
+      settings: { grade: 4, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
+      srs: { "g1-keys": { box: 1, seen: 3, correct: 2, streak: 1, lapses: 1, avgMs: 1000, lastSeen: 0, dueAt: 0 } },
+    };
+    scaffold();
+    const inst = app.boot({ document, storage: fakeStore(seeded), now: () => NOW, seed: "banner-seen" });
+    const topic = inst.ctx.content.grades[0].topics.find((t) => t.id === "g1-keys");
+    inst.router.navigate("quiz", { single: topic });
+    expect(document.querySelector(".new-topic-banner")).toBeFalsy();
+  });
+});
+
 describe("DOM - settings", () => {
   it("changing grade persists and re-renders", () => {
     const sel = document.getElementById("grade-select");
