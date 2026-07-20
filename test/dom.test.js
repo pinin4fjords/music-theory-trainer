@@ -171,13 +171,14 @@ describe("DOM - quiz flow & feedback", () => {
     instance.router.navigate("quiz");
     let guard = 0;
     while (guard++ < 40) {
-      const choice = document.querySelector(".choice:not(:disabled)");
-      if (choice) {
-        choice.click();
-        const next = [...document.querySelectorAll("#main .btn")].pop();
-        next.click();
-      }
       if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+      const choice = document.querySelector(".choice:not(:disabled)");
+      const idk = document.querySelector(".idk-btn:not(:disabled)");
+      if (choice) choice.click();
+      else if (idk) idk.click(); // build-task question: reveal it and move on
+      else break;
+      const next = [...document.querySelectorAll("#main .btn")].pop();
+      if (next) next.click();
     }
     const finishText = document.querySelector("#main").textContent;
     expect(finishText).toMatch(/Nice work/);
@@ -263,12 +264,14 @@ describe("DOM - quiz session resume", () => {
     instance.router.navigate("quiz");
     let guard = 0;
     while (guard++ < 40) {
-      const choice = document.querySelector(".choice:not(:disabled)");
-      if (choice) {
-        choice.click();
-        [...document.querySelectorAll("#main .btn")].pop().click();
-      }
       if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+      const choice = document.querySelector(".choice:not(:disabled)");
+      const idk = document.querySelector(".idk-btn:not(:disabled)");
+      if (choice) choice.click();
+      else if (idk) idk.click();
+      else break;
+      const next = [...document.querySelectorAll("#main .btn")].pop();
+      if (next) next.click();
     }
     instance.router.navigate("home");
     expect(document.querySelector("#main").textContent).not.toMatch(/Resume your session/);
@@ -1010,12 +1013,14 @@ describe("DOM - 'session saved' cue on leaving a live quiz (issue #54)", () => {
     instance.router.navigate("quiz");
     let guard = 0;
     while (guard++ < 40) {
-      const choice = document.querySelector(".choice:not(:disabled)");
-      if (choice) {
-        choice.click();
-        [...document.querySelectorAll("#main .btn")].pop().click();
-      }
       if (/Nice work/.test(document.querySelector("#main").textContent)) break;
+      const choice = document.querySelector(".choice:not(:disabled)");
+      const idk = document.querySelector(".idk-btn:not(:disabled)");
+      if (choice) choice.click();
+      else if (idk) idk.click();
+      else break;
+      const next = [...document.querySelectorAll("#main .btn")].pop();
+      if (next) next.click();
     }
     instance.router.navigate("home");
     expect(document.querySelector(".session-saved-toast")).toBeNull();

@@ -55,6 +55,170 @@
     return text + " " + N.describe(spec);
   }
 
+  // --- Build-task (constructed-answer) authoring -------------------------
+  //
+  // A build task swaps the multiple-choice buttons for an interactive staff
+  // (src/staff-editor.js): the learner nudges noteheads to construct the answer.
+  // `choices`/`answer` are sentinels so core/validate.js keeps passing (the same
+  // trick mic tasks use); the real grading is q.buildTask.target + spelling.
+
+  // Comfortable editable compass per clef (a little past the staff each way).
+  const EDITOR_RANGE = {
+    treble: { minMidi: M.noteToMidi("A3"), maxMidi: M.noteToMidi("C6") },
+    bass: { minMidi: M.noteToMidi("C2"), maxMidi: M.noteToMidi("E4") },
+  };
+
+  // Move a spelled note `steps` diatonic steps (accidental reset), for seeding a
+  // start position a little away from the target so there is something to do.
+  function diatonicShift(n, steps) {
+    let idx = M.LETTERS.indexOf(n.letter) + steps;
+    let oct = n.octave;
+    while (idx > 6) { idx -= 7; oct += 1; }
+    while (idx < 0) { idx += 7; oct -= 1; }
+    return M.spelled(M.LETTERS[idx], 0, oct);
+  }
+
+  // A start note `steps` away from `target`, flipped to stay inside `range`.
+  function seedNote(target, steps, range) {
+    let s = diatonicShift(target, steps);
+    if (range && (M.spelledToMidi(s) < range.minMidi || M.spelledToMidi(s) > range.maxMidi)) {
+      s = diatonicShift(target, -steps);
+    }
+    return s;
+  }
+
+  function buildQ(spec) {
+    const clef = spec.clef || "treble";
+    const range = EDITOR_RANGE[clef] || EDITOR_RANGE.treble;
+    return {
+      prompt: spec.prompt,
+      a11yText: spec.a11yText,
+      choices: ["Correct", "Not yet"],
+      answer: "Correct",
+      explanation: spec.explanation,
+      audio: spec.audio,
+      meta: spec.meta,
+      buildTask: {
+        clef,
+        columns: spec.columns,
+        editableCols: spec.editableCols,
+        range,
+        spelling: spec.spelling || "exact",
+        ignoreOctave: !!spec.ignoreOctave,
+        ordered: !!spec.ordered,
+        allowAccidentals: spec.allowAccidentals !== false,
+        liveValidate: spec.liveValidate !== false,
+        target: spec.target,
+        answerText: spec.target.map((n) => M.spelledName(n, { unicode: false }) + n.octave).join(" "),
+        label: spec.a11yText || spec.prompt,
+      },
+    };
+  }
+
+  // "Build the note X on the <clef> staff." Exact letter, any octave.
+  function buildNoteQuestion(rng, clef) {
+    const c = clef || pick(rng, ["treble", "bass"]);
+    const [letter, octave] = pick(rng, READ_RANGES[c]);
+    const target = [M.spelled(letter, 0, octave)];
+    const start = [seedNote(target[0], pick(rng, [-3, -2, 2, 3]), EDITOR_RANGE[c])];
+    return buildQ({
+      clef: c,
+      prompt: `Build the note <b>${letter}</b> on the <b>${c} clef</b>. Move the notehead with the arrow keys (or the buttons below it).`,
+      a11yText: `Build the note ${letter} on the ${c} clef using the arrow keys to move the notehead up or down.`,
+      columns: [start],
+      editableCols: [0],
+      target,
+      spelling: "exact",
+      ignoreOctave: true,
+      explanation: `<b>${letter}</b> sits here on the ${c} clef.` + staffBlock({ clef: c, notes: target, accidentals: "none" }),
+      audio: () => audio().note(target[0]),
+    });
+  }
+
+  // "Build the tonic triad of <key> major" - three notes, any octave/voicing,
+  // spelt correctly (a set: root, 3rd, 5th).
+  function buildTonicTriadQuestion(rng, keys) {
+    const key = pick(rng, keys);
+    const target = M.triad(key, "major", 1);
+    const start = M.chordTriad(M.spelled("C", 0, 4), "major");
+    return buildQ({
+      prompt: `Build the <b>tonic triad</b> of <b>${key} major</b> - the key note with a 3rd and a 5th stacked above it.`,
+      a11yText: `Build the tonic triad of ${key} major. Three noteheads are stacked in one column; move each with the arrows to make the root, third and fifth.`,
+      columns: [start],
+      editableCols: [0],
+      target,
+      spelling: "exact",
+      ignoreOctave: true,
+      explanation: `The tonic triad of ${key} major is <b>${target.map((n) => M.spelledName(n)).join(" - ")}</b>.` + staffBlock({ clef: "treble", notes: [target] }),
+      audio: () => audio().chord(target),
+    });
+  }
+
+  const BUILD_INTERVALS = [
+    [2, "major", "major 2nd"], [3, "minor", "minor 3rd"], [3, "major", "major 3rd"],
+    [4, "perfect", "perfect 4th"], [5, "perfect", "perfect 5th"], [6, "major", "major 6th"],
+  ];
+  // "Write the note a <quality> <number> above <root>" - root fixed, top editable,
+  // spelt exactly (so E, not Fb, for a major 3rd above C).
+  function buildIntervalAboveQuestion(rng, roots) {
+    const root = M.parseSpelled(pick(rng, roots), 4);
+    const [num, qual, label] = pick(rng, BUILD_INTERVALS);
+    const top = M.transpose(root, num, qual);
+    const start = seedNote(top, pick(rng, [-2, -1, 1, 2]), EDITOR_RANGE.treble);
+    const target = [root, top];
+    return buildQ({
+      prompt: `Write the note a <b>${label}</b> above <b>${M.spelledName(root)}</b>. The lower note is fixed; build the upper one.`,
+      a11yText: `Write the note a ${label} above ${M.spelledName(root)} using the arrow keys. The lower note is fixed.`,
+      columns: [[root], [start]],
+      editableCols: [1],
+      target,
+      spelling: "exact",
+      ordered: true,
+      meta: { type: "interval", number: num, quality: qual },
+      explanation: `A ${label} above ${M.spelledName(root)} is <b>${M.spelledName(top)}</b>.` + staffBlock({ clef: "treble", notes: target }),
+      audio: () => audio().sequence(target),
+    });
+  }
+
+  // "Raise the 7th to make <root> harmonic minor" - the natural minor scale is
+  // shown with only its 7th degree editable.
+  function buildHarmonicSeventhQuestion(rng) {
+    const root = pick(rng, ["A", "E", "D", "B", "G"]);
+    const natural = M.scale(root, "naturalMinor");
+    const target = M.scale(root, "harmonicMinor");
+    return buildQ({
+      prompt: `This is the <b>${root} natural minor</b> scale. Raise its <b>7th</b> to make <b>${root} harmonic minor</b> (use Shift+↑ to add the sharp).`,
+      a11yText: `The ${root} natural minor scale is shown. Raise the seventh degree a semitone to make ${root} harmonic minor.`,
+      columns: natural.map((n) => [n]),
+      editableCols: [6],
+      target,
+      spelling: "exact",
+      ordered: true,
+      explanation: `Harmonic minor raises the 7th to <b>${M.spelledName(target[6])}</b>, a leading note a semitone below the tonic.` + staffBlock({ clef: "treble", notes: target }),
+      audio: () => audio().sequence(target),
+    });
+  }
+
+  // "Build the dominant 7th (V7) of <key> major" - four notes, any voicing.
+  function buildDominantSeventhQuestion(rng, keys) {
+    const key = pick(rng, keys);
+    const dom = M.triad(key, "major", 5);
+    const seventh = M.transpose(dom[0], 7, "minor");
+    const target = [dom[0], dom[1], dom[2], seventh];
+    const start = [M.spelled("C", 0, 4), M.spelled("E", 0, 4), M.spelled("G", 0, 4), M.spelled("B", 0, 4)];
+    return buildQ({
+      prompt: `Build the <b>dominant seventh (V7)</b> of <b>${key} major</b> - the triad on the 5th degree with a minor 7th added on top.`,
+      a11yText: `Build the dominant seventh chord of ${key} major. Four noteheads are stacked in one column; move each to make the dominant triad plus its seventh.`,
+      columns: [start],
+      editableCols: [0],
+      target,
+      spelling: "exact",
+      ignoreOctave: true,
+      explanation: `The dominant 7th of ${key} major is <b>${target.map((n) => M.spelledName(n)).join(" - ")}</b>.` + staffBlock({ clef: "treble", notes: [target] }),
+      audio: () => audio().chord(target),
+    });
+  }
+
   // Inline SVG glyph for a note value (semibreve, minim, crotchet, quaver, semiquaver).
   function noteValueGlyph(name) {
     const cfg = { semibreve: [true, false, 0], minim: [true, true, 0], crotchet: [false, true, 0], quaver: [false, true, 1], semiquaver: [false, true, 2], demisemiquaver: [false, true, 3] }[name];
@@ -1376,7 +1540,7 @@
           id: "g1-notes", title: "Reading notes (treble & bass)",
           why: "The two staves are one system split around middle C - learn the landmark lines and you can read either clef without counting up from the bottom every time.",
           what: "<p>Treble lines are <b>E G B D F</b>, spaces <b>F A C E</b>; bass lines are <b>G B D F A</b>, spaces <b>A C E G</b>. Middle C sits one ledger line below the treble staff and one above the bass.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why those squiggles?</b> Both clefs are stylised letters that medieval scribes wrote on a line to fix its pitch. The treble clef is an ornate <b>G</b> - its curl circles the line that is G; the bass clef is an <b>F</b> - its two dots sit either side of the F line. So each clef literally points at the note it names.</p>",
-          questions: (rng) => readNotesQuestion(rng),
+          questions: (rng) => (rng.bool(0.3) ? buildNoteQuestion(rng) : readNotesQuestion(rng)),
         },
         {
           id: "g1-rhythm", title: "Note values, tones & semitones",
@@ -1400,7 +1564,7 @@
           id: "g1-triad", title: "The tonic triad",
           why: "The very first chord: stack a 3rd and a 5th on the key note and you have the tonic triad - the sound a piece rests on, and the seed every other chord grows from.",
           what: "<p>A <b>triad</b> is three notes a 3rd apart: a root, the note a 3rd above, and the note a 5th above. Built on the <b>tonic</b> (the key note), it is the <b>tonic triad</b> - C-E-G in C major. It is the most stable chord in the key, which is why so many pieces begin and end on it.</p>",
-          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F"]),
+          questions: (rng) => (rng.bool(0.35) ? buildTonicTriadQuestion(rng, ["C", "G", "D", "F"]) : tonicTriadQuestion(rng, ["C", "G", "D", "F"])),
         },
         {
           id: "g1-terms", title: "Everyday terms & signs",
@@ -1441,7 +1605,7 @@
           id: "g2-triad", title: "Tonic triads, major & minor",
           why: "A minor key has its own tonic triad, and the single note that separates it from the major's is the 3rd - lower it a semitone and bright turns dark.",
           what: "<p>The tonic triad is still root + 3rd + 5th on the key note. In a <b>minor</b> key the 3rd is a semitone lower than in major (A-C-E, not A-C♯-E), which is the whole difference in colour. The 5th is unchanged.</p>",
-          questions: (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "Eb"], ["A", "E", "D"]),
+          questions: (rng) => (rng.bool(0.3) ? buildTonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb"]) : tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "Eb"], ["A", "E", "D"])),
         },
         {
           id: "g2-terms", title: "More terms & signs",
@@ -1458,7 +1622,10 @@
           id: "g3-melodic", title: "The three minor scales",
           why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap. The three forms exist to solve one problem: natural minor has no leading note (its 7th sits a whole tone below the tonic), so it lacks the semitone pull that makes a cadence feel final. Harmonic minor raises the 7th to recover that pull - but that leaves an awkward augmented 2nd to the 6th. Melodic minor smooths the gap by raising the 6th too when ascending, then relaxes back to the natural form coming down, where the leading note isn't needed.",
           what: "<p><b>Natural</b> minor uses the key signature as-is; <b>harmonic</b> minor raises the 7th (making an augmented 2nd); <b>melodic</b> minor raises the 6th and 7th ascending, reverting descending.</p>",
-          questions: (rng) => (rng.int(0, 3) === 0 ? melodicMinorDescendingQuestion(rng) : minorFormQuestion(rng)),
+          questions: (rng) => {
+            const r = rng.next();
+            return r < 0.25 ? buildHarmonicSeventhQuestion(rng) : r < 0.45 ? melodicMinorDescendingQuestion(rng) : minorFormQuestion(rng);
+          },
         },
         {
           id: "g3-keys", title: "Keys up to 4 sharps and flats",
@@ -1476,7 +1643,7 @@
           id: "g3-quality", title: "Interval quality", domain: "Physics",
           why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the intervals early music came to rest on. Everything else was 'imperfect' - pleasant but unsettled.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
-          questions: (rng) => intervalQuestion(rng),
+          questions: (rng) => (rng.bool(0.3) ? buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"]) : intervalQuestion(rng)),
         },
         {
           id: "g3-notation", title: "Demisemiquavers & octave transposition",
@@ -1505,7 +1672,7 @@
           id: "g4-intervals", title: "Intervals by number and quality",
           why: "An interval's <i>number</i> (count the letter names) and its <i>quality</i> (the exact semitone span) are two separate facts. That's why C-E and C-Eb are both 'thirds' yet sound different: same number, different quality.",
           what: "<p>Count letter names inclusively for the number (C up to E = C,D,E = a 3rd). Then size it: major/minor for 2nds 3rds 6ths 7ths, perfect for unison 4th 5th octave, with augmented/diminished one semitone outside.</p>",
-          questions: (rng) => intervalQuestion(rng),
+          questions: (rng) => (rng.bool(0.3) ? buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"]) : intervalQuestion(rng)),
         },
         {
           id: "g4-key-signatures", title: "Keys up to 5 sharps and flats",
@@ -1581,7 +1748,9 @@
           what: "<p>Identify the triads on <b>I, ii, IV and V</b> in root position and first/second inversion. Recognise the four cadences: <b>perfect</b> (V-I), <b>plagal</b> (IV-I), <b>imperfect</b> (ending on V) and <b>interrupted</b> (V-vi).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why these names?</b> 'Perfect' (V-I) is the most conclusive landing - both chords root-position, ending on the 'perfect' stability of the tonic. 'Plagal' (IV-I) comes from Greek <i>plagios</i> (oblique); it was the 'Amen' cadence of church music, approaching home from the subdominant below rather than the dominant above - quieter and less forceful. 'Interrupted' (V-vi) tricks the ear: the dominant sets up an expected resolution to I, then goes somewhere else instead.</p>",
           questions: (rng) => {
             const r = rng.next();
-            return r < 0.45 ? chordIdQuestion(rng) : r < 0.75 ? cadenceQuestion(rng) : cadenceHarmonyQuestion(rng);
+            return r < 0.25 ? buildDominantSeventhQuestion(rng, ["C", "G", "F", "D"])
+              : r < 0.55 ? chordIdQuestion(rng)
+                : r < 0.8 ? cadenceQuestion(rng) : cadenceHarmonyQuestion(rng);
           },
         },
         {
@@ -1725,6 +1894,7 @@
     { id: "three-minors", title: "Why minor has three forms", blurb: "Natural, harmonic, melodic - and the awkward gap." },
     { id: "modes", title: "Modes beyond major & minor", blurb: "Dorian, Phrygian and friends." },
     { id: "keyboard", title: "Semitones on a keyboard", blurb: "Count the keys, name the interval." },
+    { id: "build-triads", title: "Build a triad", blurb: "Stack thirds yourself and hear the quality change." },
     { id: "four-clefs", title: "The four clefs", blurb: "Same note, four different positions - middle C as your anchor." },
     { id: "note-values", title: "Note values and duration", blurb: "The subdivision hierarchy from semibreve to semiquaver." },
     { id: "metre", title: "How beats group", blurb: "Simple, compound and irregular - hear the pulse split in twos, threes and unequal groups." },
@@ -1959,7 +2129,11 @@
 
   const api = {
     grades, explainers, reference,
-    helpers: { choices, pick, staffBlock, noteValueGlyph },
+    helpers: {
+      choices, pick, staffBlock, noteValueGlyph,
+      buildNoteQuestion, buildTonicTriadQuestion, buildIntervalAboveQuestion,
+      buildHarmonicSeventhQuestion, buildDominantSeventhQuestion,
+    },
   };
 
   global.MTT = global.MTT || {};

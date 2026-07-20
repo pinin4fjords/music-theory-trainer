@@ -443,6 +443,35 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
 .staff-wrap .staff { color: var(--ink); height: 132px; max-width: 100%; }
 
+/* Interactive staff editor (src/staff-editor.js). */
+.staff-editor { margin: 8px 0; }
+.staff-editor-help { font-size: .84rem; margin: 0 0 4px; }
+.staff-editor-stage { margin: 6px 0; }
+/* Each editable notehead is a focusable group. Fill via currentColor on the
+   group so the ellipse/accidental inside inherit the state colour. */
+.staff .note-slot { cursor: pointer; color: var(--ink); outline: none; }
+.staff .note-slot:hover { color: var(--accent); }
+.staff .note-slot:focus-visible, .staff .note-slot:focus { color: var(--accent); }
+.staff .note-slot:focus-visible ellipse, .staff .note-slot:focus ellipse {
+  stroke: var(--accent); stroke-width: 2; paint-order: stroke;
+}
+.staff .note-slot.error { color: var(--bad); }
+.staff .note-slot.ok { color: var(--good); }
+.staff .note-slot.fixed { cursor: default; color: var(--ink-soft); }
+
+.staff-editor-controls { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.staff-editor-btn {
+  min-width: 40px; padding: 7px 11px; border: 1px solid var(--line-strong);
+  background: var(--paper); color: var(--ink); border-radius: var(--radius-sm);
+  font: inherit; font-size: 1rem; line-height: 1; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.staff-editor-btn:hover { background: var(--accent-soft); border-color: var(--accent); }
+.staff-editor-btn:active { filter: brightness(1.05); }
+
+.build-panel { margin-top: 12px; }
+.build-actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+
 /* Inline piano keyboard. */
 .kb-wrap { margin: 10px 0 4px; overflow-x: auto; }
 

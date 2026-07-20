@@ -23,22 +23,33 @@
   ];
   const PG_QUALITIES = ["major", "minor", "diminished", "augmented"];
 
-  // Persisted across navigations (module scope), like the original.
-  const pg = { kind: "scale", root: "C", scale: "major", interval: 7, quality: "major", inversion: 0, clef: "treble", degrees: false };
+  const PG_RANGES = {
+    treble: ["A3", "C6"], bass: ["C2", "E4"], alto: ["D3", "F5"], tenor: ["C3", "E5"],
+  };
+
+  // Persisted across navigations (module scope), like the original. `buildNotes`
+  // is the free-compose staff's state (columns of spelled notes).
+  const pg = {
+    kind: "scale", root: "C", scale: "major", interval: 7, quality: "major",
+    inversion: 0, clef: "treble", degrees: false,
+    buildNotes: [[{ letter: "C", accidental: 0, octave: 4 }], [{ letter: "E", accidental: 0, octave: 4 }], [{ letter: "G", accidental: 0, octave: 4 }]],
+  };
 
   function render(main, ctx) {
     const C = ctx.C;
     const M = ctx.music;
     const N = ctx.notation;
     const A = ctx.audio;
+    const SE = global.MTT.staffEditor;
     const playBtn = (label, fn) => C.playButton(label, () => { try { fn(); } catch { /* ignore */ } });
+    const rangeFor = (clef) => ({ minMidi: M.noteToMidi(PG_RANGES[clef][0]), maxMidi: M.noteToMidi(PG_RANGES[clef][1]) });
 
-    const view = C.el(`<div class="view"><h1 tabindex="-1">Playground</h1><p class="muted">Build a scale, interval or triad - see it on the staff, hear it, and find it on the keyboard.</p></div>`);
+    const view = C.el(`<div class="view"><h1 tabindex="-1">Playground</h1><p class="muted">Build a scale, interval or triad - see it on the staff, hear it, and find it on the keyboard. Or pick <b>Build</b> to place notes on the staff yourself.</p></div>`);
     main.appendChild(view);
 
     const panel = C.el(`<div class="card pg-panel"></div>`);
     const kindRow = C.el(`<div class="seg" role="group" aria-label="What to build"></div>`);
-    [["scale", "Scale"], ["interval", "Interval"], ["triad", "Triad"]].forEach(([k, label]) => {
+    [["scale", "Scale"], ["interval", "Interval"], ["triad", "Triad"], ["build", "Build"]].forEach(([k, label]) => {
       const b = document.createElement("button");
       b.type = "button";
       b.textContent = label;
@@ -50,13 +61,15 @@
     panel.appendChild(kindRow);
 
     const opts = C.el(`<div class="pg-opts"></div>`);
-    opts.appendChild(selectField("Root", PG_ROOTS.map((r) => [r, r]), pg.root, (val) => { pg.root = val; rebuild(); }));
+    if (pg.kind !== "build") {
+      opts.appendChild(selectField("Root", PG_ROOTS.map((r) => [r, r]), pg.root, (val) => { pg.root = val; rebuild(); }));
+    }
     if (pg.kind === "scale") {
       opts.appendChild(selectField("Type", PG_SCALES, pg.scale, (val) => { pg.scale = val; rebuild(); }));
     } else if (pg.kind === "interval") {
       opts.appendChild(selectField("Interval", PG_INTERVALS.map((iv, i) => [String(i), iv[2]]), String(pg.interval),
         (val) => { pg.interval = parseInt(val, 10); rebuild(); }));
-    } else {
+    } else if (pg.kind === "triad") {
       opts.appendChild(selectField("Quality", PG_QUALITIES.map((q) => [q, q]), pg.quality, (val) => { pg.quality = val; rebuild(); }));
       opts.appendChild(selectField("Position", [["0", "root position"], ["1", "first inversion"], ["2", "second inversion"]],
         String(pg.inversion), (val) => { pg.inversion = parseInt(val, 10); rebuild(); }));
@@ -98,6 +111,7 @@
     }
 
     function rebuild() {
+      if (pg.kind === "build") { rebuildBuild(); return; }
       const built = pgBuild();
       const spec = { clef: pg.clef, notes: built.columns };
       stage.innerHTML = `<div class="staff-wrap">${N.staffHTML(spec)}</div>`;
@@ -117,6 +131,55 @@
       stage.appendChild(row);
 
       drawKeyboard(new Set(built.flat.map((n) => M.spelledToMidi(n))));
+    }
+
+    function rebuildBuild() {
+      C.clear(stage);
+      stage.appendChild(C.el(`<p class="muted" style="font-size:.9rem;margin:0 0 4px">Shape the notes: ← → to pick one, ↑ ↓ to move it, Shift+↑ ↓ for sharps and flats.</p>`));
+      const caption = C.el(`<div class="deg-row" aria-live="polite" style="margin:8px 0"></div>`);
+      const editor = SE.create({
+        clef: pg.clef,
+        columns: pg.buildNotes.map((col) => col.map((n) => ({ letter: n.letter, accidental: n.accidental, octave: n.octave }))),
+        editableCols: pg.buildNotes.map((_, i) => i),
+        range: rangeFor(pg.clef),
+        label: "Free staff - shape your own notes",
+        onChange: onBuildChange,
+      });
+      stage.appendChild(editor.el);
+
+      const row = C.el(`<div class="explainer-controls"></div>`);
+      row.appendChild(playBtn("Play in turn", () => A.sequence(sortNotes(editor.getNotes()))));
+      row.appendChild(playBtn("Play together", () => A.chord(editor.getNotes())));
+      stage.appendChild(row);
+      stage.appendChild(caption);
+
+      function onBuildChange(notes) {
+        // Persist so the pad survives a clef change / navigation, and describe it.
+        pg.buildNotes = notes.map((n) => [{ letter: n.letter, accidental: n.accidental, octave: n.octave }]);
+        describeBuild(notes, caption);
+        drawKeyboard(new Set(notes.map((n) => M.spelledToMidi(n))));
+      }
+      onBuildChange(editor.getNotes());
+    }
+
+    function sortNotes(notes) {
+      return notes.slice().sort((a, b) => M.spelledToMidi(a) - M.spelledToMidi(b));
+    }
+
+    // Live description of the built notes: the interval when there are two, the
+    // triad quality when three stack in 3rds, otherwise the notes with the
+    // interval between each adjacent pair.
+    function describeBuild(notes, caption) {
+      const sorted = sortNotes(notes);
+      const names = sorted.map((n) => M.spelledName(n)).join(" - ");
+      let detail = "";
+      if (sorted.length === 2 && M.spelledToMidi(sorted[0]) !== M.spelledToMidi(sorted[1])) {
+        detail = M.interval(sorted[0], sorted[1]).name;
+      } else if (sorted.length === 3) {
+        const q = M.triadQuality(sorted);
+        detail = q === "unknown" ? "not a triad (stack the notes in 3rds)" : q + " triad";
+      }
+      caption.innerHTML = `<span class="deg-chip"><b>${names}</b>${detail ? " · " + detail : ""}</span>`;
     }
 
     function drawKeyboard(activeMidis) {

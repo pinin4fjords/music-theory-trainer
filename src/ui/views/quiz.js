@@ -869,6 +869,44 @@
     return stopMic;
   }
 
+  // --- Build task panel -----------------------------------------------------
+
+  // Constructed-answer questions (q.buildTask): the learner builds the answer on
+  // an interactive staff instead of choosing from a list. `onResult(correct)` is
+  // called when they press "Check answer". With task.liveValidate on, each note
+  // outside the target set is flagged red as it is placed - the real-time
+  // feedback loop from issue #21. Returns a teardown that destroys the editor.
+  function renderBuildTask(view, q, C, ctx, onResult) {
+    const task = q.buildTask;
+    const SE = global.MTT.staffEditor;
+    const gradeOpts = { spelling: task.spelling, ignoreOctave: task.ignoreOctave, ordered: task.ordered };
+
+    const panel = C.el(`<div class="build-panel"></div>`);
+    const editor = SE.create({
+      clef: task.clef,
+      keySignature: task.keySignature || null,
+      columns: task.columns,
+      editableCols: task.editableCols,
+      range: task.range,
+      allowAccidentals: task.allowAccidentals,
+      label: task.label,
+      onChange: task.liveValidate
+        ? function (notes) { editor.setValidity(SE.slotValidity(notes, task.target, gradeOpts)); }
+        : null,
+    });
+    panel.appendChild(editor.el);
+
+    const actionRow = C.el(`<div class="build-actions"></div>`);
+    actionRow.appendChild(C.button("Check answer", function () {
+      onResult(SE.grade(editor.getNotes(), task.target, gradeOpts));
+    }));
+    panel.appendChild(actionRow);
+    view.appendChild(panel);
+    editor.focusFirst();
+
+    return function () { try { editor.destroy(); } catch { /* ok */ } };
+  }
+
   // Dispatches to the appropriate mic handler based on task type.
   function renderMicTask(view, q, C, ctx, onResult) {
     if (q.micTask.type === "multiEcho") return renderMultiEcho(view, q, C, ctx, onResult);
@@ -1153,7 +1191,18 @@
       const choiceButtons = [];
       let idkBtn = null;
 
-      if (q.micTask) {
+      if (q.buildTask) {
+        stopMic = renderBuildTask(view, q, C, ctx, function (correct) {
+          if (!answered) reveal(correct ? "correct" : "wrong", null);
+        });
+        activeStopMic = stopMic;
+        idkBtn = document.createElement("button");
+        idkBtn.className = "idk-btn";
+        idkBtn.type = "button";
+        idkBtn.textContent = "I don't know - show me";
+        idkBtn.addEventListener("click", () => reveal("idk", null));
+        view.appendChild(idkBtn);
+      } else if (q.micTask) {
         stopMic = renderMicTask(view, q, C, ctx, function (detected, scoreDetail, quality) {
           if (!answered) reveal(detected === q.answer ? "correct" : "wrong", null, scoreDetail, quality);
         });
@@ -1217,7 +1266,7 @@
           reveal(btn._choice === q.answer ? "correct" : "wrong", btn);
         }
       }
-      if (!q.micTask) {
+      if (!q.micTask && !q.buildTask) {
         activeKeyHandler = onKeydown;
         document.addEventListener("keydown", onKeydown);
       }
@@ -1236,7 +1285,7 @@
         // Mic tasks are graded by pitch, not the two-option self-report sentinel,
         // so their choice count would misfire the guard - omit it there.
         const answerRecord = { correct, responseMs, now: ctx.now() };
-        if (!q.micTask && q.choices) answerRecord.choices = q.choices.length;
+        if (!q.micTask && !q.buildTask && q.choices) answerRecord.choices = q.choices.length;
         if (typeof quality === "number") answerRecord.quality = quality;
         ctx.store.recordAnswer(topic.id, answerRecord);
 
@@ -1248,8 +1297,14 @@
         if (!correct) {
           const yourAnswer = q.micTask
             ? (scoreDetail || "(self-reported miss)")
-            : (kind === "idk" ? "(said I don't know)" : stripTags(pickedBtn ? pickedBtn._choice : ""));
-          const correctAnswerText = q.micTask ? "(sung/tapped task)" : stripTags(q.answer);
+            : q.buildTask
+              ? (kind === "idk" ? "(said I don't know)" : "(built the wrong notes)")
+              : (kind === "idk" ? "(said I don't know)" : stripTags(pickedBtn ? pickedBtn._choice : ""));
+          const correctAnswerText = q.micTask
+            ? "(sung/tapped task)"
+            : q.buildTask
+              ? (q.buildTask.answerText || "(constructed on the staff)")
+              : stripTags(q.answer);
           ctx.store.recordMiss({
             topicId: topic.id,
             topicTitle: topic.title,
@@ -1283,8 +1338,12 @@
           : kind === "wrong"
             ? q.micTask
               ? `<span class="no">✗ Not quite</span>${scoreDetail ? ` - ${scoreDetail}.` : ""}`
-              : `<span class="no">✗ Not quite</span> - the answer is <b>${q.answer}</b>.`
-            : `<span class="idk-label">The answer is <b>${q.answer}</b>.</span>`;
+              : q.buildTask
+                ? `<span class="no">✗ Not quite.</span>`
+                : `<span class="no">✗ Not quite</span> - the answer is <b>${q.answer}</b>.`
+            : q.buildTask
+              ? `<span class="idk-label">Here's how it's built.</span>`
+              : `<span class="idk-label">The answer is <b>${q.answer}</b>.</span>`;
         const diag = !correct ? safeDiagnose(q, pickedBtn ? pickedBtn._choice : null) : null;
         const why = q.explanation ? `<div class="why-line">${q.explanation}</div>` : "";
         const diagLine = diag ? `<div class="why-line diag-line">${diag}</div>` : "";
@@ -1305,7 +1364,9 @@
             ? "Correct. "
             : q.micTask
               ? "Not quite. " + (scoreDetail ? scoreDetail + ". " : "")
-              : "Not quite. The answer is " + q.answer + ". ")
+              : q.buildTask
+                ? "Not quite. "
+                : "Not quite. The answer is " + q.answer + ". ")
           + (q.explanation ? stripTags(q.explanation) : ""),
         );
 

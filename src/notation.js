@@ -16,7 +16,12 @@
  *
  * @typedef {{ clef?: "treble"|"bass"|"alto"|"tenor", keySignature?: object|null,
  *   notes?: Array, accidentals?: "auto"|"all"|"none", scale?: number,
- *   label?: string }} StaffSpec
+ *   label?: string, interactive?: boolean }} StaffSpec
+ *
+ * With `interactive: true`, each notehead (plus its accidental) is wrapped in a
+ * focusable `<g class="note-slot" data-col data-note tabindex="0">`, so an
+ * external editor (src/staff-editor.js) can drive it from the keyboard. Static
+ * renders leave the markup untouched.
  */
 (function (global) {
   "use strict";
@@ -215,9 +220,16 @@
       else parts.push(line(cx - NOTE_RX * 0.92, topY, cx - NOTE_RX * 0.92, botY + STEM_LEN, 1.6));
       notes.forEach((n, j) => {
         const cy = ys[j];
-        parts.push(noteheadMarkup(cx, cy));
         const g = accidentalGlyph(n, sig, mode);
-        if (g) parts.push(accidentalMarkup(cx - NOTE_RX - S * 0.18, cy, g));
+        const glyphs = noteheadMarkup(cx, cy)
+          + (g ? accidentalMarkup(cx - NOTE_RX - S * 0.18, cy, g) : "");
+        if (spec.interactive) {
+          const label = escapeAttr(M.spelledName(n, { unicode: false }) + n.octave);
+          parts.push(`<g class="note-slot" data-col="${i}" data-note="${j}" `
+            + `tabindex="0" role="button" aria-label="${label}">${glyphs}</g>`);
+        } else {
+          parts.push(glyphs);
+        }
       });
     });
 

@@ -14,6 +14,9 @@
     const M = ctx.music;
     const N = ctx.notation;
     const A = ctx.audio;
+    const SE = global.MTT.staffEditor;
+    const TREBLE_RANGE = { minMidi: M.noteToMidi("A3"), maxMidi: M.noteToMidi("C6") };
+    const byPitch = (notes) => notes.slice().sort((a, b) => M.spelledToMidi(a) - M.spelledToMidi(b));
 
     const playBtn = (label, fn) => C.playButton(label, () => { try { fn(); } catch { /* ignore */ } });
     const controls = () => C.el(`<div class="explainer-controls"></div>`);
@@ -32,6 +35,7 @@
       "three-minors": buildThreeMinors,
       modes: buildModes,
       keyboard: buildKeyboard,
+      "build-triads": buildBuildTriads,
       "four-clefs": buildFourClefs,
       "note-values": buildNoteValues,
       metre: buildMetre,
@@ -308,6 +312,74 @@
         card.appendChild(row);
         host.appendChild(card);
       });
+
+      // Do it yourself: raise the 7th of A natural minor to reach harmonic minor.
+      const diyCard = C.el(`<div class="card"></div>`);
+      diyCard.appendChild(C.el(`<h3 style="margin-top:0">Raise the 7th yourself</h3>`));
+      diyCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">This is <b>A natural minor</b>. Move to the 7th note (G) with ← →, then press <b>Shift+↑</b> to sharpen it. Watch it become the leading note of A harmonic minor.</p>`));
+      const diyCaption = C.el(`<div class="iv-display muted" aria-live="polite"></div>`);
+      const gSharp = M.scale("A", "harmonicMinor")[6];
+      const diyEditor = SE.create({
+        clef: "treble",
+        columns: M.scale("A", "naturalMinor").map((n) => [n]),
+        editableCols: [6],
+        range: TREBLE_RANGE,
+        label: "The A natural minor scale, with the seventh note editable",
+        onChange: describeMinor,
+      });
+      function describeMinor() {
+        const seventh = diyEditor.getNotes()[6];
+        if (M.spelledName(seventh) === M.spelledName(gSharp)) {
+          diyCaption.innerHTML = `<b>${M.spelledName(seventh)}</b> is now a semitone below A - the <b>leading note</b> of A harmonic minor. But look at the gap to F: an <b>augmented 2nd</b>.`;
+        } else {
+          diyCaption.innerHTML = `The 7th is <b>${M.spelledName(seventh)}</b>, a whole tone below A - no pull home yet. Sharpen it with Shift+↑.`;
+        }
+      }
+      diyCard.appendChild(diyEditor.el);
+      const diyRow = controls();
+      diyRow.appendChild(playBtn("Hear it", () => A.sequence(diyEditor.getNotes())));
+      diyCard.appendChild(diyRow);
+      diyCard.appendChild(diyCaption);
+      describeMinor();
+      host.appendChild(diyCard);
+    }
+
+    function buildBuildTriads(host) {
+      host.appendChild(lessonCard(`
+        <p><b>A triad is three notes stacked in 3rds.</b> Take a root, add the note a 3rd above, then the note a 3rd above that (a 5th above the root). The <i>quality</i> - major, minor, diminished, augmented - depends only on the size of those two 3rds. Build one below and hear the colour change as you move the notes.</p>`));
+      const card = C.el(`<div class="card"></div>`);
+      card.appendChild(C.el(`<h3 style="margin-top:0">Stack the thirds</h3>`));
+      card.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Three noteheads are stacked in one column. Use ← → to pick one, ↑ ↓ to move it, and Shift+↑ ↓ for sharps and flats. Try turning a major triad minor by lowering the middle note a semitone.</p>`));
+      const caption = C.el(`<div class="iv-display muted" aria-live="polite"></div>`);
+      const editor = SE.create({
+        clef: "treble",
+        columns: [M.chordTriad(M.spelled("C", 0, 4), "major")],
+        editableCols: [0],
+        range: TREBLE_RANGE,
+        label: "Three stacked noteheads to build a triad",
+        onChange: describeTriad,
+      });
+      function describeTriad() {
+        const notes = byPitch(editor.getNotes());
+        const names = notes.map((n) => M.spelledName(n)).join(" - ");
+        const quality = M.triadQuality(notes);
+        if (quality === "unknown") {
+          caption.innerHTML = `<b>${names}</b> - not a recognisable triad yet. Stack the three notes evenly in 3rds.`;
+        } else {
+          caption.innerHTML = `<b>${names}</b> - a <b>${quality}</b> triad (root ${M.spelledName(notes[0])}).`;
+        }
+      }
+      card.appendChild(editor.el);
+      const row = controls();
+      row.appendChild(playBtn("Play chord", () => A.chord(editor.getNotes())));
+      row.appendChild(playBtn("Arpeggiate", () => A.sequence(byPitch(editor.getNotes()), 0.28, 0.34)));
+      card.appendChild(row);
+      card.appendChild(caption);
+      describeTriad();
+      host.appendChild(card);
+
+      host.appendChild(lessonCard(`
+        <p><b>The four qualities.</b> A <b>major</b> triad is a major 3rd then a minor 3rd; a <b>minor</b> triad flips them (minor then major); a <b>diminished</b> triad stacks two minor 3rds (both notes pulled in); an <b>augmented</b> triad stacks two major 3rds (both pushed out). Everything harmony does is built from these four shapes.</p>`));
     }
 
     function buildModes(host) {
@@ -714,6 +786,39 @@
       }
 
       host.appendChild(card);
+
+      // Build the interval on a staff (the notation counterpart of the keyboard).
+      const buildCard = C.el(`<div class="card"></div>`);
+      buildCard.appendChild(C.el(`<h3 style="margin-top:0">Now build it on the staff</h3>`));
+      buildCard.appendChild(C.el(`<p class="muted" style="font-size:.9rem">Move either notehead with the arrow keys (Shift+↑ ↓ for sharps and flats). The interval is named as you build it - the spelling matters, so C–E♯ and C–F are told apart.</p>`));
+      const ivCaption = C.el(`<div class="iv-display muted" aria-live="polite"></div>`);
+      const ivEditor = SE.create({
+        clef: "treble",
+        columns: [[M.spelled("C", 0, 4)], [M.spelled("E", 0, 4)]],
+        editableCols: [0, 1],
+        range: TREBLE_RANGE,
+        label: "Two notes to build an interval on a treble staff",
+        onChange: describeInterval,
+      });
+      function describeInterval() {
+        const [a, b] = ivEditor.getNotes();
+        if (M.spelledToMidi(a) === M.spelledToMidi(b)) {
+          ivCaption.innerHTML = `<b>${M.spelledName(a)}</b> and <b>${M.spelledName(b)}</b> - a <b>unison</b> (0 semitones).`;
+          return;
+        }
+        const lo = M.spelledToMidi(a) < M.spelledToMidi(b) ? a : b;
+        const hi = lo === a ? b : a;
+        const iv = M.interval(lo, hi);
+        ivCaption.innerHTML = `<b>${M.spelledName(lo)}</b> up to <b>${M.spelledName(hi)}</b>: <b>${iv.name}</b> (${Math.abs(iv.semitones)} semitone${Math.abs(iv.semitones) === 1 ? "" : "s"}).`;
+      }
+      buildCard.appendChild(ivEditor.el);
+      const ivRow = controls();
+      ivRow.appendChild(playBtn("Play together", () => A.chord(ivEditor.getNotes())));
+      ivRow.appendChild(playBtn("Play in turn", () => A.sequence(byPitch(ivEditor.getNotes()))));
+      buildCard.appendChild(ivRow);
+      buildCard.appendChild(ivCaption);
+      describeInterval();
+      host.appendChild(buildCard);
 
       // Quick reference table of all simple intervals
       host.appendChild(lessonCard(`

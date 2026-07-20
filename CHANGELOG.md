@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.6.0 - Build answers on the staff
+
+- **Interactive staff editor** (`src/staff-editor.js`): a keyboard-first,
+  touch-friendly staff where notes are constructed rather than picked. ↑/↓ shift a
+  note by a staff step, Shift+↑/↓ add sharps and flats, ←/→ move between notes; an
+  on-screen ◀▶ ▲▼ ♯♮♭ control row mirrors the keys. Each notehead is a focusable
+  slot that can be flagged (e.g. a wrong interval turns red) for real-time feedback.
+- **Constructed-answer quiz questions**: build tasks are mixed into existing
+  topics across grades - write a named note, build a tonic triad, spell an interval
+  above a fixed root, raise the 7th to reach harmonic minor, build a dominant 7th.
+  Grading is task-dependent (exact spelling where it matters, enharmonic-tolerant
+  where it doesn't).
+- **Interactive explainers**: the intervals (keyboard) explainer gains a
+  build-it-on-the-staff card, three-minors lets you raise the 7th yourself, and a
+  new "Build a triad" explainer names the quality as you stack the thirds.
+- **Playground "Build" mode**: a free staff you shape yourself, naming the
+  interval/triad and playing it back, with the keyboard kept in sync.
+- Tests: build-task grading, editor keyboard/validity, quiz integration, generator
+  solvability, and the new interactive surfaces.
+
 ## 2.5.0 - Linkable pages, reference menu, clearer acoustics
 
 - **Linkable pages (hash routing)**: the URL hash now reflects the page -

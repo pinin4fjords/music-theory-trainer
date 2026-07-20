@@ -21,6 +21,7 @@ src("music.js");
 src("core/validate.js");
 src("core/diagnose.js");
 src("notation.js");
+src("staff-editor.js");
 src("audio.js");
 src("audio-input.js");
 src("rhythm-grade.js");
