@@ -62,8 +62,9 @@
 
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
 
-  function startDegree(startsOn, rng) {
+  function startDegree(startsOn, rng, min, max) {
     const choice = Array.isArray(startsOn) ? rng.pick(startsOn) : (startsOn || "tonic");
+    if (choice === "free") return rng.int(min, max);
     return START_DEGREE[choice] != null ? START_DEGREE[choice] : 0;
   }
 
@@ -86,7 +87,7 @@
     const endTonic = spec.endsOn !== "free";
     const leap = spec.leap;
 
-    const degs = [clamp(startDegree(spec.startsOn, rng), min, max)];
+    const degs = [clamp(startDegree(spec.startsOn, rng, min, max), min, max)];
     for (let i = 1; i < n; i++) {
       if (endTonic && i === n - 1) { degs.push(0); break; } // land on the tonic
       const prev = degs[i - 1];

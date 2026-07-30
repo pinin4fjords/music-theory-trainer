@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-const { content, validate, rng } = globalThis.MTT;
+const { content, validate, rng, music, notation } = globalThis.MTT;
 
 const allTopics = content.auralGrades.flatMap((ag) =>
   ag.topics.map((t) => ({ grade: ag.grade, gradeTitle: ag.title, topic: t })));
@@ -85,4 +85,52 @@ describe("Grade 4 clap-back gains onset grading with notation fallback", () => {
       expect(typeof q.audio).toBe("function");
     }
   });
+});
+
+describe("Grades 6-8 sight-singing matches the practical-test constraints", () => {
+  for (const grade of [6, 7, 8]) {
+    it(`Grade ${grade} reaches both modes and supplies equivalent treble and bass notation`, () => {
+      const topic = content.auralGrades
+        .find((ag) => ag.grade === grade).topics.find((t) => t.id === `g${grade}-aural-sight-sing`);
+      const r = rng.create(`upper-sight-content-${grade}`);
+      const modes = new Set();
+      let sawFlatSpelling = false;
+      let sawSharpSpelling = false;
+
+      for (let i = 0; i < 500; i++) {
+        const q = topic.questions(r);
+        const task = q.micTask;
+        const spec = task.notation;
+        const mode = /\bminor\b/.test(q.prompt) ? "minor" : "major";
+        modes.add(mode);
+
+        expect(spec.clefs).toEqual(["treble", "bass"]);
+        expect(Math.abs(spec.keySignature.count)).toBeLessThanOrEqual(grade === 6 ? 3 : 4);
+        expect(spec.notes.map(music.spelledToMidi)).toEqual(task.targets.map((target) => target.midi));
+
+        for (const clef of spec.clefs) {
+          const html = notation.staffHTML({
+            clef,
+            keySignature: spec.keySignature,
+            notes: spec.notes,
+          });
+          expect(html).toContain(`${clef.charAt(0).toUpperCase() + clef.slice(1)} clef`);
+        }
+
+        const names = task.targets.map((target) => target.name).join(" ");
+        if (spec.keySignature.type === "flat" && spec.keySignature.count < 0) {
+          expect(names).not.toContain("♯");
+          sawFlatSpelling ||= names.includes("♭");
+        }
+        if (spec.keySignature.type === "sharp" && spec.keySignature.count > 0) {
+          expect(names).not.toContain("♭");
+          sawSharpSpelling ||= names.includes("♯");
+        }
+      }
+
+      expect(modes).toEqual(new Set(["major", "minor"]));
+      expect(sawFlatSpelling).toBe(true);
+      expect(sawSharpSpelling).toBe(true);
+    });
+  }
 });

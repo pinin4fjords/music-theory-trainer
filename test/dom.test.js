@@ -751,6 +751,50 @@ function auralTopicById(id) {
   return instance.ctx.content.auralGrades.flatMap((ag) => ag.topics).find((t) => t.id === id);
 }
 
+describe("DOM - Grades 6-8 sight-singing clef choice", () => {
+  for (const accidentalType of ["flat", "sharp"]) {
+    it(`renders the same ${accidentalType}-key phrase correctly in treble and bass clef`, () => {
+      const topic = auralTopicById("g7-aural-sight-sing");
+      const r = globalThis.MTT.rng.create(`clef-choice-${accidentalType}`);
+      let fixed = null;
+      for (let i = 0; i < 1000 && !fixed; i++) {
+        const q = topic.questions(r);
+        const sig = q.micTask.notation.keySignature;
+        const hasWrittenAccidental = q.micTask.notation.notes.some((note) => note.accidental !== 0);
+        if (sig.type === accidentalType && sig.count !== 0 && hasWrittenAccidental) fixed = q;
+      }
+      expect(fixed).toBeTruthy();
+
+      const fixedTopic = Object.assign({}, topic, { questions: () => fixed });
+      instance.router.navigate("quiz", { single: fixedTopic });
+
+      const picker = document.querySelector(".clef-picker");
+      const buttons = [...picker.querySelectorAll("button")];
+      const treble = buttons.find((button) => button.dataset.clef === "treble");
+      const bass = buttons.find((button) => button.dataset.clef === "bass");
+      expect(treble.getAttribute("aria-pressed")).toBe("true");
+      const trebleLabel = picker.querySelector("svg.staff").getAttribute("aria-label");
+
+      bass.click();
+      expect(bass.getAttribute("aria-pressed")).toBe("true");
+      expect(treble.getAttribute("aria-pressed")).toBe("false");
+      const bassLabel = picker.querySelector("svg.staff").getAttribute("aria-label");
+
+      expect(trebleLabel).toMatch(/^Treble clef/);
+      expect(bassLabel).toMatch(/^Bass clef/);
+      expect(bassLabel.split(". Notes: ")[1]).toBe(trebleLabel.split(". Notes: ")[1]);
+      const expectedNames = fixed.micTask.targets.map((target) => target.name).join(" ");
+      if (accidentalType === "flat") {
+        expect(expectedNames).toContain("♭");
+        expect(expectedNames).not.toContain("♯");
+      } else {
+        expect(expectedNames).toContain("♯");
+        expect(expectedNames).not.toContain("♭");
+      }
+    });
+  }
+});
+
 describe("DOM - tap-the-pulse interaction (needs no mic)", () => {
   afterEach(() => { vi.useRealTimers(); });
 

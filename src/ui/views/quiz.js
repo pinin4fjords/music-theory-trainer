@@ -213,6 +213,45 @@
     const statusEl = C.el(`<p class="mic-status" aria-live="polite" aria-atomic="true"></p>`);
     const resultEl = C.el(`<div class="mic-seq-result"></div>`);
     resultEl.hidden = true;
+    const clefButtons = [];
+
+    if (task.notation && global.MTT.notation) {
+      const picker = C.el(`<fieldset class="clef-picker"><legend>Read this phrase in</legend></fieldset>`);
+      const controls = C.el(`<div class="seg" role="group" aria-label="Choose notation clef"></div>`);
+      const staff = C.el(`<div class="staff-wrap sight-sing-staff"></div>`);
+      const clefs = task.notation.clefs || ["treble"];
+
+      function selectClef(clef) {
+        staff.innerHTML = global.MTT.notation.staffHTML({
+          clef: clef,
+          keySignature: task.notation.keySignature || null,
+          notes: task.notation.notes,
+        });
+        clefButtons.forEach(function (button) {
+          const selected = button.dataset.clef === clef;
+          button.classList.toggle("on", selected);
+          button.setAttribute("aria-pressed", String(selected));
+        });
+      }
+
+      clefs.forEach(function (clef) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.clef = clef;
+        button.textContent = clef.charAt(0).toUpperCase() + clef.slice(1);
+        button.addEventListener("click", function () { selectClef(clef); });
+        controls.appendChild(button);
+        clefButtons.push(button);
+      });
+      picker.appendChild(controls);
+      picker.appendChild(staff);
+      panel.appendChild(picker);
+      selectClef(clefs[0]);
+    }
+
+    function lockClefChoice(locked) {
+      clefButtons.forEach(function (button) { button.disabled = locked; });
+    }
 
     function stopMic() {
       if (maxTimer) { clearTimeout(maxTimer); maxTimer = null; }
@@ -383,6 +422,7 @@
         silenceCount = 0;
         listening = false;
         startBtn.disabled = false;
+        lockClefChoice(false);
         startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Sing again";
         statusEl.textContent = hasAutoPlay ? "" : "Press start, then sing the full phrase.";
       }));
@@ -446,6 +486,7 @@
         return true;
       } catch (err) {
         startBtn.disabled = false;
+        lockClefChoice(false);
         startBtn.textContent = hasAutoPlay ? "▶ Hear & respond" : "🎤 Start singing";
         statusEl.textContent = micErrorMessage(err);
         return false;
@@ -454,6 +495,7 @@
 
     startBtn.addEventListener("click", async function () {
       startBtn.disabled = true;
+      lockClefChoice(true);
       readings = [];
       hasSang = false;
       finished = false;

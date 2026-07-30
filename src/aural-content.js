@@ -53,12 +53,18 @@
   // Per-grade generator specs (see aural-generators.js). These encode the exam-board
   // constraints for each task so echo/memory/spot-change stimuli are generated
   // fresh each time instead of being drawn from a memorisable fixed bank.
-  // Grade 7/8 two-part sight-singing: the sung line begins and ends on the tonic,
-  // moves by step apart from the rising dominant-below-to-tonic 4th, and stays
-  // within an octave, in a major key up to 4 sharps or flats. generateCompanion
-  // supplies the second part; only which voice the learner sings differs between
-  // the two grades, so both share this spec.
-  const SIGHT_SING_78 = { keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } };
+  const SIGHT_SING_78 = {
+    keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"],
+    minorKeys: ["A", "E", "B", "F#", "C#", "D", "G", "C", "F"],
+    mode: "either",
+    range: { above: 4, below: 3 },
+    bars: 1,
+    beatsPerBar: 6,
+    rhythmPalette: [[1, 1, 1, 1, 1, 1]],
+    maxLeap: 3,
+    startsOn: "free",
+    endsOn: "free",
+  };
 
   const MELODY_SPECS = {
     g1Echo: { keys: ["C"], mode: "major", range: { above: 2, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: ["tonic", "mediant"], endsOn: "free" },
@@ -67,12 +73,22 @@
     memory: { keys: ["C", "G", "D", "A", "F", "Bb", "Eb"], minorKeys: ["A", "E", "B", "F#", "D", "G", "C"], mode: "either", range: { above: 4, below: 3 }, bars: 2, beatsPerBar: 3, rhythmPalette: [[1, 1, 1], [2, 1], [1, 2]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g1Change: { keys: ["C"], mode: "major", range: { above: 4, below: 0 }, bars: 2, beatsPerBar: 2, rhythmPalette: [[1, 1], [2]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
     g3Change: { keys: ["C", "G", "F"], mode: "either", range: { above: 4, below: 3 }, bars: 4, beatsPerBar: 2, rhythmPalette: [[1, 1], [2], [0.5, 0.5, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "free" },
-    // Sight-singing (exam-board 4B/5B/6B): begins and ends on the tonic, per the
-    // real syllabus. 5B/6B's only permitted leap is the rising dominant-below
-    // -to-tonic 4th (degree -3 -> 0); everything else moves by step.
+    // Grade 4 and 5 use tonic and interval rules. Grade 6 uses major and minor
+    // keys, free endpoints and a full-octave melodic range.
     g4SightSing: { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
     g5SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
-    g6SightSing: { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    g6SightSing: {
+      keys: ["C", "G", "D", "A", "F", "Bb", "Eb"],
+      minorKeys: ["A", "E", "B", "F#", "D", "G", "C"],
+      mode: "either",
+      range: { above: 4, below: 3 },
+      bars: 1,
+      beatsPerBar: 7,
+      rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]],
+      maxLeap: 3,
+      startsOn: "free",
+      endsOn: "free",
+    },
     g7SightSing: SIGHT_SING_78,
     g8SightSing: SIGHT_SING_78,
     // Initial Grade echo: a single-bar tonic-mediant phrase, the simplest possible.
@@ -101,6 +117,35 @@
     return `<div class="staff-wrap">${N.staffHTML({ clef: "treble", notes: midiNotes.map(midiToSpelled) })}</div>`;
   }
 
+  function spellMelody(melody) {
+    const M = global.MTT.music;
+    const scaleType = melody.mode === "minor" ? "naturalMinor" : "major";
+    const scale = M.scale(melody.key, scaleType, 4);
+    return melody.notes.map(function (midi, i) {
+      const degree = melody.degrees[i];
+      const idx = ((degree % 7) + 7) % 7;
+      const template = scale[idx];
+      const baseMidi = M.spelledToMidi(template);
+      return {
+        letter: template.letter,
+        accidental: template.accidental,
+        octave: template.octave + ((midi - baseMidi) / 12),
+      };
+    });
+  }
+
+  function sightSingNotation(melody) {
+    return {
+      clefs: ["treble", "bass"],
+      notes: spellMelody(melody),
+      keySignature: global.MTT.music.keySignature(melody.key, melody.mode),
+    };
+  }
+
+  function keyModeLabel(melody) {
+    return `${melody.key} ${melody.mode}`;
+  }
+
   function pick(rng, arr) { return rng.pick(arr); }
 
   function choices(rng, correct, distractors, n) {
@@ -114,9 +159,12 @@
   // current note to sing and midi/name for pitch comparison and meter label.
   // useFlats should be true for flat keys so note names spell correctly
   // (e.g. "B♭4" not "A♯4") in the Expected and You-sang feedback rows.
-  function makeSequenceTargets(midiNotes, useFlats) {
-    return midiNotes.map(function (midi) {
-      return { midi: midi, name: midiName(midi, useFlats), staffHtml: noteStaff(midi) };
+  function makeSequenceTargets(midiNotes, useFlats, spelledNotes) {
+    const M = global.MTT.music;
+    return midiNotes.map(function (midi, i) {
+      const spelled = spelledNotes && spelledNotes[i];
+      const name = spelled ? M.spelledName(spelled) + spelled.octave : midiName(midi, useFlats);
+      return { midi: midi, name: name, staffHtml: noteStaff(midi) };
     });
   }
 
@@ -1184,9 +1232,11 @@
     const beatSec = 0.6;
     const tonicDurSec = 1.2;
     const accompDelayMs = tonicDurSec * 1000 + 100;
-    const useFlats = keyUsesFlats(m.key);
+    const notation = sightSingNotation(m);
+    const useFlats = notation.keySignature.type === "flat" && notation.keySignature.count !== 0;
+    const keyLabel = keyModeLabel(m);
     return {
-      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing each note</strong> shown while the accompaniment plays underneath.${sequenceStaff(m.notes)}`,
+      prompt: `Choose treble or bass clef. Listen to the tonic of <b>${keyLabel}</b>, then <strong>sing each note</strong> shown while the accompaniment plays underneath.`,
       audio: function () {
         const a = audio();
         a.note(m.tonicMidi, tonicDurSec);
@@ -1195,13 +1245,14 @@
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(m.notes, useFlats),
+        targets: makeSequenceTargets(m.notes, useFlats, notation.notes),
+        notation: notation,
         toleranceSemitones: 1.0,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 6 sight-singing: a longer phrase within an octave, in a major key with up to 2 sharps or flats, starting and ending on the tonic. The only leap allowed is the same rising dominant-to-tonic 4th as Grade 5. A generated accompaniment plays underneath — listen to the tonic as your reference, then sing as the accompaniment begins.`,
+      explanation: `Grade 6 sight-singing: a phrase within an octave in a major or minor key with up to 3 sharps or flats. Unlike Grade 5, it does not have to begin or end on the tonic and is not limited to the dominant-to-tonic leap. The accompaniment supplies harmonic context while you hold the printed line.`,
     };
   }
 
@@ -1247,9 +1298,11 @@
     const beatSec = 0.6;
     const tonicDurSec = 1.2;
     const accompDelayMs = tonicDurSec * 1000 + 100;
-    const useFlats = keyUsesFlats(m.key);
+    const notation = sightSingNotation(m);
+    const useFlats = notation.keySignature.type === "flat" && notation.keySignature.count !== 0;
+    const keyLabel = keyModeLabel(m);
     return {
-      prompt: `Listen to the tonic of <b>${m.key} major</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.${sequenceStaff(m.notes)}`,
+      prompt: `Choose treble or bass clef. Listen to the tonic of <b>${keyLabel}</b>, then <strong>sing the upper part</strong> shown while the lower part plays underneath.`,
       audio: function () {
         const a = audio();
         a.note(m.tonicMidi, tonicDurSec);
@@ -1258,13 +1311,14 @@
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(m.notes, useFlats),
+        targets: makeSequenceTargets(m.notes, useFlats, notation.notes),
+        notation: notation,
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 7 sight-singing: you sing the upper part of a two-part phrase while the lower part is played underneath — up to 4 sharps or flats. Hold your line steady even as the other part moves against it.`,
+      explanation: `Grade 7 sight-singing: you sing the upper part of a two-part phrase in a major or minor key with up to 4 sharps or flats while the lower part plays underneath. Hold your line steady even as the other part moves against it.`,
     };
   }
 
@@ -1323,9 +1377,11 @@
     const beatSec = 0.6;
     const tonicDurSec = 1.2;
     const accompDelayMs = tonicDurSec * 1000 + 100;
-    const useFlats = keyUsesFlats(lower.key);
+    const notation = sightSingNotation(lower);
+    const useFlats = notation.keySignature.type === "flat" && notation.keySignature.count !== 0;
+    const keyLabel = keyModeLabel(lower);
     return {
-      prompt: `Listen to the tonic of <b>${lower.key} major</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.${sequenceStaff(lower.notes)}`,
+      prompt: `Choose treble or bass clef. Listen to the tonic of <b>${keyLabel}</b>, then <strong>sing the lower part</strong> shown while the upper part plays above.`,
       audio: function () {
         const a = audio();
         a.note(lower.tonicMidi, tonicDurSec);
@@ -1334,13 +1390,14 @@
       micTask: {
         type: "sequence",
         useFlats: useFlats,
-        targets: makeSequenceTargets(lower.notes, useFlats),
+        targets: makeSequenceTargets(lower.notes, useFlats, notation.notes),
+        notation: notation,
         toleranceSemitones: 0.5,
         minHoldMs: 500,
       },
       choices: ["I sang the phrase", "I couldn't manage it"],
       answer: "I sang the phrase",
-      explanation: `Grade 8 sight-singing: you sing the lower part of a two-part phrase while the upper part is played above — up to 4 sharps or flats. Trust your own line rather than following the part above it.`,
+      explanation: `Grade 8 sight-singing: you sing the lower part of a two-part phrase in a major or minor key with up to 4 sharps or flats while the upper part plays above. Trust your own line rather than following the part above it.`,
     };
   }
 
@@ -1804,8 +1861,8 @@
         {
           id: "g6-aural-sight-sing",
           title: "Aural: sight-sing (octave range)",
-          why: "Grade 6 sight-singing extends across a full octave, in a major key with up to 2 sharps or flats, with an accompaniment playing underneath in the real exam. As in Grade 5, the only leap it may contain is the rising dominant-to-tonic 4th.",
-          what: "<p>Look through the whole phrase before you start — spot the highest and lowest notes and, if there's a leap, confirm it's the rising 4th from the dominant below to the tonic. Keep your own line steady even if you imagine a moving accompaniment underneath.</p>",
+          why: "Grade 6 sight-singing spans no more than an octave in a major or minor key with up to 3 sharps or flats, with an accompaniment playing underneath. You may choose treble or bass clef.",
+          what: "<p>Choose the clef you read most confidently. Look through the whole phrase before you start, find its highest and lowest notes, and notice its larger intervals. The line does not have to begin or end on the tonic. Keep it steady against the accompaniment.</p>",
           questions: g6SightSingQuestion,
           tags: ["aural"],
         },
@@ -1865,8 +1922,8 @@
         {
           id: "g7-aural-sight-sing",
           title: "Aural: sight-sing the upper part",
-          why: "Grade 7 sight-singing becomes genuinely two-part: you sing the upper line from a printed score while the lower line plays underneath, in a key with up to 4 sharps or flats.",
-          what: "<p>The lower part moving independently underneath is the real challenge — it will pull your ear if you let it. Commit to your own line mentally before the lower part starts.</p>",
+          why: "Grade 7 sight-singing becomes genuinely two-part: you sing the upper line from a printed score while the lower line plays underneath, in a major or minor key with up to 4 sharps or flats. You may choose treble or bass clef.",
+          what: "<p>Choose the clef you read most confidently. The lower part moving independently underneath is the real challenge. Commit to your own line mentally before the lower part starts.</p>",
           questions: g7SightSingQuestion,
           tags: ["aural"],
         },
@@ -1918,8 +1975,8 @@
         {
           id: "g8-aural-sight-sing",
           title: "Aural: sight-sing the lower part",
-          why: "Grade 8 sight-singing mirrors Grade 7: you now sing the lower part of a two-part phrase while the upper part plays above, still up to 4 sharps or flats.",
-          what: "<p>Singing the lower part while a higher, more attention-grabbing line plays above is a different skill from Grade 7's task — practise trusting your own line rather than drifting up toward the one you can hear more clearly.</p>",
+          why: "Grade 8 sight-singing mirrors Grade 7: you sing the lower part of a two-part phrase while the upper part plays above, in a major or minor key with up to 4 sharps or flats. You may choose treble or bass clef.",
+          what: "<p>Choose the clef you read most confidently. Trust the printed lower line rather than drifting towards the higher part, which naturally draws attention while it plays above you.</p>",
           questions: g8SightSingQuestion,
           tags: ["aural"],
         },
