@@ -18,6 +18,7 @@ const src = (p) => require(path.join(root, "..", "src", p));
 // Order matters: a module reads its dependencies from globalThis.MTT at load.
 src("core/rng.js");
 src("music.js");
+src("core/objectives.js");
 src("core/validate.js");
 src("core/diagnose.js");
 src("notation.js");

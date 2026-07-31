@@ -136,7 +136,7 @@
         // Honest recording seeds the SRS map through the normal path, including
         // the guess-guard `choices` plumbing, so placement answers carry into
         // the learner's first real sessions.
-        store.recordAnswer(topic.id, { correct, responseMs, now: ctx.now(), choices: q.choices.length });
+        store.recordAnswer(q.meta.objectiveId, { correct, responseMs, now: ctx.now(), choices: q.choices.length });
 
         state.total++;
         if (correct) state.correct++;

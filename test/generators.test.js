@@ -55,6 +55,19 @@ describe("content generators - property/smoke tests", () => {
     }
   });
 
+  it("every declared objective can generate its own matching question family", () => {
+    for (const topic of topics.concat(auralTopics)) {
+      expect(topic.objectives.length).toBeGreaterThan(0);
+      for (const objective of topic.objectives) {
+        const q = topic.questions.forObjective(objective.id, rng.create("objective-" + topic.id + "-" + objective.id));
+        expect(q.meta.objectiveId).toBe(objective.id);
+        expect(q.meta.taskKind).toBe(objective.taskKind);
+        expect(q.meta.strand).toBe(objective.strand);
+        expect(q.meta.difficulty).toBe(objective.difficulty);
+      }
+    }
+  });
+
   it("aural cadence/chord/modulation questions are transposed across several keys, not just C", () => {
     const ids = ["g7-aural-cadence", "g7-aural-chords", "g7-aural-modulation"];
     for (const id of ids) {

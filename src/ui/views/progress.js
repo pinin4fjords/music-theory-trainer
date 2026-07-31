@@ -2,7 +2,7 @@
  *
  * A local-only read of how the learner is doing: estimated level, overall
  * accuracy, per-grade mastery (a bar per grade up to the current grade), the
- * weakest topics with one-tap practice, and a recent-misses list for
+ * weakest learning objectives with one-tap practice, and a recent-misses list for
  * deliberate review. Derived from the SRS card map via core/analytics.js and
  * the miss log in core/state.js - nothing is sent anywhere.
  *
@@ -52,9 +52,9 @@
     for (let g = 1; g <= maxGrade; g++) {
       const m = gm[g];
       if (!m) continue;
-      const seen = m.seen > 0;
-      const mastery = seen ? pct(m.mastery) : 0;
-      const detail = seen ? `${m.seen}/${m.total} topics · ${mastery}% mastery` : "not started";
+      const started = m.attempted > 0;
+      const mastery = started ? pct(m.mastery) : 0;
+      const detail = started ? `${m.seen}/${m.total} objectives demonstrated · ${mastery}% mastery` : "not started";
       const row = C.el(`
         <div class="grade-row">
           <div class="grade-row-head">
@@ -70,15 +70,15 @@
     // Aural mastery, by grade - kept separate from the written-theory bars
     // above since aural (listening/singing) is a distinct exam component with
     // its own pace, not gated behind the chosen theory grade.
-    const auralSeen = Object.values(auralGm).some((m) => m.seen > 0);
+    const auralSeen = Object.values(auralGm).some((m) => m.attempted > 0);
     if (auralSeen) {
       const auralCard = C.el(`<div class="card"><h3 style="margin-top:0">Aural, by grade</h3></div>`);
       for (let g = 1; g <= 8; g++) {
         const m = auralGm[g];
         if (!m) continue;
-        const seen = m.seen > 0;
-        const mastery = seen ? pct(m.mastery) : 0;
-        const detail = seen ? `${m.seen}/${m.total} topics · ${mastery}% mastery` : "not started";
+        const started = m.attempted > 0;
+        const mastery = started ? pct(m.mastery) : 0;
+        const detail = started ? `${m.seen}/${m.total} objectives demonstrated · ${mastery}% mastery` : "not started";
         const row = C.el(`
           <div class="grade-row">
             <div class="grade-row-head">
@@ -92,21 +92,26 @@
       view.appendChild(auralCard);
     }
 
-    // Weakest topics, with one-tap practice.
+    // Weakest objectives, with one-tap practice of their parent topic.
     const allTopics = topics.concat(auralTopics);
     const weak = A.weakAreas(srsMap, allTopics, 5);
     if (weak.length) {
-      const fc = C.el(`<div class="card focus-card"><h3 style="margin-top:0">Focus areas</h3><p class="muted" style="margin-top:0">Your weakest topics - tap to practise one.</p></div>`);
+      const fc = C.el(`<div class="card focus-card"><h3 style="margin-top:0">Focus areas</h3><p class="muted" style="margin-top:0">Your weakest skills - tap to practise the related topic.</p></div>`);
       const row = C.el(`<div class="focus-chips"></div>`);
       weak.forEach((w) => {
-        const topic = allTopics.find((t) => t.id === w.id);
+        const topic = allTopics.find((t) => t.id === w.topicId);
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "focus-chip";
         const a = w.accuracy == null ? "" : ` · ${pct(w.accuracy)}%`;
         chip.innerHTML = `${w.title} <span class="muted">(G${w.grade}${a})</span>`;
         chip.setAttribute("aria-label", `Practise ${w.title}, Grade ${w.grade}`);
-        chip.addEventListener("click", () => ctx.router.navigate("quiz", { single: topic }));
+        chip.addEventListener("click", () => ctx.router.navigate("quiz", {
+          single: Object.assign({}, topic, {
+            scheduledObjectiveId: w.id,
+            scheduledObjective: (topic.objectives || []).find((objective) => objective.id === w.id),
+          }),
+        }));
         row.appendChild(chip);
       });
       fc.appendChild(row);
@@ -123,7 +128,7 @@
       misses.forEach((m) => {
         list.appendChild(C.el(`
           <div class="miss-row">
-            <div class="miss-row-head"><span>Grade ${m.grade} · ${escapeHtml(m.topicTitle)}</span></div>
+            <div class="miss-row-head"><span>Grade ${m.grade} · ${escapeHtml(m.objectiveTitle || m.topicTitle)}</span></div>
             <p class="miss-prompt">${escapeHtml(m.prompt)}</p>
             <p class="miss-answers">You said: <b>${escapeHtml(m.yourAnswer)}</b> · Correct: <b>${escapeHtml(m.correctAnswer)}</b></p>
           </div>`));

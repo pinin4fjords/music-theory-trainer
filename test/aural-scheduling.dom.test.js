@@ -91,7 +91,7 @@ describe("aural SRS scheduling - home nudge", () => {
     const inst = app.boot({ document, storage: fakeStore(seededState()), now: () => NOW, seed: "home-nudge-dom" });
     const nudge = document.querySelector("#aural-nudge-area .aural-nudge");
     expect(nudge).toBeTruthy();
-    expect(nudge.textContent).toMatch(/aural topic .* due for review/i);
+    expect(nudge.textContent).toMatch(/aural skill .* due for review/i);
     nudge.querySelector("button").click();
     expect(document.querySelector("#main h1").textContent).toMatch(/Aural/);
     expect(inst.router.getCurrent()).toBe("aural");

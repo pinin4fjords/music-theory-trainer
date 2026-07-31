@@ -3,6 +3,16 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const { app } = globalThis.MTT;
 
+function testQuestion(question, objectiveId = "test.dom") {
+  question.meta = Object.assign({}, question.meta, {
+    objectiveId,
+    taskKind: "recognise",
+    strand: "notation",
+    difficulty: 1,
+  });
+  return question;
+}
+
 function scaffold() {
   document.body.innerHTML = `
     <a class="skip-link" href="#main">Skip to content</a>
@@ -136,7 +146,7 @@ describe("DOM - quiz flow & feedback", () => {
     const baseTopic = instance.ctx.content.grades[0].topics[0];
     const events = [];
     const fixedTopic = Object.assign({}, baseTopic, {
-      questions: () => ({
+      questions: () => testQuestion({
         prompt: "Listen",
         choices: ["A", "B"],
         answer: "A",
@@ -907,7 +917,7 @@ describe("DOM - graded singing credit (issue #47)", () => {
 
       return {
         revealText: document.querySelector(".reveal").textContent,
-        card: inst.store.srsMap()["g4-aural-sight-sing"],
+        card: inst.store.srsMap()[fixedQuestion.meta.objectiveId],
       };
     } finally {
       ai.isAvailable = realIsAvailable;
@@ -987,13 +997,13 @@ describe("DOM - slower replay for singing/memory tasks (issue #54)", () => {
   function micTopicWithAudio(step, dur) {
     const baseTopic = instance.ctx.content.auralGrades.flatMap((ag) => ag.topics)[0];
     return Object.assign({}, baseTopic, {
-      questions: () => ({
+      questions: () => testQuestion({
         prompt: "Listen and sing it back",
         choices: ["I sang it correctly", "I did not"],
         answer: "I sang it correctly",
         audio: () => globalThis.MTT.audio.sequence([60, 62, 64], step, dur),
         micTask: { type: "pitch", targetMidi: 60, targetName: "C4" },
-      }),
+      }, "test.mic-replay"),
     });
   }
 
@@ -1008,7 +1018,7 @@ describe("DOM - slower replay for singing/memory tasks (issue #54)", () => {
   it("does not offer 'Replay slower' for a standard (non-micTask) audio question", () => {
     const baseTopic = instance.ctx.content.grades[0].topics[0];
     const fixedTopic = Object.assign({}, baseTopic, {
-      questions: () => ({ prompt: "Listen", choices: ["A", "B"], answer: "A", audio: () => {} }),
+      questions: () => testQuestion({ prompt: "Listen", choices: ["A", "B"], answer: "A", audio: () => {} }),
     });
     instance.router.navigate("quiz", { single: fixedTopic });
     const slower = [...document.querySelectorAll(".audio-btn")].find((b) => /Replay slower/.test(b.textContent));
@@ -1075,7 +1085,7 @@ describe("DOM - recent misses list on Progress (issue #54)", () => {
   it("records a miss on a wrong answer and lists it on the Progress view", () => {
     const baseTopic = instance.ctx.content.grades[0].topics[0];
     const fixedTopic = Object.assign({}, baseTopic, {
-      questions: () => ({ prompt: "What is this?", choices: ["Right one", "Wrong one"], answer: "Right one" }),
+      questions: () => testQuestion({ prompt: "What is this?", choices: ["Right one", "Wrong one"], answer: "Right one" }),
     });
     instance.router.navigate("quiz", { single: fixedTopic });
     const wrongChoice = [...document.querySelectorAll(".choice")].find((b) => b.textContent.includes("Wrong one"));

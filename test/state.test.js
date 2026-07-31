@@ -24,6 +24,13 @@ describe("state - store", () => {
     expect(store.cardFor("g1-notes").box).toBe(0);
   });
 
+  it("forwards confidence so self-reported aural evidence is weighted conservatively", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    store.recordAnswer("aural-pitch.echo.perform.g1", { correct: true, confidence: 0.5, now: 0 });
+    expect(store.cardFor("aural-pitch.echo.perform.g1").evidence).toBe(0.5);
+    expect(store.cardFor("aural-pitch.echo.perform.g1").box).toBe(0);
+  });
+
   it("forwards the choice count so a two-choice first correct can't be promoted on a lucky guess", () => {
     const store = state.create({ storage: fakeStore(), now: () => 0 });
     store.recordAnswer("g1-notes", { correct: true, responseMs: 1200, choices: 2, now: 0 });

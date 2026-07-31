@@ -19,10 +19,10 @@ const legacyV1 = {
   settings: { sound: false, grade: 2 },
 };
 
-describe("storage - v1 -> v2 migration (no progress lost)", () => {
+describe("storage - legacy migration (no progress lost)", () => {
   it("preserves totals and settings", () => {
     const s = storage.migrate(legacyV1);
-    expect(s.stateVersion).toBe(2);
+    expect(s.stateVersion).toBe(storage.CURRENT_VERSION);
     expect(s.streak).toBe(5);
     expect(s.bestStreak).toBe(7);
     expect(s.daysPracticed).toBe(9);
@@ -32,21 +32,26 @@ describe("storage - v1 -> v2 migration (no progress lost)", () => {
     expect(s.settings.mode).toBe("daily"); // new default added
   });
 
-  it("converts boxes + lastSeen into SRS cards", () => {
+  it("archives topic cards and distributes their evidence conservatively", () => {
     const s = storage.migrate(legacyV1);
-    expect(s.srs["g1-notes"].box).toBe(3);
-    expect(s.srs["g1-notes"].lastSeen).toBe(500);
-    expect(s.srs["g1-notes"].dueAt).toBe(500 + srs.intervalMs(3));
-    expect(s.srs["g4-triads"].box).toBe(1);
-    expect(s.srs["g4-triads"].dueAt).toBe(null); // never seen with a timestamp
+    expect(s.legacyTopicSrs["g1-notes"].box).toBe(3);
+    expect(s.legacyTopicSrs["g1-notes"].lastSeen).toBe(500);
+    expect(s.legacyTopicSrs["g1-notes"].dueAt).toBe(500 + srs.intervalMs(3));
+    expect(s.srs["notation.note.read"].box).toBe(0);
+    expect(s.srs["notation.note.construct"].box).toBe(0);
+    expect(srs.evidence(s.srs["notation.note.read"])).toBe(0.5);
+    expect(srs.isConfirmed(s.srs["notation.note.read"])).toBe(false);
+    expect(s.srs["harmony.primary-triads.function"].box).toBe(1);
+    expect(s.srs["harmony.primary-triads.function"].dueAt).toBe(null);
     expect(s.boxes).toBeUndefined(); // legacy shape gone
   });
 
   it("is idempotent on already-current state", () => {
     const once = storage.migrate(legacyV1);
     const twice = storage.migrate(once);
-    expect(twice.stateVersion).toBe(2);
-    expect(twice.srs["g1-notes"].box).toBe(3);
+    expect(twice.stateVersion).toBe(storage.CURRENT_VERSION);
+    expect(twice.srs["notation.note.read"].evidence).toBe(0.5);
+    expect(twice.legacyTopicSrs["g1-notes"].box).toBe(3);
   });
 });
 
@@ -56,7 +61,7 @@ describe("storage - load / save / corruption", () => {
     const s = storage.migrate(legacyV1);
     expect(storage.save(s, store)).toBe(true);
     const loaded = storage.load(store);
-    expect(loaded.srs["g1-notes"].box).toBe(3);
+    expect(loaded.srs["notation.note.read"].evidence).toBe(0.5);
     expect(loaded.streak).toBe(5);
   });
 
@@ -64,8 +69,8 @@ describe("storage - load / save / corruption", () => {
     const store = fakeStore();
     store.setItem(storage.KEY, JSON.stringify(legacyV1));
     const loaded = storage.load(store);
-    expect(loaded.stateVersion).toBe(2);
-    expect(loaded.srs["g1-notes"].box).toBe(3);
+    expect(loaded.stateVersion).toBe(storage.CURRENT_VERSION);
+    expect(loaded.legacyTopicSrs["g1-notes"].box).toBe(3);
   });
 
   it("falls back to defaults on corrupt JSON", () => {
@@ -93,13 +98,14 @@ describe("storage - backup / restore", () => {
     const json = storage.exportJSON(s);
     const result = storage.importJSON(json);
     expect(result.ok).toBe(true);
-    expect(result.state.srs["g1-notes"].box).toBe(3);
+    expect(result.state.srs["notation.note.read"].evidence).toBe(0.5);
+    expect(result.state.legacyTopicSrs["g1-notes"].box).toBe(3);
   });
 
   it("imports + migrates a legacy backup file", () => {
     const result = storage.importJSON(JSON.stringify(legacyV1));
     expect(result.ok).toBe(true);
-    expect(result.state.stateVersion).toBe(2);
+    expect(result.state.stateVersion).toBe(storage.CURRENT_VERSION);
   });
 
   it("rejects invalid JSON with a clear message", () => {

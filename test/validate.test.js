@@ -7,6 +7,7 @@ const good = () => ({
   choices: ["3", "4", "5"],
   answer: "4",
   explanation: "Basic arithmetic.",
+  meta: { objectiveId: "test.arithmetic", taskKind: "calculate", strand: "notation", difficulty: 1 },
 });
 
 describe("validate - question schema", () => {
@@ -26,6 +27,14 @@ describe("validate - question schema", () => {
     const q = good();
     q.choices = ["4", "4", "5"];
     expect(validate.validateQuestion(q).ok).toBe(false);
+  });
+
+  it("rejects a question without learning-objective metadata", () => {
+    const q = good();
+    delete q.meta;
+    const r = validate.validateQuestion(q);
+    expect(r.ok).toBe(false);
+    expect(r.errors.join(" ")).toMatch(/objectiveId/);
   });
 
   it("rejects empty / missing fields", () => {

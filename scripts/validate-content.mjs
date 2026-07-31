@@ -15,6 +15,7 @@ const src = (p) => require(path.join(root, "..", "src", p));
 
 src("core/rng.js");
 src("music.js");
+src("core/objectives.js");
 src("core/validate.js");
 src("core/diagnose.js");
 src("notation.js");
@@ -23,6 +24,8 @@ src("core/srs.js");
 src("core/analytics.js");
 src("core/storage.js");
 src("content.js");
+src("aural-generators.js");
+src("aural-content.js");
 src("core/session.js");
 
 const { content, validate, session, rng } = MTT;
@@ -36,7 +39,7 @@ if (!cv.ok) cv.errors.forEach((e) => fail(e));
 
 // 2. Every quizable generator: 60 questions each under a fixed seed.
 const SAMPLES = 60;
-const topics = session.quizableTopics(content);
+const topics = session.quizableTopics(content).concat(session.auralTopics(content));
 let totalChecked = 0;
 for (const t of topics) {
   const r = rng.create("validate-" + t.id);

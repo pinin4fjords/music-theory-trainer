@@ -125,6 +125,24 @@ describe("session - assembly", () => {
     const ordered = session.orderPool(all, srsMap, 100 * srs.DAY, 2, "daily");
     expect(ordered[0].id).toBe(weakId);
   });
+
+  it("schedules a weak objective within a mixed topic and generates that question family", () => {
+    const topic = session.quizableTopics(content).find((candidate) => candidate.id === "g5-chords");
+    const targetId = "harmony.cadence.choose-chords";
+    const now = 100 * srs.DAY;
+    const srsMap = {};
+    topic.objectives.forEach((objective) => {
+      let card = srs.defaultCard();
+      for (let i = 0; i < 4; i++) card = srs.update(card, { correct: true, now: i });
+      srsMap[objective.id] = card;
+    });
+    srsMap[targetId] = srs.update(srs.defaultCard(), { correct: false, now: 0 });
+
+    const ordered = session.orderPool([topic], srsMap, now, 5, "daily");
+    expect(ordered[0].scheduledObjectiveId).toBe(targetId);
+    const picks = session.assemble(ordered, 1, rng.create("objective-target"));
+    expect(picks[0].q.meta.objectiveId).toBe(targetId);
+  });
 });
 
 describe("session - domain tagging", () => {
@@ -286,7 +304,12 @@ describe("session - resilience to invalid generators", () => {
     const warnings = [];
     session.setWarn((info) => warnings.push(info));
     const boom = { id: "boom", grade: 1, title: "Boom", questions: () => { throw new Error("kaboom"); } };
-    const good = { id: "ok", grade: 1, title: "OK", questions: (r) => ({ prompt: "p" + r.int(0, 1e6), choices: ["a", "b"], answer: "a" }) };
+    const good = { id: "ok", grade: 1, title: "OK", questions: (r) => ({
+      prompt: "p" + r.int(0, 1e6),
+      choices: ["a", "b"],
+      answer: "a",
+      meta: { objectiveId: "test.ok", taskKind: "recognise", strand: "notation", difficulty: 1 },
+    }) };
     const out = session.assemble([boom, good], 3, rng.create(2));
     expect(out.length).toBe(3); // the good topic still fills the session
     expect(out.every((x) => x.topic.id === "ok")).toBe(true);

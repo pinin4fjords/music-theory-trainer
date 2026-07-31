@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Practice evidence and spaced-repetition schedules are tracked by learning
+  objective rather than broad topic. Mixed topics can keep independent mastery
+  for skills such as chord recognition and cadence choice.
+- Existing topic-level progress migrates without losing the original cards.
+  Ambiguous evidence is seeded conservatively and cannot certify every objective.
+- Objective metadata is required on every generated theory and aural question.
+  Progress and focus areas report the specific weak skill, and self-reported
+  aural attempts carry less weight than measured performances.
+
 ## 2.6.0 - Build answers on the staff
 
 - **Interactive staff editor** (`src/staff-editor.js`): a keyboard-first,

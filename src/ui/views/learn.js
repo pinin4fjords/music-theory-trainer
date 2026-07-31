@@ -15,13 +15,13 @@
   }
 
   // Same chip pattern the Aural view uses (ui/views/aural.js topicAccuracyChip):
-  // "New" for a never-attempted topic, otherwise the SRS accuracy percentage.
-  function topicAccuracyChip(srsMap, topicId) {
-    const card = srsMap[topicId];
-    if (!card || card.seen <= 0) {
+  // "New" for an untouched topic, otherwise aggregate objective accuracy.
+  function topicAccuracyChip(srsMap, topic) {
+    const stats = global.MTT.analytics.topicStats(srsMap, topic);
+    if (!stats.evidence) {
       return `<span class="pill outline learn-acc-chip" aria-label="Not practised yet">New</span>`;
     }
-    const pct = Math.round((card.correct / card.seen) * 100);
+    const pct = Math.round(stats.accuracy * 100);
     return `<span class="pill learn-acc-chip" aria-label="Accuracy ${pct}%">${pct}%</span>`;
   }
 
@@ -49,7 +49,7 @@
         // Drillable topics get a mastery chip (curriculum-map at a glance);
         // "coming next" topics have no SRS card to report, so they keep their
         // own badge instead of an always-"New" chip.
-        const badge = coming ? `<span class="pill outline">coming next</span>` : topicAccuracyChip(srsMap, t.id);
+        const badge = coming ? `<span class="pill outline">coming next</span>` : topicAccuracyChip(srsMap, t);
         const icon = global.MTT.ui.icons.iconHtml(t.id);
         const card = C.cardButton(`<div class="topic-head">${icon}<h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
           () => ctx.router.navigate("learn", t.id));

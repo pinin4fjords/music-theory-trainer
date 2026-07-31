@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 const { content, staffEditor: SE, music: M, validate, rng } = globalThis.MTT;
 const H = content.helpers;
+const TEST_META = { objectiveId: "test.build-helper", taskKind: "construct", strand: "notation", difficulty: 1 };
 
 // Column-major flat notes with their originating column index, matching the
 // order staffEditor uses for getNotes()/target.
@@ -25,6 +26,7 @@ describe("content - build-task generators", () => {
       const r = rng.create("build-" + name);
       for (let i = 0; i < 60; i++) {
         const q = gen(r);
+        q.meta = Object.assign({}, q.meta, TEST_META);
         const v = validate.validateQuestion(q);
         expect(v.errors, name + " errors: " + v.errors.join("; ")).toEqual([]);
 

@@ -147,10 +147,12 @@ or hand-edited state is merged onto defaults so no key is ever missing.
 - **Diagnostic feedback**: a wrong answer explains the *likely confusion* (e.g. "right
   number, wrong quality: a major 6th vs a minor 6th differ by a semitone"), not just
   "wrong".
-- **Spaced repetition** tracks per-topic accuracy and response time, and resurfaces weak
-  or overdue topics first; the home screen surfaces "focus areas".
+- **Spaced repetition** tracks independent learning objectives inside each topic, so
+  cadence choice can be weak while chord recognition is strong. Measured performance
+  counts more than self-report, and weak or overdue objectives resurface first.
 - **Estimated level** - a constant header badge estimates the highest grade you've
-  *demonstrated* (enough topics seen, high enough mastery, all lower grades solid too),
+  *demonstrated* (enough objectives confirmed by repeated evidence, high enough mastery,
+  all lower grades solid too),
   computed locally from your practice (`analytics.estimatedLevel`). It's an estimate, not
   an assessment.
 - **Lower-grade interleaving** - a higher-grade session always mixes in a diagnostic slice
