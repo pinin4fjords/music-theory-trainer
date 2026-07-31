@@ -604,6 +604,24 @@ describe("DOM - progress view", () => {
     inst.router.navigate("progress");
     expect(document.querySelector("#main").textContent).toMatch(/No data yet/);
   });
+
+  it("shows conservatively migrated evidence as objective focus areas", () => {
+    scaffold();
+    const migrated = {
+      stateVersion: 3,
+      totalAnswered: 8,
+      settings: { grade: 5, gradeChosen: true, sound: true, mode: "daily", theme: "system" },
+      srs: {
+        "harmony.cadence.identify": Object.assign(card(0, 0, 0), { evidence: 0.5, earned: 0.25 }),
+      },
+    };
+    const inst = app.boot({ document, storage: fakeStore(migrated), now: () => NOW, seed: "p5" });
+    inst.router.navigate("progress");
+    const text = document.querySelector("#main").textContent;
+    expect(text).not.toMatch(/No data yet/);
+    expect(text).toMatch(/Focus areas/);
+    expect(text).toMatch(/Identify cadence types/);
+  });
 });
 
 describe("DOM - reference", () => {

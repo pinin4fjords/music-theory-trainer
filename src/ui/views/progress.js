@@ -26,7 +26,7 @@
     main.appendChild(view);
 
     const overall = A.overall(srsMap);
-    if (!overall.seen) {
+    if (!overall.evidence) {
       view.appendChild(C.el(`<div class="card"><p class="muted" style="margin:0">No data yet. Once you've answered a few questions, this shows your estimated level, accuracy by grade, and the topics worth more practice.</p></div>`));
       view.appendChild(C.button("Start practising", () => ctx.router.navigate("quiz")));
       return;
