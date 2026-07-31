@@ -216,4 +216,5 @@ The suite (`test/`, Vitest + jsdom) covers:
 
 ## License
 
-MIT - see `LICENSE`.
+GPL-3.0-or-later - see `LICENSE`. Vendored component provenance and licence
+details are in `THIRD_PARTY_NOTICES.md`.
