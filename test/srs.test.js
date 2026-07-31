@@ -122,6 +122,24 @@ describe("srs - graded quality (issue #47)", () => {
   });
 });
 
+describe("srs - evidence confidence", () => {
+  it("weights self-reported success below a measured attempt", () => {
+    const selfReported = srs.update(srs.defaultCard(), { correct: true, confidence: 0.5, now: 0 });
+    const measured = srs.update(srs.defaultCard(), { correct: true, confidence: 1, now: 0 });
+    expect(srs.evidence(selfReported)).toBe(0.5);
+    expect(selfReported.box).toBe(0);
+    expect(srs.evidence(measured)).toBe(1);
+    expect(measured.box).toBe(1);
+  });
+
+  it("requires more than one full-confidence observation before evidence is confirmed", () => {
+    let card = srs.update(srs.defaultCard(), { correct: true, now: 0 });
+    expect(srs.isConfirmed(card)).toBe(false);
+    card = srs.update(card, { correct: true, now: 1 });
+    expect(srs.isConfirmed(card)).toBe(true);
+  });
+});
+
 describe("srs - due logic", () => {
   it("an unscheduled card is always due", () => {
     expect(srs.isDue(srs.defaultCard(), 0)).toBe(true);

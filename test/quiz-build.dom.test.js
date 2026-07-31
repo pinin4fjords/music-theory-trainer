@@ -32,7 +32,13 @@ function buildTopic(buildTask) {
     id: "build-test",
     grade: 1,
     title: "Build test",
-    questions: () => ({ prompt: "Build the note.", choices: ["Correct", "Not yet"], answer: "Correct", buildTask }),
+    questions: () => ({
+      prompt: "Build the note.",
+      choices: ["Correct", "Not yet"],
+      answer: "Correct",
+      meta: { objectiveId: "test.build", taskKind: "construct", strand: "notation", difficulty: 1 },
+      buildTask,
+    }),
   };
 }
 

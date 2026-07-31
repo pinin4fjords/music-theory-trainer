@@ -175,6 +175,15 @@
     C4: 60, D4: 62, E4: 64, F4: 65, G4: 67, A4: 69, B4: 71,
     C5: 72, D5: 74, E5: 76, F5: 77, G5: 79, A5: 81, B5: 83,
   };
+  const O = global.MTT.objectives;
+
+  function Q(id, title, strand, taskKind, difficulty, generator) {
+    return O.wrap(O.define(id, title, strand, taskKind, difficulty), generator);
+  }
+
+  function QM(generators, select) {
+    return O.mix(generators, select);
+  }
 
   // NOTE_NAMES indexed by semitone 0-11 (sharp and flat variants).
   const NOTE_NAMES_SHARP = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
@@ -616,15 +625,6 @@
     };
   }
 
-  function g3AuralQuestion(rng) {
-    const type = rng.int(0, 4);
-    if (type === 0) return g3TimeSigQuestion(rng);
-    if (type === 1) return g3SpotChangeQuestion(rng);
-    if (type === 2) return g3TonalityQuestion(rng);
-    if (type === 3) return g1DynamicsQuestion(rng);
-    return g1ArticulationQuestion(rng);
-  }
-
   // =========================================================================
   // Grade 4 generators
   // =========================================================================
@@ -719,26 +719,6 @@
       answer: ans,
       explanation: `That was <b>${beatsPerBar}/4</b>: ${patternGlyphs(pattern)}, repeated over two bars. Count the beats between the accented downbeats to fix the metre, then the pattern of long and short notes within the bar gives the rhythm.`,
     };
-  }
-
-  // Test 4C part 1: single-feature questions (tonality, dynamics, articulation).
-  // The genuine "describe the character" question lives in characterQuestion.
-  function g4FeaturesQuestion(rng) {
-    const questions = [
-      {
-        prompt: `Listen — is this passage played <strong>smoothly</strong> or <strong>detached</strong>?`,
-        gen: function () { return g1ArticulationQuestion(rng); },
-      },
-      {
-        prompt: `Listen — is this music <strong>loud</strong> or <strong>quiet</strong>?`,
-        gen: function () { return g1DynamicsQuestion(rng); },
-      },
-      {
-        prompt: `Listen — is this passage in a <strong>major</strong> or <strong>minor</strong> key?`,
-        gen: function () { return g3TonalityQuestion(rng); },
-      },
-    ];
-    return pick(rng, questions).gen();
   }
 
   // =========================================================================
@@ -1218,12 +1198,6 @@
 
   function g6CadenceQuestion(rng) { return auralCadenceQuestion(rng, 2); }
 
-  function g6FeaturesQuestion(rng) {
-    if (rng.bool()) return textureQuestion(rng);
-    const pool = [structureQuestion, characterQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, styleDescriptionQuestion];
-    return pick(rng, pool)(rng);
-  }
-
   function g6EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "top", "Grade 6"); }
 
   function g6SightSingQuestion(rng) {
@@ -1284,11 +1258,6 @@
   function g7CadenceQuestion(rng) { return auralCadenceQuestion(rng, 3); }
   function g7ModulationQuestion(rng) { return modulationQuestion(rng); }
   function g7EchoTwoPartQuestion(rng) { return twoPartEchoQuestion(rng, "bottom", "Grade 7"); }
-
-  function g7FeaturesQuestion(rng) {
-    const pool = [textureQuestion, structureQuestion, characterQuestion, g3TonalityQuestion, g1DynamicsQuestion, g1ArticulationQuestion, g2TempoQuestion, styleDescriptionQuestion];
-    return pick(rng, pool)(rng);
-  }
 
   // Grade 7 sight-singing: the learner sings the generated upper line while the
   // first-species companion below plays as the second part.
@@ -1579,7 +1548,7 @@
           title: "Aural: clap the pulse",
           why: "In the Initial Grade aural test you clap the steady pulse of a piece the examiner plays, giving a stronger clap on the first beat of each bar. This is the very first listening skill.",
           what: "<p>Find the <b>steady beat</b> you could march or walk to, and tap it evenly. Give the <b>first beat of each bar</b> a firmer tap, where the music feels heaviest.</p>",
-          questions: g0PulseClapQuestion,
+          questions: Q("aural-rhythm.pulse.perform.g0", "Clap a steady pulse", "aural-rhythm", "perform", 0, g0PulseClapQuestion),
           tags: ["aural"],
         },
         {
@@ -1587,7 +1556,7 @@
           title: "Aural: echo-clap rhythms",
           why: "In the Initial Grade aural test the examiner claps a short one-bar rhythm and you clap it straight back, the first step towards reading and reproducing rhythm.",
           what: "<p>Listen to the pattern of <b>long and short</b> claps, then copy it exactly. Keep the same speed, and put a little weight on the first clap of the bar.</p>",
-          questions: g0EchoClapQuestion,
+          questions: Q("aural-rhythm.echo.perform.g0", "Clap back a one-bar rhythm", "aural-rhythm", "perform", 0, g0EchoClapQuestion),
           tags: ["aural"],
         },
         {
@@ -1595,7 +1564,7 @@
           title: "Aural: echo singing",
           why: "In the Initial Grade aural test the examiner sings or plays three very short phrases in turn and you sing each one back. The phrases move between the first and third notes of the scale.",
           what: "<p>Listen for whether the second note is <b>higher, lower, or the same</b> as the first, then sing it back on 'lah'. The phrases are one bar long and stay close to the starting note.</p>",
-          questions: g0EchoSingQuestion,
+          questions: Q("aural-pitch.echo.perform.g0", "Sing back tonic-mediant phrases", "aural-pitch", "perform", 0, g0EchoSingQuestion),
           tags: ["aural"],
         },
         {
@@ -1603,7 +1572,7 @@
           title: "Aural: one feature",
           why: "In the Initial Grade aural test the examiner asks one simple question about the music, usually whether it was loud or quiet, or smooth or detached.",
           what: "<p><b>Dynamics:</b> loud (forte) or quiet (piano). <b>Articulation:</b> smooth and joined (legato) or short and separated (staccato). Listen for the one feature that stands out.</p>",
-          questions: g0FeatureQuestion,
+          questions: Q("aural-features.identify.g0", "Identify one musical feature", "aural-features", "recognise", 0, g0FeatureQuestion),
           tags: ["aural"],
         },
       ],
@@ -1616,7 +1585,10 @@
           title: "Aural: pulse & time signature",
           why: "In the Grade 1 aural test the examiner plays a short piece and you clap the pulse, then say whether it is in 2 or 3 beats per bar. This is the foundation of all rhythmic awareness.",
           what: "<p>Listen for the <b>strong beat</b> — the beat that sounds slightly heavier or more accented. Count how many beats pass before the next strong beat arrives. That count is the time signature's top number.</p><p class=\"muted\" style=\"font-size:.9em\">In 2/4 the pattern feels like a <em>march</em> (ONE two, ONE two). In 3/4 it feels like a <em>waltz</em> (ONE two three, ONE two three).</p>",
-          questions: (rng) => rng.bool() ? g1PulseTapQuestion(rng) : g1TimeSigQuestion(rng),
+          questions: QM([
+            Q("aural-rhythm.pulse.perform.g1", "Tap a steady pulse with downbeats", "aural-rhythm", "perform", 1, g1PulseTapQuestion),
+            Q("aural-rhythm.metre.identify.g1", "Identify two and three time", "aural-rhythm", "recognise", 1, g1TimeSigQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
           tags: ["aural"],
         },
         {
@@ -1624,7 +1596,7 @@
           title: "Aural: spot the change",
           why: "In the Grade 1 aural test the examiner plays a two-bar phrase twice; the second time one note is different. You say whether the change was at the beginning or the end.",
           what: "<p>Listen to the whole phrase the first time, then on the second playing focus on whether the <b>first</b> note sounds different or the <b>last</b> note. The change is always a single step (up or down).</p><p class=\"muted\" style=\"font-size:.9em\">Tip: hum along with the first phrase to lock it in memory, then compare as you listen to the repeat.</p>",
-          questions: g1SpotChangeQuestion,
+          questions: Q("aural-pitch.change-location.g1", "Locate a changed pitch", "aural-pitch", "recognise", 1, g1SpotChangeQuestion),
           tags: ["aural"],
         },
         {
@@ -1632,7 +1604,10 @@
           title: "Aural: dynamics & articulation",
           why: "In the Grade 1 aural test the examiner asks two questions about a short piece — they come from dynamics (loud/quiet) and articulation (smooth/detached). This trains you to hear how music is performed, not just which notes are played.",
           what: "<p><b>Dynamics:</b> forte (f) = loud; piano (p) = quiet; crescendo = getting louder; diminuendo = getting quieter.<br><b>Articulation:</b> legato = smooth and connected; staccato = short and detached.</p>",
-          questions: (rng) => rng.bool() ? g1DynamicsQuestion(rng) : g1ArticulationQuestion(rng),
+          questions: QM([
+            Q("aural-features.dynamics.g1", "Identify dynamics and dynamic change", "aural-features", "recognise", 1, g1DynamicsQuestion),
+            Q("aural-features.articulation.g1", "Identify articulation", "aural-features", "recognise", 1, g1ArticulationQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
           tags: ["aural"],
         },
         {
@@ -1640,7 +1615,7 @@
           title: "Aural: echo singing",
           why: "In the Grade 1 aural test the examiner plays three different short phrases in turn and you sing each one back immediately after hearing it. The melodies are simple — 3 to 4 notes using steps in C major.",
           what: "<p>Listen for each phrase's <b>shape</b> (going up? going down? a step or a skip?) and sing it back on a comfortable vowel like 'lah'. You can sing in any octave that suits your voice. There are three different phrases — sing each one straight back after you hear it.</p><p class=\"muted\" style=\"font-size:.9em\">Sing the whole phrase, then pause — the mic records your attempt and scores all the notes together once you stop.</p>",
-          questions: g1EchoMelodyQuestion,
+          questions: Q("aural-pitch.echo.perform.g1", "Sing back Grade 1 phrases", "aural-pitch", "perform", 1, g1EchoMelodyQuestion),
           tags: ["aural"],
         },
       ],
@@ -1653,7 +1628,10 @@
           title: "Aural: pulse & time signature",
           why: "Grade 2 tests the same two-beat/three-beat recognition as Grade 1 — the skill needs to become automatic before new time signatures are added at Grade 3.",
           what: "<p>Keep listening for the <b>strong beat</b> and counting how many beats pass before it repeats. This should now feel quick and confident, since new tasks this grade — tempo changes and pitch/rhythm change spotting — need that spare attention.</p>",
-          questions: (rng) => rng.bool() ? g1PulseTapQuestion(rng) : g1TimeSigQuestion(rng),
+          questions: QM([
+            Q("aural-rhythm.pulse.perform.g2", "Tap a steady pulse with downbeats", "aural-rhythm", "perform", 2, g1PulseTapQuestion),
+            Q("aural-rhythm.metre.identify.g2", "Identify two and three time", "aural-rhythm", "recognise", 2, g1TimeSigQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
           tags: ["aural"],
         },
         {
@@ -1661,7 +1639,7 @@
           title: "Aural: pitch or rhythm change?",
           why: "Grade 2 Test C asks not just <em>where</em> the change was, but <em>what kind</em> — pitch (which note) or rhythm (how long). This sharpens listening focus.",
           what: "<p>Pitch change: a note moves higher or lower. Rhythm change: a note becomes shorter or longer. Listen twice before deciding — on the first listening just absorb the phrase; on the second, listen for <em>what specifically</em> is different.</p>",
-          questions: g2ChangeTypeQuestion,
+          questions: Q("aural-pitch.change-type.g2", "Distinguish pitch and rhythm changes", "aural-pitch", "recognise", 2, g2ChangeTypeQuestion),
           tags: ["aural"],
         },
         {
@@ -1669,7 +1647,7 @@
           title: "Aural: tempo changes",
           why: "Grade 2 Test D adds tempo to the list of features you can be asked about. You should be able to hear whether the speed is steady, speeding up (accelerando), or slowing down (ritardando).",
           what: "<p><b>Accelerando</b> (accel.): gradually getting faster. <b>Ritardando</b> (rit.) or rallentando (rall.): gradually slowing down. A <b>steady</b> tempo maintains the same speed throughout.</p>",
-          questions: g2TempoQuestion,
+          questions: Q("aural-features.tempo.g2", "Identify tempo and tempo change", "aural-features", "recognise", 2, g2TempoQuestion),
           tags: ["aural"],
         },
         {
@@ -1677,7 +1655,7 @@
           title: "Aural: echo singing (to the dominant)",
           why: "Grade 2 echo-singing (Test B) widens the phrases from Grade 1: the examiner plays three different phrases in turn, each in a major key and spanning up to the dominant (the 5th of the scale). Minor-key phrases wait until Grade 3.",
           what: "<p>Phrases now reach up to the 5th, so listen for how high each one climbs above its starting note. Sing back on any syllable ('lah', 'dah') in any comfortable octave, holding each note briefly before moving to the next.</p>",
-          questions: g2EchoMelodyQuestion,
+          questions: Q("aural-pitch.echo.perform.g2", "Sing back Grade 2 phrases", "aural-pitch", "perform", 2, g2EchoMelodyQuestion),
           tags: ["aural"],
         },
       ],
@@ -1690,7 +1668,7 @@
           title: "Aural: 2, 3, or 4 beats per bar",
           why: "Grade 3 adds 4-time to the 2-time and 3-time from Grades 1-2. The challenge is quickly distinguishing all three: the march of 2, the waltz of 3, and the broad stride of 4.",
           what: "<p>In 4/4, there are two 'groups' of two within each bar: a strong-weak-strong-weak pattern. Compare: 2/4 = march (ONE two), 3/4 = waltz (ONE two three), 4/4 = strong stride (ONE two THREE four). Compound time (6/8) doesn't appear until much later.</p>",
-          questions: g3TimeSigQuestion,
+          questions: Q("aural-rhythm.metre.identify.g3", "Identify two, three and four time", "aural-rhythm", "recognise", 3, g3TimeSigQuestion),
           tags: ["aural"],
         },
         {
@@ -1698,7 +1676,7 @@
           title: "Aural: major or minor?",
           why: "Grade 3 Test D introduces tonality as a listening question. Major keys sound bright and stable; minor keys darker and more tense — and the difference comes down to one key semitone: the 3rd.",
           what: "<p>The <b>3rd of the scale</b> is the giveaway: a major 3rd (4 semitones) sounds open and settled; a minor 3rd (3 semitones) sounds darker. Listen also for the 6th and 7th degrees — minor keys have lowered versions of these too.</p>",
-          questions: g3TonalityQuestion,
+          questions: Q("aural-features.tonality.g3", "Distinguish major and minor tonality", "aural-features", "recognise", 3, g3TonalityQuestion),
           tags: ["aural"],
         },
         {
@@ -1706,7 +1684,13 @@
           title: "Aural: musical features",
           why: "Grade 3 Test D continues asking about dynamics, tempo, and articulation — now with tonality added. Developing quick recognition of all these saves thinking time in the exam.",
           what: "<p>Focus on one element at a time as you listen. On a first hearing you might catch dynamics and articulation; a second play can confirm tonality and tempo.</p>",
-          questions: g3AuralQuestion,
+          questions: QM([
+            Q("aural-rhythm.metre.identify.g3", "Identify two, three and four time", "aural-rhythm", "recognise", 3, g3TimeSigQuestion),
+            Q("aural-pitch.change-location.g3", "Locate a change in a longer phrase", "aural-pitch", "recognise", 3, g3SpotChangeQuestion),
+            Q("aural-features.tonality.g3", "Distinguish major and minor tonality", "aural-features", "recognise", 3, g3TonalityQuestion),
+            Q("aural-features.dynamics.g3", "Identify dynamics", "aural-features", "recognise", 3, g1DynamicsQuestion),
+            Q("aural-features.articulation.g3", "Identify articulation", "aural-features", "recognise", 3, g1ArticulationQuestion),
+          ], (rng) => rng.int(0, 4)),
           tags: ["aural"],
         },
         {
@@ -1714,7 +1698,7 @@
           title: "Aural: echo singing (within octave)",
           why: "Grade 3 echo-singing (Test B) presents three different phrases in turn, each within one octave. The phrases may be in major or minor and use mostly stepwise motion with occasional leaps no larger than a third.",
           what: "<p>Before singing, hum the first note internally. Stepwise phrases are easiest to echo — start on the first note and think through each step. If you miss a note, keep going rather than stopping.</p>",
-          questions: g3EchoMelodyQuestion,
+          questions: Q("aural-pitch.echo.perform.g3", "Sing back Grade 3 phrases", "aural-pitch", "perform", 3, g3EchoMelodyQuestion),
           tags: ["aural"],
         },
       ],
@@ -1727,7 +1711,7 @@
           title: "Aural: time signature & rhythm",
           why: "Grade 4 Test C (part 2) asks you to clap back the rhythm (not just the pulse) and then identify the time signature. Distinguishing pulse from rhythm is the key skill. Since typing can't grade a clap, this app instead asks you to pick the notated pattern that matches what you heard.",
           what: "<p>The <b>pulse</b> is the steady beat underlying the music. The <b>rhythm</b> is the actual pattern of long and short notes as written — a mix of note values, not just an even beat. Compare the played rhythm against each notated option before choosing.</p>",
-          questions: g4RhythmTimeSigQuestion,
+          questions: Q("aural-rhythm.clap-metre.perform.g4", "Clap back rhythm and identify metre", "aural-rhythm", "perform", 4, g4RhythmTimeSigQuestion),
           tags: ["aural"],
         },
         {
@@ -1735,7 +1719,7 @@
           title: "Aural: describe the character",
           why: "Grade 4 Test C (part 1) asks you to describe a piece's character — march-like, playful, songful, solemn. The character is not a mood pulled from nowhere: it is created by concrete features you can hear.",
           what: "<p>Listen for four things at once: <b>tempo</b> (fast or slow), <b>articulation</b> (smooth or detached), <b>register</b> (high or low) and <b>mode</b> (major or minor). A march is moderate, firm and major; something playful is fast, light and high; a songful passage flows smoothly; a solemn one is slow, low and minor. Describe the whole effect, not just one feature.</p>",
-          questions: characterQuestion,
+          questions: Q("aural-features.character.g4", "Describe musical character", "aural-features", "describe", 4, characterQuestion),
           tags: ["aural"],
         },
         {
@@ -1743,7 +1727,11 @@
           title: "Aural: musical features",
           why: "Grade 4 Test C (part 1) also asks single-feature questions — tonality, dynamics, tempo, and articulation — as the building blocks of the character description above.",
           what: "<p>Practise naming each feature quickly and on its own: major or minor, loud or quiet, getting faster or slower, smooth or detached. Reliable recognition of each one is what lets you describe the combined character with confidence.</p>",
-          questions: g4FeaturesQuestion,
+          questions: QM([
+            Q("aural-features.articulation.g4", "Identify articulation", "aural-features", "recognise", 4, g1ArticulationQuestion),
+            Q("aural-features.dynamics.g4", "Identify dynamics", "aural-features", "recognise", 4, g1DynamicsQuestion),
+            Q("aural-features.tonality.g4", "Identify tonality", "aural-features", "recognise", 4, g3TonalityQuestion),
+          ], (rng) => rng.int(0, 2)),
           tags: ["aural"],
         },
         {
@@ -1751,7 +1739,7 @@
           title: "Aural: sight-sing a phrase",
           why: "Grade 4 Test B is the first sight-singing task: you sing a 5-note phrase from a printed score in C, F, or G major. The range is within a 3rd of the tonic; intervals are steps and small skips only.",
           what: "<p>Only the tonic is played for you. Look at each note's position on the staff relative to the tonic line, plan the direction (up or down) and size (step or skip) of each move, then sing all 5 notes in sequence.</p>",
-          questions: g4SightSingQuestion,
+          questions: Q("aural-pitch.sight-sing.perform.g4", "Sight-sing a five-note phrase", "aural-pitch", "perform", 4, g4SightSingQuestion),
           tags: ["aural"],
         },
         {
@@ -1759,7 +1747,7 @@
           title: "Aural: sing from memory",
           why: "Grade 4 Test A introduces memory singing: a melody spanning up to an octave (major or minor, up to 3 sharps or flats) is played twice, and you sing it back with no printed score.",
           what: "<p>Nothing is written down - the two hearings are all you get. During the gap, keep the tonic and the melody's overall shape (where it rose and fell) fixed in your head, then reproduce it.</p>",
-          questions: g4MemorySingQuestion,
+          questions: Q("aural-pitch.memory.perform.g4", "Sing a melody from memory", "aural-pitch", "perform", 4, g4MemorySingQuestion),
           tags: ["aural"],
         },
       ],
@@ -1772,7 +1760,7 @@
           title: "Aural: time signature & rhythm",
           why: "Grade 5 repeats the Grade 4 clap-the-rhythm and time-signature task — by now it should be reliable, freeing attention for the new style/period question below.",
           what: "<p>Same task as Grade 4: identify whether an extract is in 2, 3, or 4 time by ear. Aim for near-instant recognition so it doesn't cost you thinking time elsewhere in the test.</p>",
-          questions: g4RhythmTimeSigQuestion,
+          questions: Q("aural-rhythm.clap-metre.perform.g5", "Clap back rhythm and identify metre", "aural-rhythm", "perform", 5, g4RhythmTimeSigQuestion),
           tags: ["aural"],
         },
         {
@@ -1780,7 +1768,7 @@
           title: "Aural: style & texture (describe what you hear)",
           why: "Grade 5 Test C asks about style and period, but a period cannot honestly be identified from a few notes. This drill instead trains the underlying skill: describing the audible texture and devices — an ornamented sequence, an Alberti bass, a chromatic rubato melody, a whole-tone scale — that inform a style judgement.",
           what: "<p>Each option plays a genuine textbook device and you choose the <b>description</b> that matches what you hear, rather than guessing a period from an invented snippet. Learn the sound of these devices — the ornamentation and sequences common in <b>Baroque</b> writing, the Alberti-bass accompaniment of the <b>Classical</b> era, the chromatic rubato of the <b>Romantic</b> period, the whole-tone colour of the early <b>twentieth century</b> — then listen to full recordings of real repertoire to hear how the eras actually sound.</p>",
-          questions: styleDescriptionQuestion,
+          questions: Q("aural-features.style-devices.g5", "Describe style-related musical devices", "aural-features", "describe", 5, styleDescriptionQuestion),
           tags: ["aural"],
         },
         {
@@ -1788,13 +1776,12 @@
           title: "Aural: features & tonality",
           why: "Grade 5 continues all the listening-feature questions from earlier grades. Regular practice across dynamics, articulation, tempo, and tonality means you can handle any two questions the examiner chooses.",
           what: "<p>By Grade 5 you should be able to answer feature questions quickly and confidently, leaving more mental energy for the new style/period question and the sight-singing task.</p>",
-          questions: (rng) => {
-            const type = rng.int(0, 3);
-            if (type === 0) return characterQuestion(rng);
-            if (type === 1) return g3TonalityQuestion(rng);
-            if (type === 2) return g1DynamicsQuestion(rng);
-            return g1ArticulationQuestion(rng);
-          },
+          questions: QM([
+            Q("aural-features.character.g5", "Describe musical character", "aural-features", "describe", 5, characterQuestion),
+            Q("aural-features.tonality.g5", "Identify tonality", "aural-features", "recognise", 5, g3TonalityQuestion),
+            Q("aural-features.dynamics.g5", "Identify dynamics", "aural-features", "recognise", 5, g1DynamicsQuestion),
+            Q("aural-features.articulation.g5", "Identify articulation", "aural-features", "recognise", 5, g1ArticulationQuestion),
+          ], (rng) => rng.int(0, 3)),
           tags: ["aural"],
         },
         {
@@ -1802,7 +1789,7 @@
           title: "Aural: sight-sing (wider range)",
           why: "Grade 5 Test B extends sight-singing to 6 notes, with a range up to a 5th above and 4th below the tonic. The only leap it may contain is a rising 4th from the dominant below up to the tonic.",
           what: "<p>Scan the staff for a leap before you start — if there is one, it's a rising 4th from the dominant below to the tonic (same interval as the start of 'Here Comes the Bride'), the hardest interval to hit accurately. Everything else moves by step.</p>",
-          questions: g5SightSingQuestion,
+          questions: Q("aural-pitch.sight-sing.perform.g5", "Sight-sing a wider phrase", "aural-pitch", "perform", 5, g5SightSingQuestion),
           tags: ["aural"],
         },
         {
@@ -1810,7 +1797,7 @@
           title: "Aural: sing from memory",
           why: "Grade 5 Test A repeats the memory-singing task: a melody up to an octave (major or minor, up to 3 sharps or flats) played twice, sung back from memory.",
           what: "<p>Same skill as Grade 4, and worth drilling until it is automatic - fix the tonic and shape in your head during the gap between the two hearings, then sing it straight back.</p>",
-          questions: g5MemorySingQuestion,
+          questions: Q("aural-pitch.memory.perform.g5", "Sing a Grade 5 melody from memory", "aural-pitch", "perform", 5, g5MemorySingQuestion),
           tags: ["aural"],
         },
       ],
@@ -1823,7 +1810,7 @@
           title: "Aural: time signature & rhythm",
           why: "Grade 6 repeats the clap-the-rhythm and time-signature task from Grades 4-5 — still 2, 3, or 4 time, with compound time (6/8) still a grade away.",
           what: "<p>Same task as before: identify 2, 3, or 4 time by ear. This should now be close to instant.</p>",
-          questions: g4RhythmTimeSigQuestion,
+          questions: Q("aural-rhythm.clap-metre.perform.g6", "Clap back rhythm and identify metre", "aural-rhythm", "perform", 6, g4RhythmTimeSigQuestion),
           tags: ["aural"],
         },
         {
@@ -1831,7 +1818,7 @@
           title: "Aural: cadences (perfect or imperfect)",
           why: "From Grade 6 the aural test asks you to identify cadences — the two-chord harmonic 'punctuation marks' that end a phrase. Grade 6 covers the two most common: perfect and imperfect.",
           what: "<p>A <b>perfect cadence</b> (V-I) sounds final and settled — a full stop. An <b>imperfect cadence</b> (ending on V) sounds unfinished — a comma, not a full stop. Play both several times in a row until the difference in finality is obvious.</p>",
-          questions: g6CadenceQuestion,
+          questions: Q("aural-harmony.cadence.identify.g6", "Identify perfect and imperfect cadences", "aural-harmony", "recognise", 6, g6CadenceQuestion),
           tags: ["aural"],
         },
         {
@@ -1839,7 +1826,15 @@
           title: "Aural: texture & musical features",
           why: "Grade 6 adds a texture question — is it a single line, a melody with accompaniment, or two independent lines? — alongside the dynamics, articulation, tempo, tonality, and style questions from earlier grades.",
           what: "<p><b>Texture</b> is about how many independent musical things are happening at once, not which notes are played. Listen for whether you can follow more than one moving line, or whether there's a tune sitting over a static accompaniment.</p>",
-          questions: g6FeaturesQuestion,
+          questions: QM([
+            Q("aural-features.texture.g6", "Identify musical texture", "aural-features", "recognise", 6, textureQuestion),
+            Q("aural-features.character.g6", "Describe musical character", "aural-features", "describe", 6, characterQuestion),
+            Q("aural-features.tonality.g6", "Identify tonality", "aural-features", "recognise", 6, g3TonalityQuestion),
+            Q("aural-features.dynamics.g6", "Identify dynamics", "aural-features", "recognise", 6, g1DynamicsQuestion),
+            Q("aural-features.articulation.g6", "Identify articulation", "aural-features", "recognise", 6, g1ArticulationQuestion),
+            Q("aural-features.tempo.g6", "Identify tempo", "aural-features", "recognise", 6, g2TempoQuestion),
+            Q("aural-features.style-devices.g6", "Describe style-related devices", "aural-features", "describe", 6, styleDescriptionQuestion),
+          ], (rng) => rng.int(0, 6)),
           tags: ["aural"],
         },
         {
@@ -1847,7 +1842,7 @@
           title: "Aural: musical structure",
           why: "From Grade 6 the features question can ask about structure — how a piece is put together from repeated and contrasting phrases. Recognising when the opening returns is the core skill.",
           what: "<p>Label each phrase as you hear it: call the first one A, and a clearly different one B. Then track the order. <b>AB</b> (binary) is two different phrases with no return; <b>ABA</b> (ternary) brings the opening back after a contrasting middle; <b>AABA</b> (song form) states the opening twice, then a contrasting bridge, then the opening once more. The key question is always: did the opening come back?</p>",
-          questions: structureQuestion,
+          questions: Q("aural-features.structure.g6", "Identify musical structure", "aural-features", "recognise", 6, structureQuestion),
           tags: ["aural"],
         },
         {
@@ -1855,7 +1850,7 @@
           title: "Aural: echo the upper line",
           why: "From Grade 6 the echo-singing task uses a two-part texture: two lines play together and you sing back just one of them. Grade 6 asks for the upper line.",
           what: "<p>Two lines will sound at once. Focus your ear on the <b>top</b> line as it plays — it's usually easier to track since it's the highest, most prominent sound — then sing back just that line, ignoring the other.</p>",
-          questions: g6EchoTwoPartQuestion,
+          questions: Q("aural-pitch.echo-upper.perform.g6", "Sing back the upper line", "aural-pitch", "perform", 6, g6EchoTwoPartQuestion),
           tags: ["aural"],
         },
         {
@@ -1863,7 +1858,7 @@
           title: "Aural: sight-sing (octave range)",
           why: "Grade 6 sight-singing spans no more than an octave in a major or minor key with up to 3 sharps or flats, with an accompaniment playing underneath. You may choose treble or bass clef.",
           what: "<p>Choose the clef you read most confidently. Look through the whole phrase before you start, find its highest and lowest notes, and notice its larger intervals. The line does not have to begin or end on the tonic. Keep it steady against the accompaniment.</p>",
-          questions: g6SightSingQuestion,
+          questions: Q("aural-pitch.sight-sing.perform.g6", "Sight-sing with accompaniment", "aural-pitch", "perform", 6, g6SightSingQuestion),
           tags: ["aural"],
         },
       ],
@@ -1876,7 +1871,7 @@
           title: "Aural: time signature (inc. 6/8)",
           why: "Grade 7 finally adds compound time (6/8) to the time-signature options — the first appearance of 6/8 in the aural test.",
           what: "<p>6/8 has two main beats, each divided into three quavers — a lilting, swinging feel, quite different from the even subdivision of 2/4 or 4/4. Count two slow beats, not six fast ones.</p>",
-          questions: g7TimeSigQuestion,
+          questions: Q("aural-rhythm.metre-six-eight.g7", "Distinguish simple metre and 6/8", "aural-rhythm", "recognise", 7, g7TimeSigQuestion),
           tags: ["aural"],
         },
         {
@@ -1884,7 +1879,7 @@
           title: "Aural: cadences (+ interrupted)",
           why: "Grade 7 adds the interrupted cadence (V-vi) to perfect and imperfect — a deliberate 'surprise' where the ear expects the tonic but gets the submediant instead.",
           what: "<p>An <b>interrupted cadence</b> sets up the same expectation as a perfect cadence (a V chord about to resolve) but then resolves to <b>vi</b> instead of I — a swerve rather than the expected landing.</p>",
-          questions: g7CadenceQuestion,
+          questions: Q("aural-harmony.cadence.identify.g7", "Identify Grade 7 cadences", "aural-harmony", "recognise", 7, g7CadenceQuestion),
           tags: ["aural"],
         },
         {
@@ -1892,7 +1887,7 @@
           title: "Aural: name the cadence chords",
           why: "Grade 7 plays a cadence and asks you to name the two chords that formed it, chosen from tonic, subdominant, dominant, dominant 7th and submediant — all in root position.",
           what: "<p>Answer with Roman numerals (V-I), technical names (dominant to tonic), or letter-name chords — the exam accepts all three. Hear the bass move first (it carries the root of each chord), then check the quality above it.</p>",
-          questions: g7ChordCadenceQuestion,
+          questions: Q("aural-harmony.cadence-chords.g7", "Name the two cadence chords", "aural-harmony", "recognise", 7, g7ChordCadenceQuestion),
           tags: ["aural"],
         },
         {
@@ -1900,7 +1895,7 @@
           title: "Aural: spot the modulation",
           why: "Grade 7 introduces modulation — a passage that changes key partway through. You're asked whether it moves to the dominant, subdominant, or relative minor.",
           what: "<p>Listen for the note that doesn't belong to the original key — that accidental is the signpost that a new key has arrived. Moving to the dominant sharpens a note; moving to the subdominant flattens one; moving to the relative minor keeps the same key signature but shifts the tonal centre.</p>",
-          questions: g7ModulationQuestion,
+          questions: Q("aural-harmony.modulation.g7", "Identify a modulation destination", "aural-harmony", "recognise", 7, g7ModulationQuestion),
           tags: ["aural"],
         },
         {
@@ -1908,7 +1903,7 @@
           title: "Aural: echo the lower line",
           why: "Grade 7's echo-singing task is the mirror of Grade 6's: two lines play together and you sing back the lower one, which is harder to isolate since the ear naturally follows the top line.",
           what: "<p>Deliberately shift your attention to the <b>bottom</b> line as the two parts play. It helps to hum the bass line's shape internally the moment you hear it, before it fades from memory.</p>",
-          questions: g7EchoTwoPartQuestion,
+          questions: Q("aural-pitch.echo-lower.perform.g7", "Sing back the lower line", "aural-pitch", "perform", 7, g7EchoTwoPartQuestion),
           tags: ["aural"],
         },
         {
@@ -1916,7 +1911,16 @@
           title: "Aural: texture, structure & style",
           why: "Grade 7 keeps the full pool of feature questions — texture, tonality, dynamics, articulation, tempo, and style/period — with texture and structure now asked as distinct options rather than one combined question.",
           what: "<p>By this grade you should recognise all these features quickly enough to spend your remaining attention on the harder cadence, chord, and modulation tasks above.</p>",
-          questions: g7FeaturesQuestion,
+          questions: QM([
+            Q("aural-features.texture.g7", "Identify musical texture", "aural-features", "recognise", 7, textureQuestion),
+            Q("aural-features.structure.g7", "Identify musical structure", "aural-features", "recognise", 7, structureQuestion),
+            Q("aural-features.character.g7", "Describe musical character", "aural-features", "describe", 7, characterQuestion),
+            Q("aural-features.tonality.g7", "Identify tonality", "aural-features", "recognise", 7, g3TonalityQuestion),
+            Q("aural-features.dynamics.g7", "Identify dynamics", "aural-features", "recognise", 7, g1DynamicsQuestion),
+            Q("aural-features.articulation.g7", "Identify articulation", "aural-features", "recognise", 7, g1ArticulationQuestion),
+            Q("aural-features.tempo.g7", "Identify tempo", "aural-features", "recognise", 7, g2TempoQuestion),
+            Q("aural-features.style-devices.g7", "Describe style-related devices", "aural-features", "describe", 7, styleDescriptionQuestion),
+          ], (rng) => rng.int(0, 7)),
           tags: ["aural"],
         },
         {
@@ -1924,7 +1928,7 @@
           title: "Aural: sight-sing the upper part",
           why: "Grade 7 sight-singing becomes genuinely two-part: you sing the upper line from a printed score while the lower line plays underneath, in a major or minor key with up to 4 sharps or flats. You may choose treble or bass clef.",
           what: "<p>Choose the clef you read most confidently. The lower part moving independently underneath is the real challenge. Commit to your own line mentally before the lower part starts.</p>",
-          questions: g7SightSingQuestion,
+          questions: Q("aural-pitch.sight-sing-upper.perform.g7", "Sight-sing the upper part", "aural-pitch", "perform", 7, g7SightSingQuestion),
           tags: ["aural"],
         },
       ],
@@ -1937,7 +1941,7 @@
           title: "Aural: describe the features",
           why: "Grade 8's final feature question is open-ended: describe several characteristic features of a piece at once, rather than answering a single fixed prompt. This drill plays one richer stimulus and asks for the description that gets key, tempo and articulation all correct together.",
           what: "<p>Run a mental checklist on the single passage: is it <b>major or minor</b>, is the tempo <b>slow, moderate or fast</b>, are the notes <b>smoothly connected or separated</b>? Every option is a full, plausible description — only one matches all three features, so you cannot get there by spotting a single feature alone.</p>",
-          questions: describeFeaturesQuestion,
+          questions: Q("aural-features.describe-multiple.g8", "Describe several musical features", "aural-features", "describe", 8, describeFeaturesQuestion),
           tags: ["aural"],
         },
         {
@@ -1945,7 +1949,7 @@
           title: "Aural: cadences (+ plagal, with inversions)",
           why: "Grade 8 completes the cadence ladder with the plagal cadence (IV-I) — sometimes called the 'Amen' cadence — alongside perfect, imperfect, and interrupted. The chords forming the cadence may now be in an inversion rather than always root position.",
           what: "<p>A <b>plagal cadence</b> also lands on the tonic like a perfect cadence, but arrives from IV rather than V, giving a softer, more devotional close (think of the 'Amen' at the end of a hymn) rather than the strong pull of V-I. A cadence keeps its identity — perfect, imperfect, interrupted or plagal — however its chords are voiced: what matters is which chord roots move, not which note sits in the bass.</p>",
-          questions: g8CadenceQuestion,
+          questions: Q("aural-harmony.cadence.identify.g8", "Identify Grade 8 cadences and inversions", "aural-harmony", "recognise", 8, g8CadenceQuestion),
           tags: ["aural"],
         },
         {
@@ -1953,7 +1957,7 @@
           title: "Aural: name the cadential chords & positions",
           why: "Grade 8 plays a three-chord cadential progression - an approach chord plus the two cadence chords - and asks you to name all three, including whether each is in root position or an inversion.",
           what: "<p>The chord vocabulary is I (root position, first or second inversion), ii (root position or first inversion), IV, V7 and vi (root position only), and V (root position, first or second inversion). Answer with Roman numerals plus a position letter (e.g. Vb), technical names plus position (e.g. dominant, first inversion), or letter-name chords plus position - all are accepted. Hear the bass note of each chord: root position when it's the chord's root, first inversion when it's the 3rd, second inversion when it's the 5th.</p>",
-          questions: g8ChordProgressionQuestion,
+          questions: Q("aural-harmony.cadential-progression.g8", "Name cadential chords and positions", "aural-harmony", "recognise", 8, g8ChordProgressionQuestion),
           tags: ["aural"],
         },
         {
@@ -1961,7 +1965,7 @@
           title: "Aural: spot the modulation",
           why: "Grade 8 presents two passages: one starting in a major key and one starting in a minor key. From minor, the relative major and the dominant are the commonest destinations.",
           what: "<p>For a major-key start, find the accidental that doesn't belong and let it name the new key. For a minor-key start, listen for the brightening onto the relative major, or the sharpened leading note that signals a move to the dominant.</p>",
-          questions: g8ModulationQuestion,
+          questions: Q("aural-harmony.modulation.g8", "Identify major- and minor-key modulations", "aural-harmony", "recognise", 8, g8ModulationQuestion),
           tags: ["aural"],
         },
         {
@@ -1969,7 +1973,7 @@
           title: "Aural: echo the lowest line",
           why: "Grade 8's echo-singing task adds a third simultaneous line: three parts play together and you sing back only the lowest one — the hardest line to isolate by ear.",
           what: "<p>With three lines sounding at once, deliberately listen \"underneath\" the texture rather than following the top line, which will otherwise dominate your attention. Anchor on the bass line's rhythm as much as its pitch.</p>",
-          questions: g8EchoThreePartQuestion,
+          questions: Q("aural-pitch.echo-lowest.perform.g8", "Sing back the lowest of three lines", "aural-pitch", "perform", 8, g8EchoThreePartQuestion),
           tags: ["aural"],
         },
         {
@@ -1977,12 +1981,14 @@
           title: "Aural: sight-sing the lower part",
           why: "Grade 8 sight-singing mirrors Grade 7: you sing the lower part of a two-part phrase while the upper part plays above, in a major or minor key with up to 4 sharps or flats. You may choose treble or bass clef.",
           what: "<p>Choose the clef you read most confidently. Trust the printed lower line rather than drifting towards the higher part, which naturally draws attention while it plays above you.</p>",
-          questions: g8SightSingQuestion,
+          questions: Q("aural-pitch.sight-sing-lower.perform.g8", "Sight-sing the lower part", "aural-pitch", "perform", 8, g8SightSingQuestion),
           tags: ["aural"],
         },
       ],
     },
   ];
+
+  auralTopics.forEach(function (grade) { O.attach(grade.topics); });
 
   // Store aural topics separately so they don't appear in regular theory quiz
   // sessions. The dedicated Aural view accesses MTT.content.auralGrades directly.

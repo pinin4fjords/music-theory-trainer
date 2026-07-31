@@ -3,7 +3,7 @@
  * Assembles a session (core/session.js), then walks the learner through it. Each
  * answer:
  *   - is timed (response time feeds the SRS),
- *   - is recorded against the topic's SRS card,
+ *   - is recorded against the question's learning-objective SRS card,
  *   - reveals the correct choice plus an explanation, and - on a wrong answer -
  *     a DIAGNOSTIC hint about the likely confusion (core/diagnose.js),
  *   - is announced via ARIA-live for screen-reader users.
@@ -1174,7 +1174,7 @@
       // exam-style question is demoralising as an introduction, so show a
       // primer above it. Repeat exposures (card already has attempts) skip
       // this so the pretesting effect isn't lost.
-      if (ctx.store.cardFor(topic.id).seen === 0) {
+      if (global.MTT.srs.evidence(ctx.store.cardFor(q.meta.objectiveId)) === 0) {
         newTopicBanner = C.el(`
           <div class="why-box new-topic-banner" role="note">
             <p style="margin:0 0 8px"><strong>New topic</strong>${topic.why ? " — " + topic.why : ""}</p>
@@ -1334,7 +1334,8 @@
         const answerRecord = { correct, responseMs, now: ctx.now() };
         if (!q.micTask && !q.buildTask && q.choices) answerRecord.choices = q.choices.length;
         if (typeof quality === "number") answerRecord.quality = quality;
-        ctx.store.recordAnswer(topic.id, answerRecord);
+        if (q.micTask && typeof quality !== "number") answerRecord.confidence = 0.5;
+        ctx.store.recordAnswer(q.meta.objectiveId, answerRecord);
 
         // Log a miss for the Progress view's "recent misses" review list. Mic
         // tasks are graded by pitch/rhythm rather than a literal answer choice
@@ -1355,6 +1356,8 @@
           ctx.store.recordMiss({
             topicId: topic.id,
             topicTitle: topic.title,
+            objectiveId: q.meta.objectiveId,
+            objectiveTitle: (topic.objectives || []).find((objective) => objective.id === q.meta.objectiveId)?.title || topic.title,
             grade: topic.grade,
             prompt: stripTags(q.prompt) || "(notation-based question)",
             yourAnswer,

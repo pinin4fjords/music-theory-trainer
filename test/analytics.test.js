@@ -15,10 +15,12 @@ function shakyCard() {
   return c;
 }
 
-// Build an SRS map that masters every topic up to and including `upto`.
+// Build an SRS map that masters every objective up to and including `upto`.
 function masterUpTo(upto) {
   const map = {};
-  topics.forEach((t) => { if (t.grade <= upto) map[t.id] = masteredCard(); });
+  analytics.objectiveUnits(topics).forEach((objective) => {
+    if (objective.grade <= upto) map[objective.id] = masteredCard();
+  });
   return map;
 }
 
@@ -38,7 +40,8 @@ describe("analytics - estimated level", () => {
   it("notes the grade currently being worked on", () => {
     const map = masterUpTo(2);
     // Start (shakily) on grade 3 without mastering it.
-    topics.filter((t) => t.grade === 3).slice(0, 1).forEach((t) => { map[t.id] = shakyCard(); });
+    const topic = topics.find((candidate) => candidate.grade === 3);
+    topic.objectives.forEach((objective) => { map[objective.id] = shakyCard(); });
     const est = analytics.estimatedLevel(map, topics);
     expect(est.level).toBe(2);
     expect(est.detail).toMatch(/working on Grade 3/);
@@ -47,14 +50,16 @@ describe("analytics - estimated level", () => {
   it("does not promote past a grade that isn't really mastered", () => {
     // Master grade 1, but only shakily touch grade 2.
     const map = masterUpTo(1);
-    topics.filter((t) => t.grade === 2).forEach((t) => { map[t.id] = shakyCard(); });
+    analytics.objectiveUnits(topics).filter((objective) => objective.grade === 2)
+      .forEach((objective) => { map[objective.id] = shakyCard(); });
     const est = analytics.estimatedLevel(map, topics);
     expect(est.level).toBe(1);
   });
 
   it("a little weak practice reads as 'Starting out', not a grade", () => {
     const map = {};
-    topics.filter((t) => t.grade === 1).slice(0, 1).forEach((t) => { map[t.id] = shakyCard(); });
+    const topic = topics.find((candidate) => candidate.grade === 1);
+    topic.objectives.forEach((objective) => { map[objective.id] = shakyCard(); });
     const est = analytics.estimatedLevel(map, topics);
     expect(est.level).toBe(0);
     expect(est.label).toBe("Starting out");
@@ -82,5 +87,46 @@ describe("analytics - grade coverage threshold (issue #54)", () => {
     grade1.slice(0, 4).forEach((t) => { map[t.id] = masteredCard(); }); // 4/5 = 80%
     const est = analytics.estimatedLevel(map, grade1);
     expect(est.level).toBe(1);
+  });
+
+  it("does not count an objective as covered after one observation", () => {
+    const grade1 = fiveTopics(1);
+    const map = {};
+    grade1.forEach((t) => { map[t.id] = srs.update(srs.defaultCard(), { correct: true, now: 0 }); });
+    const mastery = analytics.gradeMastery(map, grade1)[1];
+    expect(mastery.attempted).toBe(5);
+    expect(mastery.seen).toBe(0);
+    expect(analytics.estimatedLevel(map, grade1).level).toBe(0);
+  });
+});
+
+describe("analytics - objective-level weak areas", () => {
+  it("surfaces a weak subskill without labelling its whole topic weak", () => {
+    const topic = topics.find((candidate) => candidate.id === "g5-chords");
+    const weakId = "harmony.cadence.choose-chords";
+    const map = {};
+    topic.objectives.forEach((objective) => { map[objective.id] = masteredCard(); });
+    map[weakId] = srs.update(srs.defaultCard(), { correct: false, now: 0 });
+
+    const weak = analytics.weakAreas(map, [topic], 5);
+    expect(weak.map((objective) => objective.id)).toEqual([weakId]);
+    expect(weak[0].topicId).toBe("g5-chords");
+    expect(weak[0].title).toMatch(/cadence points/i);
+  });
+});
+
+describe("analytics - confidence-weighted accuracy", () => {
+  it("gives self-reported answers less weight in aggregate accuracy", () => {
+    const measuredMiss = srs.update(srs.defaultCard(), { correct: false, now: 0 });
+    const selfReportedSuccess = srs.update(srs.defaultCard(), {
+      correct: true, confidence: 0.5, now: 1,
+    });
+    const map = { measured: measuredMiss, reported: selfReportedSuccess };
+
+    expect(analytics.overall(map).accuracy).toBeCloseTo(1 / 3);
+    expect(analytics.byGrade(map, [
+      { id: "measured", title: "Measured", grade: 1 },
+      { id: "reported", title: "Reported", grade: 1 },
+    ])[1].accuracy).toBeCloseTo(1 / 3);
   });
 });

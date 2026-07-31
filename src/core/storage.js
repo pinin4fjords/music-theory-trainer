@@ -21,7 +21,7 @@
 
   const KEY = "mtt.v1";
   const PROBE = "mtt.probe";
-  const CURRENT_VERSION = 2;
+  const CURRENT_VERSION = 3;
 
   const srs = () => global.MTT.srs;
 
@@ -33,7 +33,8 @@
       daysPracticed: 0,
       lastDay: null,
       totalAnswered: 0,
-      srs: {}, // topicId -> Card (see core/srs.js)
+      srs: {}, // objectiveId -> Card (see core/srs.js)
+      legacyTopicSrs: {},
       labNotes: {},
       // gradeChosen: false marks a brand-new learner, so the home screen can show
       // a first-run grade picker instead of a cold dashboard.
@@ -91,11 +92,43 @@
         // box (the meaningful Leitner progress) and scheduling survive.
         card.seen = Math.max(1, box);
         card.correct = box;
+        card.evidence = card.seen;
+        card.earned = card.correct;
         card.lastSeen = lastSeen[id] || null;
         card.dueAt = card.lastSeen ? card.lastSeen + S.intervalMs(box) : null;
         next.srs[id] = card;
       });
       next.stateVersion = 2;
+      return next;
+    },
+    2: function migrateV2toV3(old) {
+      const S = srs();
+      const next = Object.assign(defaultState(), old, { stateVersion: 3, srs: {} });
+      const oldCards = old.srs && typeof old.srs === "object" ? old.srs : {};
+      next.legacyTopicSrs = Object.assign({}, old.legacyTopicSrs || {}, oldCards);
+
+      Object.keys(oldCards).forEach((topicId) => {
+        const card = S.normalizeCard(oldCards[topicId]);
+        const objectives = global.MTT.objectives
+          ? global.MTT.objectives.forTopic(global.MTT.content, topicId) : [];
+        if (objectives.length === 1) {
+          next.srs[objectives[0].id] = card;
+          return;
+        }
+        if (objectives.length > 1 && card.seen > 0) {
+          const sharedEvidence = Math.min(0.5, S.evidence(card) / objectives.length);
+          const accuracy = S.accuracy(card) || 0;
+          objectives.forEach((objective) => {
+            next.srs[objective.id] = Object.assign(S.defaultCard(), {
+              evidence: sharedEvidence,
+              earned: sharedEvidence * accuracy,
+              avgMs: card.avgMs,
+              lastSeen: card.lastSeen,
+              migratedFromTopic: topicId,
+            });
+          });
+        }
+      });
       return next;
     },
   };
@@ -120,6 +153,8 @@
     const out = Object.assign(defaultState(), data || {});
     out.settings = Object.assign(defaultState().settings, (data && data.settings) || {});
     out.srs = (data && typeof data.srs === "object" && data.srs) || {};
+    Object.keys(out.srs).forEach((id) => { out.srs[id] = srs().normalizeCard(out.srs[id]); });
+    out.legacyTopicSrs = (data && typeof data.legacyTopicSrs === "object" && !Array.isArray(data.legacyTopicSrs) && data.legacyTopicSrs) || {};
     out.labNotes = (data && typeof data.labNotes === "object" && !Array.isArray(data.labNotes) && data.labNotes) || {};
     out.stateVersion = CURRENT_VERSION;
     if (![1, 2, 3, 4, 5, 6, 7, 8].includes(out.settings.grade)) out.settings.grade = 4;

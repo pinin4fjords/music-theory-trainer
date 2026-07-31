@@ -77,7 +77,26 @@
       .concat(auralTopics(content).filter((t) => t.grade <= g && (t.grade > 0 || g === 0)));
   }
 
-  // Order the candidate pool by urgency. Unseen and weak/overdue topics come
+  function objectiveUnits(topics) {
+    return (topics || []).flatMap((topic) => {
+      if (topic.scheduledObjectiveId || !Array.isArray(topic.objectives) || !topic.objectives.length) return [topic];
+      return topic.objectives.map((objective) => Object.assign({}, topic, {
+        scheduledObjectiveId: objective.id,
+        scheduledObjective: objective,
+      }));
+    });
+  }
+
+  function cardKey(topic) {
+    return topic.scheduledObjectiveId || topic.id;
+  }
+
+  function unitCard(srsMap, topic) {
+    const map = srsMap || {};
+    return map[cardKey(topic)] || map[topic.id];
+  }
+
+  // Order the candidate pool by urgency. Unseen and weak/overdue objectives come
   // first (see srs.priority). In "path" mode, current-grade topics get a boost
   // that lifts them above lower-grade topics inside a mixed-grade pool (recipe
   // assembly draws each domain from grades at once, so the boost is what makes
@@ -85,8 +104,8 @@
   function orderPool(topics, srsMap, now, grade, mode) {
     const S = srs();
     const map = srsMap || {};
-    const scored = topics.map((t) => {
-      let p = S.priority(map[t.id], now);
+    const scored = objectiveUnits(topics).map((t) => {
+      let p = S.priority(unitCard(map, t), now);
       if (mode === "path" && t.grade === grade) p += 5e8; // lead with current grade
       return { t, p };
     });
@@ -102,9 +121,11 @@
   // two modes sequence the current grade differently even before their quotas
   // diverge.
   function progressionOrder(topics, srsMap) {
+    const S = srs();
     const map = srsMap || {};
-    const isSeen = (t) => !!(map[t.id] && map[t.id].seen);
-    return topics.filter((t) => !isSeen(t)).concat(topics.filter(isSeen));
+    const units = objectiveUnits(topics);
+    const isSeen = (t) => S.evidence(unitCard(map, t)) > 0;
+    return units.filter((t) => !isSeen(t)).concat(units.filter(isSeen));
   }
 
   // Ordering for the Aural quota: honour the SRS schedule. Aural skills decay
@@ -116,7 +137,7 @@
     const S = srs();
     const map = srsMap || {};
     const due = [], notDue = [];
-    topics.forEach((t) => (S.isDue(map[t.id], now) ? due : notDue).push(t));
+    objectiveUnits(topics).forEach((t) => (S.isDue(unitCard(map, t), now) ? due : notDue).push(t));
     return orderPool(due, map, now).concat(orderPool(notDue, map, now));
   }
 
@@ -141,7 +162,9 @@
       for (let attempt = 0; attempt < 15; attempt++) {
         let q;
         try {
-          q = topic.questions(rng);
+          q = topic.scheduledObjectiveId && typeof topic.questions.forObjective === "function"
+            ? topic.questions.forObjective(topic.scheduledObjectiveId, rng)
+            : topic.questions(rng);
         } catch (err) {
           warn({ topicId: topic.id, reason: "generator threw: " + (err && err.message) });
           break; // skip this topic this round
@@ -184,9 +207,9 @@
   function dueAuralTopics(content, grade, srsMap, now) {
     const g = grade || 4;
     const map = srsMap || {};
-    const due = auralTopics(content).filter((t) => {
+    const due = objectiveUnits(auralTopics(content)).filter((t) => {
       if (!(t.grade <= g && (t.grade > 0 || g === 0))) return false;
-      const card = map[t.id];
+      const card = unitCard(map, t);
       return !!(card && card.dueAt != null && card.dueAt <= now);
     });
     return orderAural(due, map, now);
@@ -237,10 +260,10 @@
     return picks.slice(0, length);
   }
 
-  // A pick counts as "high effort" when its topic's rolling avgMs (from SRS
+  // A pick counts as "high effort" when its objective's rolling avgMs (from SRS
   // state) shows the learner visibly labouring over it.
   function isHighEffort(topic, srsMap) {
-    const card = topic && (srsMap || {})[topic.id];
+    const card = topic && unitCard(srsMap, topic);
     return !!(card && typeof card.avgMs === "number" && card.avgMs >= HIGH_EFFORT_MS);
   }
 
@@ -397,6 +420,7 @@
     SESSION_LEN, DOMAINS, DEFAULT_RECIPE, HIGH_EFFORT_MS,
     PLACEMENT_PASS, PLACEMENT_MAX_MISSES, PLACEMENT_TOPICS_PER_BAND,
     allTopics, quizableTopics, auralTopics, gradeTopics, domainTopics,
+    objectiveUnits, cardKey, unitCard,
     orderPool, progressionOrder, orderAural, assemble, build, buildByDomain,
     buildSingle, qSig, setWarn, isHighEffort, loadBalance,
     placementBands, shouldStopPlacement, placementSuggestion,

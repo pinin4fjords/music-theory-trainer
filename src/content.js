@@ -25,7 +25,16 @@
 
   const M = global.MTT.music;
   const N = global.MTT.notation;
+  const O = global.MTT.objectives;
   const audio = () => global.MTT.audio;
+
+  function Q(id, title, strand, taskKind, difficulty, generator) {
+    return O.wrap(O.define(id, title, strand, taskKind, difficulty), generator);
+  }
+
+  function QM(generators, select) {
+    return O.mix(generators, select);
+  }
 
   // --- Authoring helpers (all rng-threaded) ------------------------------
 
@@ -1540,37 +1549,49 @@
           id: "g1-notes", title: "Reading notes (treble & bass)",
           why: "The two staves are one system split around middle C - learn the landmark lines and you can read either clef without counting up from the bottom every time.",
           what: "<p>Treble lines are <b>E G B D F</b>, spaces <b>F A C E</b>; bass lines are <b>G B D F A</b>, spaces <b>A C E G</b>. Middle C sits one ledger line below the treble staff and one above the bass.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why those squiggles?</b> Both clefs are stylised letters that medieval scribes wrote on a line to fix its pitch. The treble clef is an ornate <b>G</b> - its curl circles the line that is G; the bass clef is an <b>F</b> - its two dots sit either side of the F line. So each clef literally points at the note it names.</p>",
-          questions: (rng) => (rng.bool(0.3) ? buildNoteQuestion(rng) : readNotesQuestion(rng)),
+          questions: QM([
+            Q("notation.note.construct", "Construct notes on the staff", "notation", "construct", 1, buildNoteQuestion),
+            Q("notation.note.read", "Read notes in treble and bass clef", "notation", "recognise", 1, readNotesQuestion),
+          ], (rng) => rng.bool(0.3) ? 0 : 1),
         },
         {
           id: "g1-rhythm", title: "Note values, tones & semitones",
           why: "Everything in rhythm is built by halving: each value splits into two of the next. And every scale is just a pattern of tones and semitones.",
           what: "<p>A semibreve = 2 minims = 4 crotchets = 8 quavers = 16 semiquavers. A <b>semitone</b> is the smallest step (one key on the piano); a <b>tone</b> is two semitones.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Where the names come from:</b> these are medieval fossils. The breve was the original unit; semibreve means half a breve. Minim comes from Latin <i>minima</i> (smallest - it was the shortest note early notation could write). Crotchet is from French <i>crochu</i> (hooked - the filled notehead with a stem). Quaver means to shake or tremble (it moves so fast). American names - whole, half, quarter, eighth - just make the halving hierarchy explicit.</p>",
-          questions: (rng) => (rng.bool() ? noteValueQuestion(rng) : toneSemitoneQuestion(rng)),
+          questions: QM([
+            Q("rhythm.note-values.g1", "Relate basic note values", "rhythm", "calculate", 1, noteValueQuestion),
+            Q("intervals.tone-semitone", "Distinguish tones and semitones", "intervals", "recognise", 1, toneSemitoneQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g1-keys", title: "C, G, D & F major",
           why: "The first four major keys you meet - and the start of the circle of fifths in both directions from C.",
           what: "<p>C major (no sharps or flats), then G major (1 sharp) and D major (2 sharps) clockwise, and F major (1 flat) anticlockwise. Plus naming simple intervals by number.</p>",
-          questions: (rng) => (rng.bool() ? keySigSubset(rng, ["C", "G", "D", "F"]) : intervalNumberQuestion(rng, ["C", "G", "D", "F"])),
+          questions: QM([
+            Q("keys.signature.g1", "Recognise Grade 1 key signatures", "keys", "recognise", 1, (rng) => keySigSubset(rng, ["C", "G", "D", "F"])),
+            Q("intervals.number.g1", "Count intervals by number", "intervals", "calculate", 1, (rng) => intervalNumberQuestion(rng, ["C", "G", "D", "F"])),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g1-time", title: "Time signatures & beats",
           why: "Two numbers stacked at the start of a piece tell you how to feel it: how many beats fill a bar, and which note value <i>is</i> the beat. They look like a fraction but aren't one - the bar is a measure of time, not a sum.",
           what: "<p>The <b>top</b> number counts the beats per bar; the <b>bottom</b> names the beat by how many fit a semibreve (2 = minim, 4 = crotchet, 8 = quaver). So <b>2/4</b> is two crotchet beats, <b>3/4</b> three, <b>4/4</b> four. Bar-lines fall after each full group of beats.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why a bottom number at all?</b> Because every note value is built by halving the semibreve, any beat unit is a power of two - which is exactly what the bottom number reports. The double bar-line and the bar itself were Renaissance inventions for keeping many singers aligned; before that, unbarred plainchant simply flowed.</p>",
-          questions: (rng) => simpleTimeQuestion(rng),
+          questions: Q("rhythm.time-signature.simple.g1", "Interpret simple time signatures", "rhythm", "calculate", 1, simpleTimeQuestion),
         },
         {
           id: "g1-triad", title: "The tonic triad",
           why: "Stack a 3rd and a 5th on the key note and you have the tonic triad, the principal point of rest in common-practice tonal music. It is one historically important way to organise harmony, not a physical template for every chord or musical tradition.",
           what: "<p>A <b>triad</b> is three notes a 3rd apart: a root, the note a 3rd above, and the note a 5th above. Built on the <b>tonic</b> (the key note), it is the <b>tonic triad</b> - C-E-G in C major. It is the most stable chord in the key, which is why so many pieces begin and end on it.</p>",
-          questions: (rng) => (rng.bool(0.35) ? buildTonicTriadQuestion(rng, ["C", "G", "D", "F"]) : tonicTriadQuestion(rng, ["C", "G", "D", "F"])),
+          questions: QM([
+            Q("harmony.tonic-triad.construct.g1", "Construct tonic triads", "harmony", "construct", 1, (rng) => buildTonicTriadQuestion(rng, ["C", "G", "D", "F"])),
+            Q("harmony.tonic-triad.identify.g1", "Identify tonic triads", "harmony", "recognise", 1, (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F"])),
+          ], (rng) => rng.bool(0.35) ? 0 : 1),
         },
         {
           id: "g1-terms", title: "Everyday terms & signs",
           why: "The words on the page are mostly Italian because Italy led European music when notation was standardising (c.1600-1750) - so 'play loudly' became <i>forte</i> everywhere, and the convention stuck.",
           what: "<p>The common speed words (<i>Adagio, Andante, Allegro</i>), the loud/soft marks (<i>p, f, mf</i>), the gradual changes (<i>crescendo, diminuendo, ritardando</i>) and the touch marks (<i>legato, staccato</i>).</p>",
-          questions: (rng) => termQuestion(rng, 1),
+          questions: Q("terminology.terms.g1", "Recognise Grade 1 terms and signs", "terminology", "recognise", 1, (rng) => termQuestion(rng, 1)),
         },
       ],
     },
@@ -1581,37 +1602,46 @@
           id: "g2-keys", title: "More keys, major & minor",
           why: "Each new key is one more step round the circle of fifths - and every major key has a relative minor that shares its signature.",
           what: "<p>Major keys out to A, B♭ and E♭, plus the minor keys <b>A, E and D minor</b> - the relative minors of C, G and F major. The minor's signature comes from its <i>relative major</i>.</p>",
-          questions: (rng) => (rng.bool(0.6) ? keySigSubset(rng, ["G", "D", "A", "F", "Bb", "Eb"]) : keySigSubset(rng, ["A", "E", "D"], "minor")),
+          questions: QM([
+            Q("keys.signature.major.g2", "Recognise Grade 2 major key signatures", "keys", "recognise", 2, (rng) => keySigSubset(rng, ["G", "D", "A", "F", "Bb", "Eb"])),
+            Q("keys.signature.minor.g2", "Recognise Grade 2 minor key signatures", "keys", "recognise", 2, (rng) => keySigSubset(rng, ["A", "E", "D"], "minor")),
+          ], (rng) => rng.bool(0.6) ? 0 : 1),
         },
         {
           id: "g2-time", title: "Minim-beat & quaver-beat metres, and triplets",
           why: "The beat isn't always a crotchet. A minim can be the beat (2/2, 3/2, 4/2) or a quaver can (3/8) - the bottom number tells you which. And a triplet lets three notes share the space of two, borrowing a moment of the compound feel inside simple time.",
           what: "<p>The <b>bottom</b> number still names the beat by how many fill a semibreve: 2 = minim, 4 = crotchet, 8 = quaver. So <b>2/2</b> is two minim beats, <b>3/2</b> three, <b>4/2</b> four, and <b>3/8</b> three quaver beats. A <b>triplet</b> fits three equal notes into the time of two, marked with a small <b>3</b>.</p>",
-          questions: (rng) => (rng.bool(0.75) ? simpleTimeQuestion(rng, GRADE2_TIME_SIGS) : tupletQuestion(rng, TRIPLET_ONLY)),
+          questions: QM([
+            Q("rhythm.time-signature.simple.g2", "Interpret Grade 2 time signatures", "rhythm", "calculate", 2, (rng) => simpleTimeQuestion(rng, GRADE2_TIME_SIGS)),
+            Q("rhythm.tuplet.triplet", "Recognise triplets", "rhythm", "recognise", 2, (rng) => tupletQuestion(rng, TRIPLET_ONLY)),
+          ], (rng) => rng.bool(0.75) ? 0 : 1),
         },
         {
           id: "g2-intervals", title: "Intervals by number",
           why: "Before quality comes counting: name the size of an interval just by counting letter names, inclusively.",
           what: "<p>Count the lower note as 1 and step up the letters to the higher note. C up to G is C-D-E-F-G = a 5th. The same count works regardless of any sharps or flats.</p>",
-          questions: (rng) => intervalNumberQuestion(rng, ["C", "G", "D", "A", "F", "Bb"]),
+          questions: Q("intervals.number.g2", "Count Grade 2 intervals by number", "intervals", "calculate", 2, (rng) => intervalNumberQuestion(rng, ["C", "G", "D", "A", "F", "Bb"])),
         },
         {
           id: "g2-rhythm", title: "Note values & rests",
           why: "Reading rhythm fluently means knowing every value in terms of every other, not just counting beats.",
           what: "<p>The same halving relationships extend to rests, which mirror the note values. Knowing how many of one value fill another is the key skill.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why notate silence at all?</b> Early plainchant had no rests - a single voice simply paused. Rests became essential once Renaissance music wove several independent lines together: to keep parts lined up, a singer needed to count exactly how long to wait, so each note value was given a matching symbol for its silence.</p>",
-          questions: (rng) => noteValueQuestion(rng),
+          questions: Q("rhythm.note-values.g2", "Relate Grade 2 note values and rests", "rhythm", "calculate", 2, noteValueQuestion),
         },
         {
           id: "g2-triad", title: "Tonic triads, major & minor",
           why: "A minor key has its own tonic triad, and the single note that separates it from the major's is the 3rd - lower it a semitone and bright turns dark.",
           what: "<p>The tonic triad is still root + 3rd + 5th on the key note. In a <b>minor</b> key the 3rd is a semitone lower than in major (A-C-E, not A-C♯-E), which is the whole difference in colour. The 5th is unchanged.</p>",
-          questions: (rng) => (rng.bool(0.3) ? buildTonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb"]) : tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "Eb"], ["A", "E", "D"])),
+          questions: QM([
+            Q("harmony.tonic-triad.construct.g2", "Construct Grade 2 tonic triads", "harmony", "construct", 2, (rng) => buildTonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb"])),
+            Q("harmony.tonic-triad.identify.g2", "Identify major and minor tonic triads", "harmony", "recognise", 2, (rng) => tonicTriadQuestion(rng, ["C", "G", "D", "F", "Bb", "A", "Eb"], ["A", "E", "D"])),
+          ], (rng) => rng.bool(0.3) ? 0 : 1),
         },
         {
           id: "g2-terms", title: "More terms & signs",
           why: "Each grade widens the vocabulary outward from the everyday words - here the extremes of speed and volume, the structural signs that tell you where to jump, and a few more shades of character.",
           what: "<p>Faster and slower extremes (<i>Presto, Grave, Vivace</i>), the loud/soft extremes (<i>pp, ff</i>), the navigation signs (<i>Da capo, Dal segno, Fine, Coda</i>) and expressive words like <i>cantabile</i> and <i>espressivo</i>.</p>",
-          questions: (rng) => termQuestion(rng, 2),
+          questions: Q("terminology.terms.g2", "Recognise Grade 2 terms and signs", "terminology", "recognise", 2, (rng) => termQuestion(rng, 2)),
         },
       ],
     },
@@ -1622,40 +1652,50 @@
           id: "g3-melodic", title: "The three minor scales",
           why: "Minor isn't one scale but three closely-related forms - telling them apart by sight and sound is the Grade 3 leap. The three forms exist to solve one problem: natural minor has no leading note (its 7th sits a whole tone below the tonic), so it lacks the semitone pull that makes a cadence feel final. Harmonic minor raises the 7th to recover that pull - but that leaves an awkward augmented 2nd to the 6th. Melodic minor smooths the gap by raising the 6th too when ascending, then relaxes back to the natural form coming down, where the leading note isn't needed.",
           what: "<p><b>Natural</b> minor uses the key signature as-is; <b>harmonic</b> minor raises the 7th (making an augmented 2nd); <b>melodic</b> minor raises the 6th and 7th ascending, reverting descending.</p>",
-          questions: (rng) => {
-            const r = rng.next();
-            return r < 0.25 ? buildHarmonicSeventhQuestion(rng) : r < 0.45 ? melodicMinorDescendingQuestion(rng) : minorFormQuestion(rng);
-          },
+          questions: QM([
+            Q("keys.minor-scale.construct-leading-note", "Construct the harmonic-minor leading note", "keys", "construct", 3, buildHarmonicSeventhQuestion),
+            Q("keys.minor-scale.melodic-descending", "Recognise descending melodic minor", "keys", "recognise", 3, melodicMinorDescendingQuestion),
+            Q("keys.minor-scale.forms", "Distinguish the three minor-scale forms", "keys", "recognise", 3, minorFormQuestion),
+          ], (rng) => { const r = rng.next(); return r < 0.25 ? 0 : r < 0.45 ? 1 : 2; }),
         },
         {
           id: "g3-keys", title: "Keys up to 4 sharps and flats",
           why: "The circle of fifths keeps turning: past the three-accidental keys of Grade 2 lie the four-accidental keys, majors and their relative minors alike. E major and A♭ major, C♯ and F minor - each one step further round.",
           what: "<p>All major and minor keys up to <b>four sharps or flats</b>: the majors C, G, D, A, E and F, B♭, E♭, A♭, and the minors A, E, B, F♯, C♯ and D, G, C, F. A minor key takes the key signature of its relative major, a minor 3rd below it.</p>",
-          questions: (rng) => (rng.bool() ? keySigSubset(rng, GRADE3_MAJOR_KEYS) : keySigSubset(rng, GRADE3_MINOR_KEYS, "minor")),
+          questions: QM([
+            Q("keys.signature.major.g3", "Recognise Grade 3 major key signatures", "keys", "recognise", 3, (rng) => keySigSubset(rng, GRADE3_MAJOR_KEYS)),
+            Q("keys.signature.minor.g3", "Recognise Grade 3 minor key signatures", "keys", "recognise", 3, (rng) => keySigSubset(rng, GRADE3_MINOR_KEYS, "minor")),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g3-compound", title: "Simple & compound time",
           why: "The written contrast between 6/8 and 2/4 is whether each beat normally divides into three or two. Medieval mensural notation called triple division <i>perfect</i> and duple <i>imperfect</i>, partly through Christian symbolism; modern compound time signatures were standardised later. Performance style, tempo and accent determine whether a written metre actually lilts or marches.",
           what: "<p>In compound time (6/8, 9/8, 12/8) the beat is a dotted note dividing into three; divide the top number by three for the number of beats.</p>",
-          questions: (rng) => timeClassifyQuestion(rng),
+          questions: Q("rhythm.metre.simple-compound", "Classify simple and compound metre", "rhythm", "recognise", 3, timeClassifyQuestion),
         },
         {
           id: "g3-quality", title: "Interval quality", domain: "Physics",
           why: "Same number, different size: a 3rd can be major or minor. The labels 'perfect' and 'imperfect' preserve medieval classifications of consonance and cadential stability. Simple ratios help explain sensory properties of some ideal tones, while musical function and feeling also depend on style, timbre, context and learned convention.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
-          questions: (rng) => (rng.bool(0.3) ? buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"]) : intervalQuestion(rng)),
+          questions: QM([
+            Q("intervals.quality.construct.g3", "Construct intervals by quality", "intervals", "construct", 3, (rng) => buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"])),
+            Q("intervals.quality.identify.g3", "Identify interval number and quality", "intervals", "calculate", 3, intervalQuestion),
+          ], (rng) => rng.bool(0.3) ? 0 : 1),
         },
         {
           id: "g3-notation", title: "Demisemiquavers & octave transposition",
           why: "Two ways the page stretches at Grade 3: the note tree gains another rung downward (the demisemiquaver), and a line too high or low can be shifted a whole octave - same notes, new register - to keep it readable.",
           what: "<p>A <b>demisemiquaver</b> is half a semiquaver: two of them fill one semiquaver, 32 fill a semibreve. The halving just continues. <b>Octave transposition</b> rewrites a melody an octave higher or lower; because an octave is the 'same note' higher, every letter name and interval is kept - only the octave number changes, which is how a part hops between treble and bass clef without ledger-line pile-ups.</p>",
-          questions: (rng) => (rng.bool() ? noteValueQuestion(rng, VALUE_PAIRS_DEMI) : octaveTransposeQuestion(rng)),
+          questions: QM([
+            Q("rhythm.note-values.demisemiquaver", "Relate demisemiquaver values", "rhythm", "calculate", 3, (rng) => noteValueQuestion(rng, VALUE_PAIRS_DEMI)),
+            Q("notation.transpose.octave", "Transpose notation by an octave", "notation", "calculate", 3, octaveTransposeQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g3-terms", title: "Terms & signs",
           why: "By Grade 3 the words start naming character and touch, not just speed and volume - <i>grazioso</i>, <i>agitato</i>, <i>pizzicato</i> - and the sudden accents (<i>sf, fp</i>) that punctuate a line.",
           what: "<p>Character and mood (<i>grazioso, con brio, tranquillo, agitato</i>), string touch (<i>pizzicato, arco</i>), sudden accents (<i>sforzando, fortepiano</i>) and the flexible-time word <i>rubato</i>.</p>",
-          questions: (rng) => termQuestion(rng, 3),
+          questions: Q("terminology.terms.g3", "Recognise Grade 3 terms and signs", "terminology", "recognise", 3, (rng) => termQuestion(rng, 3)),
         },
       ],
     },
@@ -1666,61 +1706,64 @@
           id: "g4-degree-names", title: "Technical names of scale degrees",
           why: "Every note in a key has a <i>job</i>, not just a letter. The 'dominant' pulls toward the tonic; the 'leading note' leans up into it by a semitone. Naming the role explains why melodies feel like they're going somewhere.",
           what: "<p>The seven degrees, in order: <b>tonic, supertonic, mediant, subdominant, dominant, submediant, leading note</b>. The subdominant sits a 5th <i>below</i> the tonic (mirroring the dominant a 5th above), and the leading note is only a semitone below the tonic in major and harmonic/melodic (ascending) minor. In natural minor the unraised 7th is a whole tone below the tonic and is called the <i>subtonic</i> instead - it doesn't lean into the tonic the way a true leading note does.</p>",
-          questions: (rng) => degreeNameQuestion(rng),
+          questions: Q("keys.scale-degree.names", "Name scale-degree functions", "keys", "recognise", 4, degreeNameQuestion),
         },
         {
           id: "g4-intervals", title: "Intervals by number and quality",
           why: "An interval's <i>number</i> (count the letter names) and its <i>quality</i> (the exact semitone span) are two separate facts. That's why C-E and C-Eb are both 'thirds' yet sound different: same number, different quality.",
           what: "<p>Count letter names inclusively for the number (C up to E = C,D,E = a 3rd). Then size it: major/minor for 2nds 3rds 6ths 7ths, perfect for unison 4th 5th octave, with augmented/diminished one semitone outside.</p>",
-          questions: (rng) => (rng.bool(0.3) ? buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"]) : intervalQuestion(rng)),
+          questions: QM([
+            Q("intervals.quality.construct.g4", "Construct Grade 4 intervals", "intervals", "construct", 4, (rng) => buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"])),
+            Q("intervals.quality.identify.g4", "Identify Grade 4 intervals", "intervals", "calculate", 4, intervalQuestion),
+          ], (rng) => rng.bool(0.3) ? 0 : 1),
         },
         {
           id: "g4-key-signatures", title: "Keys up to 5 sharps and flats",
           why: "Key signatures aren't arbitrary - they fall straight out of the circle of fifths. Each step clockwise adds one sharp, each step anticlockwise adds one flat, always in a fixed order (FCGDAEB / BEADGCF). That order isn't arbitrary either: each new accidental is a 5th above the previous one (F♯→C♯→G♯→...). The same interval that generates the keys generates their accidentals.",
           what: "<p>This level covers all major and minor keys up to five sharps and five flats, in both clefs, plus harmonic and melodic minor forms.</p>",
-          questions: (rng) => keySignatureQuestion(rng),
+          questions: Q("keys.signature.g4", "Recognise Grade 4 key signatures", "keys", "recognise", 4, keySignatureQuestion),
         },
         {
           id: "g4-alto-clef", title: "The alto (C) clef", domain: "History",
           why: "The viola lives mostly between the treble and bass staves; the alto clef centres middle C on the middle line so it needs almost no ledger lines. The clef symbol itself is a stylised letter C - in medieval manuscripts, pitch was shown by marking a letter on the relevant line. The treble clef is a stylised G (it loops around the G line), the bass clef a stylised F (with two dots flanking the F line). The C clef simply moved to different lines for different instruments, giving us the alto and tenor variants.",
           what: "<p>The alto clef is a <b>C clef</b>: its centre marks <b>middle C (C4)</b>, which sits on the <b>middle line</b>. From there, read up and down in line/space steps just like any clef. The lines from bottom to top are <b>F A C E G</b>; the spaces are <b>G B D F</b>.</p>",
-          questions: (rng) => altoClefQuestion(rng),
+          questions: Q("notation.clef.alto", "Read the alto clef", "notation", "recognise", 4, altoClefQuestion),
         },
         {
           id: "g4-double-acc", title: "Double sharps/flats & enharmonics",
           why: "Double accidentals keep spelling consistent inside a key - the leading note of G# minor is F𝄪, not G, because every scale needs one of each letter name.",
           what: "<p>A <b>double sharp (𝄪)</b> raises a note two semitones; a <b>double flat (𝄫)</b> lowers it two. Two notes that sound identical but are spelled differently - like F𝄪 and G, or G# and A♭ - are <b>enharmonic equivalents</b>. Which spelling you use depends on the key and the musical direction.</p>",
-          questions: (rng) => enharmonicQuestion(rng),
+          questions: Q("notation.enharmonic.double-accidentals", "Resolve double accidentals and enharmonics", "notation", "calculate", 4, enharmonicQuestion),
         },
         {
           id: "g4-time", title: "Time, duplets, double dots & the breve",
           why: "Whether a beat splits in two or in three is what gives a march its stride and a jig its lilt - it's the difference between simple and compound time.",
           what: "<p>In <b>simple time</b> (2/4, 3/4, 4/4) each beat divides into two. In <b>compound time</b> (6/8, 9/8, 12/8) each beat is a <i>dotted</i> note that divides into three; the top number divided by three gives the number of beats. A <b>dot</b> adds half a note's value, a <b>second dot</b> adds half again. A <b>duplet</b> fits two notes into the time of three; a <b>triplet</b> fits three into the time of two. The <b>breve</b> is the longest common value - twice a semibreve - a survival of the medieval <i>brevis</i>, which despite its name ('short') was once one of the briefer notes.</p>",
-          questions: (rng) => breveValueQuestion(rng),
+          questions: Q("rhythm.note-values.breve", "Relate the breve to shorter values", "rhythm", "calculate", 4, breveValueQuestion),
         },
         {
           id: "g4-triads", title: "Tonic, subdominant & dominant triads",
           why: "I, IV and V between them contain all seven notes of the scale - which is why so much music is built from just these three chords.",
           what: "<p>A <b>triad</b> stacks two 3rds: a root, a 3rd and a 5th, all in <b>root position</b>. The three primary triads are built on the <b>tonic (I)</b>, <b>subdominant (IV)</b> and <b>dominant (V)</b>. Inversions of these chords are a Grade 5 topic.</p>",
-          questions: (rng) => triadFunctionQuestion(rng),
+          questions: Q("harmony.primary-triads.function", "Identify primary-triad functions", "harmony", "recognise", 4, triadFunctionQuestion),
         },
         {
           id: "g4-ornaments", title: "Ornaments", domain: "History",
           why: "Ornaments are shorthand for decorations performers once improvised. The harpsichord was the culprit: its strings are plucked, not struck, so notes decay immediately with no sustain. Players ornamented notes to prolong and emphasise them - rapid alternation (trill, mordent) kept the sound alive on long notes. The piano sustains naturally, so ornaments became purely expressive. Baroque performers improvised far more of this than is written down.",
           what: "<p>The common ornaments: the <b>trill</b> (rapid alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), the <b>turn</b> (above-note-below-note), and the grace notes - the crushed <b>acciaccatura</b> and the leaning <b>appoggiatura</b>.</p>",
-          questions: (rng) => ornamentQuestion(rng),
+          questions: Q("terminology.ornaments.sound", "Recognise ornament realisations", "terminology", "recognise", 4, ornamentQuestion),
         },
         {
           id: "g4-chromatic", title: "The chromatic scale",
           why: "Major and minor scales pick seven notes and skip the rest. The chromatic scale skips nothing: it walks all twelve semitones in the octave, the complete palette every other scale is carved from.",
           what: "<p>A <b>chromatic scale</b> rises or falls entirely by <b>semitones</b>, so it sounds all twelve different pitches before repeating at the octave. The name is from Greek <i>chroma</i> (colour) - the extra notes 'colour' the plain diatonic scale. The seven notes of a major scale plus these five in-between notes make the full twelve.</p>",
-          questions: (rng) => chromaticScaleQuestion(rng),
+          questions: Q("keys.scale.chromatic", "Recognise chromatic-scale spelling", "keys", "recognise", 4, chromaticScaleQuestion),
         },
         {
           id: "g4-terms", title: "Terms & signs",
           why: "The last of the common Italian vocabulary before Grade 5 brings in French and German - the fading-away words (<i>smorzando, perdendosi</i>) and the score direction <i>tacet</i>.",
           what: "<p>The remaining everyday Italian terms - the dying-away dynamics (<i>smorzando, perdendosi</i>), <i>tacet</i> ('silent - do not play') and the rest - consolidated before the French and German vocabulary of Grade 5.</p>",
-          questions: (rng) => termQuestion(rng, 4),
+          questions: Q("terminology.terms.g4", "Recognise Grade 4 terms and signs", "terminology", "recognise", 4, (rng) => termQuestion(rng, 4)),
         },
       ],
     },
@@ -1731,63 +1774,67 @@
           id: "g5-key-id", title: "All keys & key identification",
           why: "Grade 5 completes the circle of fifths. Once you can name any key from its signature - in either direction - every later analysis question starts from solid ground.",
           what: "<p>All major and minor keys up to <b>six</b> sharps and flats. Recognise a key from its signature, and give the signature of any named key. A minor key borrows the signature of its relative major (a minor 3rd above).</p>",
-          questions: (rng) => keyIdQuestion(rng),
+          questions: Q("keys.identify.g5", "Identify all Grade 5 keys", "keys", "recognise", 5, keyIdQuestion),
         },
         {
           id: "g5-intervals", title: "All intervals, compound & inverted",
           why: "By Grade 5 every interval must be named exactly - including the augmented and diminished ones - and you must handle intervals bigger than an octave and work out inversions.",
           what: "<p>Name any simple interval by number and quality, including <b>augmented</b> and <b>diminished</b>. A <b>compound</b> interval is larger than an octave (a 9th, 10th...). To <b>invert</b> an interval, the numbers add to 9 and the quality flips (major↔minor, augmented↔diminished, perfect stays perfect).</p>",
-          questions: (rng) => {
-            const r = rng.next();
-            return r < 0.5 ? intervalQualityQuestion(rng) : r < 0.78 ? intervalInversionQuestion(rng) : compoundIntervalQuestion(rng);
-          },
+          questions: QM([
+            Q("intervals.quality.g5", "Name all interval qualities", "intervals", "calculate", 5, intervalQualityQuestion),
+            Q("intervals.inversion", "Invert intervals", "intervals", "calculate", 5, intervalInversionQuestion),
+            Q("intervals.compound", "Name compound intervals", "intervals", "calculate", 5, compoundIntervalQuestion),
+          ], (rng) => { const r = rng.next(); return r < 0.5 ? 0 : r < 0.78 ? 1 : 2; }),
         },
         {
           id: "g5-chords", title: "Chords & cadences",
           why: "Naming chords by Roman numeral and inversion, and hearing the cadences at phrase-ends, is the gateway to all the harmony in Grades 6-8.",
           what: "<p>Identify the triads on <b>I, ii, IV and V</b> in root position and first/second inversion. Recognise the four cadences: <b>perfect</b> (V-I), <b>plagal</b> (IV-I), <b>imperfect</b> (ending on V) and <b>interrupted</b> (V-vi).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why these names?</b> 'Perfect' (V-I) is the most conclusive landing - both chords root-position, ending on the 'perfect' stability of the tonic. 'Plagal' (IV-I) comes from Greek <i>plagios</i> (oblique); it was the 'Amen' cadence of church music, approaching home from the subdominant below rather than the dominant above - quieter and less forceful. 'Interrupted' (V-vi) tricks the ear: the dominant sets up an expected resolution to I, then goes somewhere else instead.</p>",
-          questions: (rng) => {
-            const r = rng.next();
-            return r < 0.25 ? buildDominantSeventhQuestion(rng, ["C", "G", "F", "D"])
-              : r < 0.55 ? chordIdQuestion(rng)
-                : r < 0.8 ? cadenceQuestion(rng) : cadenceHarmonyQuestion(rng);
-          },
+          questions: QM([
+            Q("harmony.dominant-seventh.construct", "Construct dominant seventh chords", "harmony", "construct", 5, (rng) => buildDominantSeventhQuestion(rng, ["C", "G", "F", "D"])),
+            Q("harmony.chord.function-inversion", "Identify chord function and inversion", "harmony", "calculate", 5, chordIdQuestion),
+            Q("harmony.cadence.identify", "Identify cadence types", "harmony", "recognise", 5, cadenceQuestion),
+            Q("harmony.cadence.choose-chords", "Choose chords at cadence points", "harmony", "calculate", 5, cadenceHarmonyQuestion),
+          ], (rng) => { const r = rng.next(); return r < 0.25 ? 0 : r < 0.55 ? 1 : r < 0.8 ? 2 : 3; }),
         },
         {
           id: "g5-ornaments", title: "Ornament signs", domain: "History",
           why: "A single squiggle can stand for a whole flurry of notes. Recognising an ornament from its written-out realisation - and knowing the sign it replaces - lets you read at a glance what a composer wants decorated.",
           what: "<p>The common signs and their realisations: the <b>trill</b> (a long alternation with the note above), the <b>upper</b> and <b>lower mordent</b> (one quick alternation above or below), and the <b>turn</b> (above, main note, below, main note). Grade 5 asks you to recognise the written-out version and name the sign it stands for.</p>",
-          questions: (rng) => ornamentSignQuestion(rng),
+          questions: Q("terminology.ornaments.sign", "Match ornaments to their signs", "terminology", "recognise", 5, ornamentSignQuestion),
         },
         {
           id: "g5-clefs", title: "The four clefs", domain: "History",
           why: "Treble, bass, alto and tenor between them keep almost every instrument's part near the staff, with few ledger lines. Reading all four fluently is a Grade 5 staple. All four are descended from a single idea: a scribe writing a letter on a staff line to fix its pitch. The G, F and C clefs are those letters, stylised over centuries. The C clef in particular was movable - placed on whichever line kept a given voice or instrument off the ledger lines - which is why it survives in two positions: alto (middle line, for the viola) and tenor (fourth line, for the upper cello, bassoon and trombone).",
           what: "<p>The <b>tenor clef</b> is a C clef centring middle C on the <b>fourth line up</b> (used for higher cello, bassoon and trombone passages). With the alto clef (middle C on the centre line) you can now read all four common clefs.</p>",
-          questions: (rng) => fourClefQuestion(rng),
+          questions: Q("notation.clefs.four", "Read treble, bass, alto and tenor clefs", "notation", "recognise", 5, fourClefQuestion),
         },
         {
           id: "g5-transposition", title: "Transposition", domain: "History",
           why: "Transposing instruments sound at a different pitch from what's written - and the reason is historical. 18th-century natural horns and clarinets were built for a single key; to change key a player would swap a crook (a tube of different length that changed the instrument's pitch). When valves and keywork were invented, the notation convention stayed because players had trained with it. A B♭ clarinet player uses the same fingering for every 'written C' regardless of the actual key - what pitch comes out is the arranger's problem.",
           what: "<p>Transpose a melody by a named interval, up or down. Know the common transposing instruments: instruments <b>in B♭</b> sound a major 2nd lower than written, <b>in A</b> a minor 3rd lower, <b>in F</b> a perfect 5th lower. To sound a given concert pitch you write that interval <i>higher</i>.</p>",
-          questions: (rng) => (rng.bool() ? transposeInstrumentQuestion(rng) : transposeIntervalQuestion(rng)),
+          questions: QM([
+            Q("notation.transpose.instrument", "Transpose for common instruments", "notation", "calculate", 5, transposeInstrumentQuestion),
+            Q("notation.transpose.interval", "Transpose notes by a named interval", "notation", "calculate", 5, transposeIntervalQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g5-terms", title: "Foreign terms & signs",
           why: "Italian terms dominate because Italy dominated European music from roughly 1600-1750: opera, the sonata, and the concerto all originated there, and Italian publishers first circulated standardised notation internationally. By the time German and French composers became pre-eminent, Italian was already the convention. Some Romantic composers (Schumann, Beethoven in his later works) deliberately switched to German as a point of national pride - hence the French and German sections.",
           what: "<p>A working vocabulary of tempo, dynamic and expression terms - mostly <b>Italian</b>, with common <b>French</b> and <b>German</b> equivalents.</p>",
-          questions: (rng) => termQuestion(rng),
+          questions: Q("terminology.terms.g5", "Recognise Grade 5 foreign terms", "terminology", "recognise", 5, termQuestion),
         },
         {
           id: "g5-instruments", title: "Instruments & voices",
           why: "Knowing the instrument families and the four voice types (SATB) is the groundwork for reading scores and understanding how music is laid out.",
           what: "<p>The four families - <b>strings, woodwind, brass, percussion</b> - and the four standard voices from highest to lowest: <b>soprano, alto, tenor, bass</b>.</p><p class=\"muted\" style=\"font-size:.9em\"><b>What defines the families?</b> Strings are bowed or plucked (the vibrating string is the source). Woodwind produce sound by a reed (oboe, clarinet, bassoon, saxophone) or an edge-tone across a hole (flute, piccolo) - the material doesn't matter, which is why the saxophone is woodwind despite being metal. Brass use the player's vibrating lips against a cup mouthpiece (trumpet, horn, trombone, tuba). Percussion are struck or shaken.</p>",
-          questions: (rng) => instrumentQuestion(rng),
+          questions: Q("terminology.instruments-voices", "Classify instruments and voices", "terminology", "recognise", 5, instrumentQuestion),
         },
         {
           id: "g5-irregular", title: "Irregular time signatures",
           why: "Not every bar splits evenly. A top number of 5 or 7 won't divide into neat 2s or 3s, so the beats fall into unequal groups - the off-kilter drive of a Balkan dance or 'Take Five'.",
           what: "<p><b>Unequal</b> (often called irregular, asymmetric or additive) metres such as <b>5/4, 7/8 and 5/8</b> combine longer and shorter beats or pulse groups - 5/8 may be 3+2 or 2+3, while 7/8 may be 2+2+3 or another ordering. Beaming, accents and performance tell you which grouping applies.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Whose history?</b> These metres have long histories in Balkan, Turkish and other performance traditions. They became prominent in twentieth-century Western concert music through composers including Bartók and Stravinsky, but that reception history is not their origin.</p>",
-          questions: (rng) => irregularTimeQuestion(rng),
+          questions: Q("rhythm.metre.irregular", "Interpret irregular metres", "rhythm", "calculate", 5, irregularTimeQuestion),
         },
       ],
     },
@@ -1798,25 +1845,31 @@
           id: "g6-figured-bass", title: "Figured bass & inversions", domain: "History",
           why: "Figured bass is harmony's shorthand: a few numbers under a bass note tell you the whole chord and its inversion. It developed from Baroque continuo practice (c.1600-1750), where keyboard players - harpsichordists, organists, lutenists - improvised the middle harmony from just a bass line and chord-number clues. The composer wrote the melody and bass; the continuo player filled in the chords on the fly. Full written-out accompaniments only became standard gradually.",
           what: "<p>The figures count intervals above the bass. A triad: <b>5/3</b> (root), <b>6</b> (first inversion), <b>6/4</b> (second inversion). A 7th chord: <b>7</b>, <b>6/5</b>, <b>4/3</b>, <b>4/2</b> for its four positions.</p>",
-          questions: (rng) => (rng.bool() ? figuredBassQuestion(rng) : dominant7thQuestion(rng)),
+          questions: QM([
+            Q("harmony.figured-bass.positions", "Decode figured-bass positions", "harmony", "calculate", 6, figuredBassQuestion),
+            Q("harmony.dominant-seventh.positions", "Identify dominant seventh positions", "harmony", "calculate", 6, dominant7thQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g6-chords", title: "Dominant & supertonic 7ths",
           why: "The dominant 7th (V7) is the engine of tonal harmony. In C major it is G-B-D-F: the tritone B-F wants to resolve inward by contrary motion (B rises a semitone to C, F falls a semitone to E), landing squarely on the tonic chord. No other interval has that built-in directional pull.",
           what: "<p><b>V7</b> adds a minor 7th above the dominant triad (e.g. G-B-D-F in C major). The tritone between the 3rd and 7th of the chord (B-F) resolves inward: B rises to C (the tonic), F falls to E (the 3rd). It has four positions - root position plus three inversions (V7, V7b, V7c, V7d). The <b>supertonic 7th (ii7)</b> commonly precedes V; at Grade 6 it appears in root position (figure 7) and first inversion (figure 6/5).</p>",
-          questions: (rng) => (rng.bool() ? dominant7thQuestion(rng) : supertonic7thQuestion(rng)),
+          questions: QM([
+            Q("harmony.dominant-seventh.identify", "Identify dominant seventh chords", "harmony", "recognise", 6, dominant7thQuestion),
+            Q("harmony.supertonic-seventh.identify", "Identify supertonic seventh chords", "harmony", "recognise", 6, supertonic7thQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g6-non-chord", title: "Melodic decoration",
           why: "Not every note belongs to the chord beneath it. Naming passing notes, suspensions and the rest is how you analyse and write expressive melodic lines.",
           what: "<p>The non-chord notes: <b>passing</b> and <b>auxiliary</b> notes (stepwise), the <b>suspension</b> (held over and resolved down), the <b>appoggiatura</b> (leant on, by leap then step), the <b>anticipation</b> and the <b>changing note</b>.</p>",
-          questions: (rng) => nonChordToneQuestion(rng),
+          questions: Q("harmony.non-chord-notes", "Identify melodic decoration", "harmony", "recognise", 6, nonChordToneQuestion),
         },
         {
           id: "g6-modulation", title: "Principles of modulation",
           why: "Modulation is how a piece changes key mid-flight. It turns on a pivot chord shared by both keys, and the ear catches it through a new accidental - typically the leading note of the key being moved to.",
           what: "<p>Music most often modulates to <b>closely related keys</b>: the <b>dominant</b> (a 5th above), the <b>subdominant</b> (a 4th above) and the <b>relative minor</b>. A move to the dominant is signalled by a <b>raised 4th</b> (a new leading note); to the subdominant by a <b>flattened 7th</b>; to the relative minor by a <b>raised 5th</b>. A <b>pivot chord</b> belongs to both keys and eases the change - the same chord has a function in each key.</p>",
-          questions: (rng) => modulationQuestion(rng),
+          questions: Q("harmony.modulation.principles", "Analyse closely related modulations", "harmony", "calculate", 6, modulationQuestion),
         },
         {
           id: "g6-harmony-write", title: "Harmonising a melody",
@@ -1834,19 +1887,22 @@
           id: "g7-chromatic", title: "Chromatic chords",
           why: "Grade 7 adds colour beyond the diatonic chords: the tense diminished 7th and the dark Neapolitan 6th are the first of the chromatic chords that make late-Romantic harmony so rich.",
           what: "<p>The <b>diminished 7th</b> stacks minor 3rds and is highly unstable. The <b>Neapolitan 6th</b> is a major triad on the <i>flattened</i> supertonic (♭II), almost always in first inversion, used to approach the dominant. Plus secondary (non-dominant) 7th chords.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why 'Neapolitan'?</b> The name conventionally links the chord to the Neapolitan opera school of the early 18th century - composers like Alessandro Scarlatti and Pergolesi worked in Naples, then the dominant opera centre of Europe, and made frequent use of this striking ♭II chord. But the chord itself is older: it already appears in Carissimi, Corelli, and Purcell. The name's exact origin is uncertain.</p>",
-          questions: (rng) => chromaticChordQuestion(rng),
+          questions: Q("harmony.chromatic-chords.g7", "Identify diminished sevenths and Neapolitan sixths", "harmony", "recognise", 7, chromaticChordQuestion),
         },
         {
           id: "g7-secondary-sevenths", title: "Secondary 7th chords",
           why: "Beyond the dominant 7th, every degree of the scale carries its own diatonic 7th chord. Recognising these secondary 7ths - and telling a minor 7th from a major or half-diminished 7th - opens up the richer harmony of Grade 7.",
           what: "<p>The diatonic 7ths of a major key: <b>Imaj7</b> and <b>IVmaj7</b> (major 7ths); <b>ii7, iii7, vi7</b> (minor 7ths); <b>V7</b> (dominant 7th); and <b>viiø7</b> (half-diminished). All but V7 are the <b>secondary 7ths</b>. Each has four positions, figured <b>7, 6/5, 4/3, 4/2</b> like any 7th chord.</p>",
-          questions: (rng) => secondarySeventhQuestion(rng),
+          questions: Q("harmony.secondary-sevenths", "Identify secondary seventh chords", "harmony", "calculate", 7, secondarySeventhQuestion),
         },
         {
           id: "g7-figured-bass", title: "Suspensions in figured bass",
           why: "Reading the figures for suspensions (4-3, 7-6, 9-8) lets you follow - and realise - the expressive clashes that drive Baroque and Classical part-writing.",
           what: "<p>A suspension is figured by the dissonance resolving to the consonance: <b>4-3</b>, <b>7-6</b>, <b>9-8</b>. The first figure is the held, clashing note; the second is its stepwise resolution. The other c.1620-1790 bass figures give the inversions of triads and 7th chords.</p>",
-          questions: (rng) => (rng.bool() ? suspensionQuestion(rng) : figuredBassQuestion(rng)),
+          questions: QM([
+            Q("harmony.figured-bass.suspensions", "Decode figured-bass suspensions", "harmony", "calculate", 7, suspensionQuestion),
+            Q("harmony.figured-bass.g7", "Decode Grade 7 figured bass", "harmony", "calculate", 7, figuredBassQuestion),
+          ], (rng) => rng.bool() ? 0 : 1),
         },
         {
           id: "g7-composition", title: "Figured bass & melody writing",
@@ -1864,13 +1920,13 @@
           id: "g8-aug-sixth", title: "Augmented 6th chords",
           why: "The Italian, French and German augmented 6ths are the signature chromatic chords of Grade 8 - three flavours of the same striking interval, each resolving outward to the dominant.",
           what: "<p>All three share an <b>augmented 6th</b> above the bass. The <b>Italian</b> adds a major 3rd; the <b>French</b> adds a major 3rd and an augmented 4th; the <b>German</b> adds a major 3rd and a perfect 5th (and sounds like a dominant 7th).</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why Italian, French, German?</b> These are conventional nicknames of uncertain origin and don't reflect actual national usage - the labels just distinguish the three shapes by ear, not by where composers used them. The structural differences matter more than the names: Italian has three notes (the leanest), French adds a note that creates a whole-tone sonority, German adds a perfect 5th making it enharmonically identical to a dominant 7th - which is why it needs careful voice-leading to avoid parallel 5ths when resolving.</p>",
-          questions: (rng) => augmentedSixthQuestion(rng),
+          questions: Q("harmony.augmented-sixths", "Identify augmented sixth chords", "harmony", "recognise", 8, augmentedSixthQuestion),
         },
         {
           id: "g8-secondary-dominant", title: "Secondary dominants",
           why: "Borrowing the dominant of a chord other than the tonic (V/V, V/ii...) tonicises it briefly and is the workhorse of chromatic harmony from Bach to jazz.",
           what: "<p>A <b>secondary dominant</b> is the dominant 7th (or triad) of a chord other than I, written V/x. V/V resolves to V, V/ii to ii, and so on - a momentary 'mini-key' within the prevailing key.</p>",
-          questions: (rng) => secondaryDominantQuestion(rng),
+          questions: Q("harmony.secondary-dominants", "Identify secondary dominants", "harmony", "calculate", 8, secondaryDominantQuestion),
         },
         {
           id: "g8-composition", title: "Stylistic composition & analysis",
@@ -2139,6 +2195,8 @@
       note: "Why write a part at the 'wrong' pitch? Because 18th-century horns and clarinets were built for a single key; to play in another the performer slotted in a <i>crook</i> - a length of tube that retuned the whole instrument - and kept the same fingerings and the same written notes. Valves and modern keywork made crooks obsolete, but the notation convention stayed.",
       columns: ["Instrument", "Sounds", "Written part"], rows: TRANSPOSERS.map((t) => [t.name, t.blurb, `a ${t.quality} ${M.ordinal(t.number)} higher than concert pitch`]) },
   ];
+
+  grades.forEach((grade) => O.attach(grade.topics));
 
   const api = {
     grades, explainers, reference,

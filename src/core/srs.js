@@ -1,12 +1,12 @@
 /* core/srs.js - spaced-repetition scheduling (Leitner + response signals).
  *
- * One "card" of state per topic id. A correct answer promotes the card to a
+ * One card of state per learning-objective id. A correct answer promotes it to a
  * higher Leitner box (seen less often); a miss demotes it (resurfaces sooner).
- * Each box maps to a review interval that roughly doubles, so well-known topics
+ * Each box maps to a review interval that roughly doubles, so well-known objectives
  * fade into the background while weak ones keep coming back.
  *
  * Beyond pass/fail, cards track accuracy and a rolling response time, so the
- * session builder can resurface genuinely weak or hesitant topics first - not
+ * session builder can resurface genuinely weak or hesitant objectives first - not
  * just whatever is nominally "due".
  *
  * Pure and deterministic: callers pass `now` (ms epoch); nothing reads the clock.
@@ -15,7 +15,8 @@
  *
  * @typedef {{ box: number, seen: number, correct: number, streak: number,
  *   lapses: number, avgMs: number|null, lastSeen: number|null,
- *   dueAt: number|null }} Card
+ *   dueAt: number|null, evidence: number, earned: number,
+ *   promotionCredit: number }} Card
  */
 (function (global) {
   "use strict";
@@ -44,6 +45,7 @@
   // schedule), and a poor attempt demotes like an outright miss.
   const QUALITY_PASS = 0.8;
   const QUALITY_HOLD = 0.5;
+  const CONFIRMED_EVIDENCE = 2;
 
   function clamp01(x) {
     return Math.max(0, Math.min(1, x));
@@ -53,7 +55,21 @@
     return {
       box: 0, seen: 0, correct: 0, streak: 0, lapses: 0,
       avgMs: null, lastSeen: null, dueAt: null,
+      evidence: 0, earned: 0, promotionCredit: 0,
     };
+  }
+
+  function normalizeCard(card) {
+    const source = card || {};
+    const c = Object.assign(defaultCard(), source);
+    if (typeof source.evidence !== "number" || source.evidence < 0 || (source.evidence === 0 && c.seen > 0)) {
+      c.evidence = c.seen || 0;
+    }
+    if (typeof source.earned !== "number" || source.earned < 0 || (source.earned === 0 && c.correct > 0)) {
+      c.earned = c.correct || 0;
+    }
+    if (typeof c.promotionCredit !== "number" || c.promotionCredit < 0) c.promotionCredit = 0;
+    return c;
   }
 
   function clampBox(b) {
@@ -77,12 +93,14 @@
    *
    * @param {Card} card
    * @param {{ correct: boolean, responseMs?: number, now: number,
-   *   quality?: number, choices?: number }} result
+   *   quality?: number, choices?: number, confidence?: number }} result
    * @returns {Card}
    */
   function update(card, result) {
-    const c = Object.assign(defaultCard(), card || {});
+    const c = normalizeCard(card);
     const now = result.now;
+    const confidence = typeof result.confidence === "number" && isFinite(result.confidence)
+      ? clamp01(result.confidence) : 1;
 
     const hasQuality = typeof result.quality === "number" && isFinite(result.quality);
     const quality = hasQuality ? clamp01(result.quality) : null;
@@ -94,24 +112,28 @@
       ? Math.min(result.responseMs, MAX_RESPONSE_MS) : null;
 
     c.seen += 1;
+    c.evidence += confidence;
+    c.earned += confidence * (hasQuality ? quality : result.correct ? 1 : 0);
 
     if (outcome === "pass") {
       c.correct += 1;
       c.streak += 1;
+      c.promotionCredit += confidence;
       const fewChoices = typeof result.choices === "number" && result.choices <= GUESS_MAX_CHOICES;
       const looksLikeGuess = (responseMs != null && responseMs < GUESS_MS) || fewChoices;
       const unconfirmedNewCard = c.box === 0 && c.streak < CONFIRM_STREAK;
-      if (!(unconfirmedNewCard && looksLikeGuess)) {
+      if (c.promotionCredit >= 1 && !(unconfirmedNewCard && looksLikeGuess)) {
         c.box = clampBox(c.box + 1);
+        c.promotionCredit -= 1;
       }
     } else if (outcome === "hold") {
       c.streak = 0;
+      c.promotionCredit = 0;
     } else {
       c.streak = 0;
       c.lapses += 1;
-      // A miss demotes one box; a miss from a low box drops straight to 0 so the
-      // topic re-enters the active rotation immediately.
-      c.box = c.box <= 1 ? 0 : clampBox(c.box - 1);
+      c.promotionCredit = 0;
+      if (confidence >= 1) c.box = c.box <= 1 ? 0 : clampBox(c.box - 1);
     }
 
     if (responseMs != null) {
@@ -124,8 +146,18 @@
   }
 
   function accuracy(card) {
-    if (!card || !card.seen) return null;
-    return card.correct / card.seen;
+    if (!card) return null;
+    const c = normalizeCard(card);
+    if (!c.evidence) return null;
+    return c.earned / c.evidence;
+  }
+
+  function evidence(card) {
+    return card ? normalizeCard(card).evidence : 0;
+  }
+
+  function isConfirmed(card) {
+    return evidence(card) >= CONFIRMED_EVIDENCE;
   }
 
   function isDue(card, now) {
@@ -139,8 +171,8 @@
    * Used by the session builder to rank the candidate pool.
    */
   function priority(card, now) {
-    const c = card || defaultCard();
-    if (!c.seen) return 1e12; // unseen topics first
+    const c = normalizeCard(card);
+    if (!c.seen) return 1e12; // unseen objectives first
     const box = clampBox(c.box);
     const overdue = c.dueAt == null ? DAY : Math.max(0, now - c.dueAt);
     const acc = accuracy(c);
@@ -153,16 +185,40 @@
 
   // A 0..1 "needs work" score for analytics/weak-area surfacing.
   function weakness(card) {
-    const c = card || defaultCard();
+    const c = normalizeCard(card);
     if (!c.seen) return 0.5; // unknown: neutral-high
     const acc = accuracy(c);
     const boxFactor = 1 - clampBox(c.box) / MAX_BOX;
     return Math.max(0, Math.min(1, 0.6 * (1 - acc) + 0.4 * boxFactor));
   }
 
+  function aggregate(cards) {
+    const list = (cards || []).filter(Boolean).map(normalizeCard);
+    if (!list.length) return defaultCard();
+    const out = defaultCard();
+    out.box = Math.min(...list.map((card) => card.box));
+    out.seen = list.reduce((sum, card) => sum + card.seen, 0);
+    out.correct = list.reduce((sum, card) => sum + card.correct, 0);
+    out.streak = Math.min(...list.map((card) => card.streak));
+    out.lapses = list.reduce((sum, card) => sum + card.lapses, 0);
+    out.evidence = list.reduce((sum, card) => sum + card.evidence, 0);
+    out.earned = list.reduce((sum, card) => sum + card.earned, 0);
+    const timed = list.filter((card) => typeof card.avgMs === "number" && card.seen > 0);
+    out.avgMs = timed.length
+      ? Math.round(timed.reduce((sum, card) => sum + card.avgMs * card.seen, 0)
+        / timed.reduce((sum, card) => sum + card.seen, 0))
+      : null;
+    const lastSeen = list.map((card) => card.lastSeen).filter((value) => typeof value === "number");
+    out.lastSeen = lastSeen.length ? Math.max(...lastSeen) : null;
+    const dueAt = list.map((card) => card.dueAt).filter((value) => typeof value === "number");
+    out.dueAt = dueAt.length ? Math.min(...dueAt) : null;
+    return out;
+  }
+
   const api = {
-    MAX_BOX, BOX_INTERVAL, DAY,
-    defaultCard, update, intervalMs, accuracy, isDue, priority, weakness, clampBox,
+    MAX_BOX, BOX_INTERVAL, DAY, CONFIRMED_EVIDENCE,
+    defaultCard, normalizeCard, update, intervalMs, accuracy, evidence, isConfirmed,
+    isDue, priority, weakness, aggregate, clampBox,
   };
 
   global.MTT = global.MTT || {};

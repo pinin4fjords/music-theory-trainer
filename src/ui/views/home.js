@@ -1,7 +1,7 @@
 /* ui/views/home.js - the landing view.
  *
  * The daily-practice front door: streak + totals, a "focus areas" panel that
- * surfaces the learner's weakest topics (local analytics), the practice mode
+ * surfaces the learner's weakest learning objectives (local analytics), the practice mode
  * toggle (mixed daily review vs a learning path that leads with the current
  * grade), quick links into the other sections, and local backup/restore.
  *
@@ -160,14 +160,14 @@
       if (!area) return;
       const now = ctx.now();
       const srsMap = store.srsMap();
-      const due = ctx.session.auralTopics(ctx.content).filter((t) => {
-        const c = srsMap[t.id];
-        return c && c.seen > 0 && c.dueAt != null && c.dueAt <= now;
+      const due = ctx.analytics.objectiveUnits(ctx.session.auralTopics(ctx.content)).filter((objective) => {
+        const c = srsMap[objective.id];
+        return c && global.MTT.srs.evidence(c) > 0 && c.dueAt != null && c.dueAt <= now;
       }).length;
       if (!due) return;
       const label = due === 1
-        ? "1 aural topic is due for review"
-        : `${due} aural topics are due for review`;
+        ? "1 aural skill is due for review"
+        : `${due} aural skills are due for review`;
       const panel = C.el(`<div class="why-box aural-nudge" role="note"><p style="margin:0 0 10px">👂 ${label}.</p></div>`);
       panel.appendChild(C.button("Go to Aural training", () => ctx.router.navigate("aural")));
       area.appendChild(panel);
@@ -179,17 +179,22 @@
     const weak = ctx.analytics.weakAreas(store.srsMap(), topics, 3);
     if (weak.length) {
       const panel = C.el(`<div class="card focus-card"><h3 style="margin-top:0">Focus areas</h3>
-        <p class="muted" style="margin-top:0">Topics worth another look, based on your answers.</p></div>`);
+        <p class="muted" style="margin-top:0">Skills worth another look, based on your answers.</p></div>`);
       const row = C.el(`<div class="focus-chips"></div>`);
       weak.forEach((w) => {
-        const topic = topics.find((t) => t.id === w.id);
+        const topic = topics.find((t) => t.id === w.topicId);
         const chip = document.createElement("button");
         chip.type = "button";
         chip.className = "focus-chip";
         const pct = w.accuracy == null ? "" : ` · ${Math.round(w.accuracy * 100)}%`;
         chip.innerHTML = `${w.title}<span class="muted"> (Grade ${w.grade}${pct})</span>`;
         chip.setAttribute("aria-label", `Practise ${w.title}, Grade ${w.grade}`);
-        chip.addEventListener("click", () => ctx.router.navigate("quiz", { single: topic }));
+        chip.addEventListener("click", () => ctx.router.navigate("quiz", {
+          single: Object.assign({}, topic, {
+            scheduledObjectiveId: w.id,
+            scheduledObjective: (topic.objectives || []).find((objective) => objective.id === w.id),
+          }),
+        }));
         row.appendChild(chip);
       });
       panel.appendChild(row);

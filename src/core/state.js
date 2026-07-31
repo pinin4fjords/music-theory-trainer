@@ -87,7 +87,7 @@
     function get() { return state; }
     function settings() { return state.settings; }
     function srsMap() { return state.srs; }
-    function cardFor(topicId) { return state.srs[topicId] || srs().defaultCard(); }
+    function cardFor(objectiveId) { return state.srs[objectiveId] || srs().defaultCard(); }
 
     function setSetting(key, value) {
       state.settings[key] = value;
@@ -97,15 +97,17 @@
 
     /**
      * Record one answer. now defaults to the injected clock.
-     * @param {string} topicId
-     * @param {{ correct: boolean, responseMs?: number, now?: number }} result
+     * @param {string} objectiveId
+     * @param {{ correct: boolean, responseMs?: number, now?: number,
+     *   confidence?: number }} result
      */
-    function recordAnswer(topicId, result) {
+    function recordAnswer(objectiveId, result) {
       const now = result.now != null ? result.now : clock();
       const update = { correct: result.correct, responseMs: result.responseMs, now };
       if (typeof result.quality === "number") update.quality = result.quality;
       if (typeof result.choices === "number") update.choices = result.choices;
-      state.srs[topicId] = srs().update(state.srs[topicId], update);
+      if (typeof result.confidence === "number") update.confidence = result.confidence;
+      state.srs[objectiveId] = srs().update(state.srs[objectiveId], update);
       state.totalAnswered = (state.totalAnswered || 0) + 1;
 
       // Streak credit for the day is earned as answers are recorded, not only
@@ -166,6 +168,8 @@
       const record = {
         topicId: entry.topicId,
         topicTitle: entry.topicTitle,
+        objectiveId: entry.objectiveId,
+        objectiveTitle: entry.objectiveTitle,
         grade: entry.grade,
         prompt: entry.prompt,
         yourAnswer: entry.yourAnswer,
