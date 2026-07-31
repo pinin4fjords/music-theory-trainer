@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Backup, linked-file and GitHub Gist controls live on a dedicated Data page, leaving
+  Home focused on practice with one concise save-status line. GitHub sync keeps its
+  connect-once automatic behavior while explaining token scope and local storage before
+  connection. Failed setup retains no token, disconnect clears every local sync value,
+  and direct revocation guidance is included.
 - Practice evidence and spaced-repetition schedules are tracked by learning
   objective rather than broad topic. Mixed topics can keep independent mastery
   for skills such as chord recognition and cadence choice.

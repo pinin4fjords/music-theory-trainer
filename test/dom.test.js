@@ -459,6 +459,62 @@ describe("DOM - settings", () => {
   });
 });
 
+describe("DOM - data settings", () => {
+  it("keeps advanced save controls off Home and shows only a concise status", () => {
+    expect(document.querySelector(".home-data-status")).toBeTruthy();
+    expect(document.querySelector("#home-data-title").textContent).toMatch(/Saved|sync|auto-save/i);
+    expect(document.querySelector("#pat-input")).toBeFalsy();
+    expect(document.querySelector("#backup")).toBeFalsy();
+  });
+
+  it("opens the complete Data page from the Home status line", () => {
+    document.querySelector("#manage-data").click();
+
+    expect(instance.router.getCurrent()).toBe("data");
+    expect(document.querySelector("#main h1").textContent).toBe("Your data");
+    expect(document.querySelector("#file-link-area")).toBeTruthy();
+    expect(document.querySelector("#github-sync-area")).toBeTruthy();
+    expect(document.querySelector("#backup")).toBeTruthy();
+    expect(document.querySelector("#restore")).toBeTruthy();
+    expect(document.querySelector("#reset")).toBeTruthy();
+  });
+
+  it("explains GitHub scope, token storage and the trusted-origin boundary before connection", () => {
+    instance.ctx.gist = {
+      isConnected: () => false,
+      getStatus: () => ({ connected: false, gistId: null, credentialStorage: null }),
+    };
+    instance.router.navigate("data");
+
+    const text = document.querySelector("#github-sync-area").textContent;
+    expect(text).toMatch(/every Gist in your account/);
+    expect(text).toMatch(/local storage/);
+    expect(text).toMatch(/site's origin/);
+    expect(text).toMatch(/not included in backup files/);
+    expect(document.querySelector("#pat-input").type).toBe("password");
+  });
+
+  it("disconnects locally and gives a direct route to revoke the token on GitHub", () => {
+    const disconnect = vi.fn();
+    let connected = true;
+    instance.ctx.gist = {
+      isConnected: () => connected,
+      disconnect: () => { connected = false; disconnect(); },
+      push: vi.fn(),
+    };
+    instance.router.navigate("data");
+
+    const revoke = [...document.querySelectorAll("#github-sync-area a")]
+      .find((link) => /delete the Motif token/i.test(link.textContent));
+    expect(revoke.href).toMatch(/github\.com\/settings\/tokens/);
+    const button = [...document.querySelectorAll("#github-sync-area button")]
+      .find((candidate) => /Disconnect this device/.test(candidate.textContent));
+    button.click();
+    expect(disconnect).toHaveBeenCalledOnce();
+    expect(document.querySelector("#pat-input")).toBeTruthy();
+  });
+});
+
 describe("DOM - first-run onboarding", () => {
   it("shows a grade picker when no grade has been chosen, and proceeds on pick", () => {
     scaffold();
@@ -541,7 +597,7 @@ describe("DOM - reset", () => {
     const origConfirm = window.confirm;
     window.confirm = () => true;
     try {
-      instance.router.navigate("home");
+      instance.router.navigate("data");
       document.getElementById("reset").click();
     } finally {
       window.confirm = origConfirm;

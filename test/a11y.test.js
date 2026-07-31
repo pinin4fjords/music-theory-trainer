@@ -27,6 +27,7 @@ function scaffold() {
         <button type="button" class="icon-btn" id="settings-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu" aria-label="Settings">⚙</button>
         <div class="settings-menu" id="settings-menu" role="group" aria-label="Settings" hidden>
           <button type="button" class="menu-row menu-link" id="progress-menu-link">📈 Progress</button>
+          <button type="button" class="menu-row menu-link" id="data-menu-link">Your data</button>
           <label class="menu-row sound-label">
             <span>Sound</span>
             <input type="checkbox" id="sound-toggle" checked>
@@ -97,6 +98,14 @@ describe("a11y - settings menu focus management", () => {
     document.getElementById("progress-menu-link").click();
     expect(document.getElementById("settings-menu").hidden).toBe(true);
     expect(instance.router.getCurrent()).toBe("progress");
+  });
+
+  it("the Data link opens the data controls and closes the menu", () => {
+    document.getElementById("settings-toggle").click();
+    document.getElementById("data-menu-link").click();
+    expect(document.getElementById("settings-menu").hidden).toBe(true);
+    expect(instance.router.getCurrent()).toBe("data");
+    expect(document.querySelector("#main h1").textContent).toBe("Your data");
   });
 });
 

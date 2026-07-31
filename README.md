@@ -57,6 +57,7 @@ index.html ── loads, in order:
 ├── src/core/analytics.js  local-only weak-area analytics                MTT.analytics
 ├── src/core/storage.js    versioned persistence + migration + backup    MTT.storage
 ├── src/core/persist.js    durable: persist()+IndexedDB+linked file      MTT.persist
+├── src/core/gist.js       optional private GitHub Gist sync             MTT.gist
 ├── src/labs.js            deterministic music-lab models + evidence     MTT.labs
 ├── src/content.js         the curriculum (Grades 1-8) + generators      MTT.content
 ├── src/core/session.js    session assembly (filter, order, validate)    MTT.session
@@ -115,9 +116,15 @@ Durability without a backend (`src/core/persist.js`):
   change auto-saves to it. Point it at a Drive/Dropbox folder and progress follows you
   across devices - no accounts, no server. Chromium-only; other browsers fall back to the
   manual **Back up / Restore** file (still available everywhere).
+- Optional **GitHub Gist sync**: connect once with a token carrying the `gist` scope and
+  every change syncs to one private progress Gist. The token stays in this browser's
+  `localStorage` so sync continues across visits. GitHub's scope covers every Gist in the
+  account, and any script on the app's origin can read local storage, so the Data page
+  explains the trade-off before connection. See [SECURITY.md](SECURITY.md).
 
-On load, the **newest** copy across `localStorage` / IndexedDB / the linked file wins (each
-save stamps `savedAt`), reconciled after first paint so the UI stays instant.
+On load, the **newest** copy across `localStorage` / IndexedDB / the linked file / GitHub
+Gist wins (each save stamps `savedAt`), reconciled after first paint so the UI stays
+instant.
 
 State is **versioned** (`stateVersion`). On load, legacy data is run forward through a
 migration pipeline to the current shape, so a returning learner never loses progress:

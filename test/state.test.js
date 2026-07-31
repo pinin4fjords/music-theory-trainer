@@ -79,6 +79,17 @@ describe("state - store", () => {
     expect(b.cardFor("g1-notes").box).toBe(1);
   });
 
+  it("never replaces newer local progress with an older synced copy", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 100 });
+    store.restore({ totalAnswered: 12, settings: { grade: 4 }, srs: {} });
+
+    const changed = store.hydrate({ savedAt: 99, totalAnswered: 3, settings: { grade: 2 }, srs: {} });
+
+    expect(changed).toBe(false);
+    expect(store.get().totalAnswered).toBe(12);
+    expect(store.settings().grade).toBe(4);
+  });
+
   it("credits the day once 5 answers are recorded, even without finish() ever running (issue #52)", () => {
     const store = state.create({ storage: fakeStore() });
     for (let i = 0; i < 4; i++) store.recordAnswer("g1-notes", { correct: true, now: 0 });

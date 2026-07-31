@@ -3,7 +3,7 @@
  * The daily-practice front door: streak + totals, a "focus areas" panel that
  * surfaces the learner's weakest learning objectives (local analytics), the practice mode
  * toggle (mixed daily review vs a learning path that leads with the current
- * grade), quick links into the other sections, and local backup/restore.
+ * grade), quick links into the other sections, and a concise save-status line.
  *
  * Public surface: global `MTT.ui.views.home`.
  */
@@ -24,7 +24,7 @@
     if (!st.settings.gradeChosen) { renderOnboarding(); return; }
 
     const warn = store.storageOK ? "" :
-      `<div class="why-box" role="alert">⚠ This browser isn't saving progress on its own (common when opening the file directly). Link a save file below, or open the hosted version.</div>`;
+      `<div class="why-box" role="alert">⚠ This browser isn't saving progress on its own (common when opening the file directly). Open Your data in Settings to link a save file, or use the hosted version.</div>`;
 
     // Hide the stats panel until there's something to show (no cold zeroes).
     const showStats = (st.totalAnswered || 0) > 0;
@@ -124,18 +124,11 @@
           </div>
           <div id="home-cards" class="home-links"></div>
         </section>
-        <details class="card data-card data-disclosure">
-          <summary><span><b>Your data</b><small id="durability-line"></small></span><span aria-hidden="true">Manage</span></summary>
-          <div class="data-disclosure-body">
-            <div id="file-link-area"></div>
-            <div id="github-sync-area"></div>
-            <p class="muted backup-line">Or keep a manual copy:
-              <button class="linkish" id="backup" type="button">Back up to a file</button> ·
-              <button class="linkish" id="restore" type="button">Restore</button> ·
-              <button class="linkish danger" id="reset" type="button">Reset progress</button></p>
-          </div>
-        </details>
-        <input type="file" id="restore-file" accept="application/json" hidden>
+        <section class="home-data-status" aria-label="Progress save status">
+          <span class="home-data-dot" aria-hidden="true"></span>
+          <span class="home-data-copy"><b id="home-data-title"></b><small id="home-data-detail"></small></span>
+          <button class="linkish" id="manage-data" type="button">Manage in Settings</button>
+        </section>
       </div>`);
     main.appendChild(view);
 
@@ -235,216 +228,17 @@
       cards.appendChild(c);
     });
 
-    // Durability status + linked-file controls.
-    renderDataStatus();
-    function renderDataStatus() {
-      const status = ctx.persistStatus || {};
-      const durable = status.persisted;
-      const line = view.querySelector("#durability-line");
-      if (line) {
-        line.textContent = store.storageOK
-          ? (durable
-            ? "Saved in this browser with durable storage (the browser has been asked not to clear it)."
-            : "Saved in this browser. For the strongest safety, link a save file below.")
-          : "This browser won't reliably keep data on its own - linking a save file (or manual backup) is recommended.";
-      }
-      const area = view.querySelector("#file-link-area");
-      if (!area) return;
-      C.clear(area);
-      if (!status.fileSupported) {
-        area.appendChild(C.el(`<p class="muted" style="font-size:.85rem;margin:6px 0 0">Tip: this browser doesn't support linked auto-save files. Use a manual backup, or open the app in a Chromium browser to auto-save to a file in a synced folder.</p>`));
-        return;
-      }
-      if (status.fileLinked && !status.needsPermission) {
-        area.appendChild(C.el(`<p class="ok-line" style="margin:6px 0">✓ Auto-saving to <b>${escapeHtml(status.fileName || "your linked file")}</b> on every change.</p>`));
-        const unlink = C.button("Stop auto-saving", async () => { await ctx.persist.unlinkFile(); await ctx.refreshPersistStatus(); renderDataStatus(); }, { className: "ghost" });
-        area.appendChild(unlink);
-      } else if (status.fileLinked && status.needsPermission) {
-        area.appendChild(C.el(`<p class="muted" style="margin:6px 0">A save file is linked but the browser needs permission again.</p>`));
-        const reconnect = C.button("Reconnect save file", async () => {
-          await ctx.persist.reconnectFile();
-          await ctx.refreshPersistStatus();
-          renderDataStatus();
-        });
-        area.appendChild(reconnect);
-      } else {
-        area.appendChild(C.el(`<p class="muted" style="margin:6px 0;font-size:.9rem">Link a save file once and your progress auto-saves to it on every change - put it in a Drive/Dropbox folder and it follows you across devices. No accounts, no server.</p>`));
-        const link = C.button("Link a save file (auto-save)", async () => {
-          try {
-            await ctx.persist.linkFile(store.get());
-            await ctx.refreshPersistStatus();
-            renderDataStatus();
-            C.announce("Save file linked. Progress now auto-saves to it.");
-          } catch {
-            C.announce("Couldn't link a save file.", true);
-          }
-        });
-        area.appendChild(link);
-      }
-    }
-
-    // GitHub Gist sync controls.
-    renderGithubSync();
-    function renderGithubSync() {
-      const area = view.querySelector("#github-sync-area");
-      if (!area) return;
-      C.clear(area);
-
-      const gist = ctx.gist;
-      if (!gist) return; // not available in test environment
-
-      const connected = gist.isConnected();
-
-      if (connected) {
-        area.appendChild(C.el(`<p class="ok-line" style="margin:6px 0">✓ Progress syncs to a private GitHub Gist on every change.</p>`));
-        const syncBtn = C.button("Sync now", async () => {
-          syncBtn.disabled = true;
-          syncBtn.textContent = "Syncing...";
-          try {
-            await gist.push(Object.assign({}, store.get(), { savedAt: ctx.now() }));
-            C.announce("Synced to GitHub.");
-          } catch (e) {
-            C.announce("Sync failed: " + e.message, true);
-          } finally {
-            syncBtn.disabled = false;
-            syncBtn.textContent = "Sync now";
-          }
-        }, { className: "ghost" });
-        const disconnectBtn = C.button("Disconnect", () => {
-          gist.disconnect();
-          renderGithubSync();
-          C.announce("Disconnected from GitHub.");
-        }, { className: "ghost" });
-        area.appendChild(syncBtn);
-        area.appendChild(disconnectBtn);
-      } else {
-        // Token setup: a direct link opens GitHub with scope + name pre-filled,
-        // so the user just clicks "Generate token" and pastes it back.
-        const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Motif+music+theory+trainer";
-        const box = C.el(`
-          <div class="github-auth-box">
-            <p style="margin:0 0 10px"><b>Sync across devices via GitHub</b></p>
-            <ol class="pat-steps">
-              <li><a href="${TOKEN_URL}" target="_blank" rel="noopener" class="pat-link">Open GitHub token settings <span aria-hidden="true">↗</span></a> and click <b>Generate token</b> (settings are pre-filled).</li>
-              <li>Copy the token GitHub shows you.</li>
-              <li>Paste it here:</li>
-            </ol>
-            <div class="pat-input-row">
-              <input type="password" id="pat-input" class="pat-input" placeholder="ghp_…" autocomplete="off" spellcheck="false">
-              <button type="button" class="btn" id="pat-connect" disabled>Connect</button>
-            </div>
-            <p class="pat-error" id="pat-error" hidden></p>
-          </div>`);
-
-        const input = box.querySelector("#pat-input");
-        const connectBtn = box.querySelector("#pat-connect");
-        const errorEl = box.querySelector("#pat-error");
-
-        function setError(msg) {
-          errorEl.textContent = msg;
-          errorEl.hidden = !msg;
-        }
-
-        function setConnecting(yes) {
-          connectBtn.disabled = yes;
-          connectBtn.textContent = yes ? "Connecting…" : "Connect";
-          input.disabled = yes;
-        }
-
-        input.addEventListener("input", () => {
-          connectBtn.disabled = input.value.trim().length < 10;
-          setError("");
-        });
-
-        async function doConnect() {
-          const token = input.value.trim();
-          if (!token) return;
-          setConnecting(true);
-          setError("");
-          try {
-            const info = await gist.connect(token);
-            try {
-              const remote = await gist.pull();
-              if (remote) store.hydrate(remote);
-            } catch { /* pull failure is non-fatal */ }
-            ctx.syncHeader();
-            renderGithubSync();
-            C.announce("Connected to GitHub" + (info.username ? " as " + info.username : "") + ".");
-          } catch (e) {
-            setConnecting(false);
-            setError(e.message);
-          }
-        }
-
-        // Connect on button click or Enter in the input.
-        connectBtn.addEventListener("click", doConnect);
-        input.addEventListener("keydown", (e) => { if (e.key === "Enter") doConnect(); });
-
-        // Also connect automatically on paste so the user doesn't need to click.
-        input.addEventListener("paste", () => {
-          // Read value after paste event resolves.
-          setTimeout(() => {
-            if (input.value.trim().length >= 10) doConnect();
-          }, 0);
-        });
-
-        area.appendChild(box);
-      }
-    }
+    const dataView = global.MTT.ui.views.data;
+    const saveSummary = dataView.summary(ctx, store.storageOK);
+    view.querySelector("#home-data-title").textContent = saveSummary.title;
+    view.querySelector("#home-data-detail").textContent = saveSummary.detail;
+    view.querySelector(".home-data-status").dataset.tone = saveSummary.tone;
+    view.querySelector("#manage-data").addEventListener("click", () => ctx.router.navigate("data"));
 
     function escapeHtml(s) {
       return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    // Backup / restore / reset.
-    view.querySelector("#backup").addEventListener("click", () => exportProgress());
-    const fileInput = view.querySelector("#restore-file");
-    view.querySelector("#restore").addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", () => importProgress(fileInput.files[0]));
-    view.querySelector("#reset").addEventListener("click", () => {
-      const ok = typeof confirm === "function"
-        ? confirm("Reset all progress? This clears your streak, history and spaced-repetition state. Your grade and preferences are kept. This can't be undone.")
-        : true;
-      if (!ok) return;
-      store.reset();
-      ctx.syncHeader();
-      ctx.router.navigate("home");
-      C.announce("Progress reset.");
-    });
-
-    function exportProgress() {
-      try {
-        const blob = new Blob([store.exportJSON()], { type: "application/json" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "music-theory-progress.json";
-        a.click();
-        URL.revokeObjectURL(a.href);
-        C.announce("Progress backed up to a file.");
-      } catch {
-        C.announce("Couldn't create a backup file.", true);
-      }
-    }
-
-    function importProgress(file) {
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = ctx.storage.importJSON(reader.result);
-        if (!result.ok) {
-          C.announce(result.error, true);
-          alert(result.error);
-          return;
-        }
-        store.restore(result.state);
-        ctx.audio.setEnabled(store.settings().sound);
-        ctx.syncHeader();
-        ctx.router.navigate("home");
-        C.announce("Progress restored.");
-      };
-      reader.onerror = () => alert("That file couldn't be read.");
-      reader.readAsText(file);
-    }
   }
 
   const api = { render };
