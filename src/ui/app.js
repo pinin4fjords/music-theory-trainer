@@ -78,6 +78,7 @@
     };
     router.setContext(ctx);
 
+    router.register("data", global.MTT.ui.views.data.render);
     router.register("home", global.MTT.ui.views.home.render);
     router.register("learn", global.MTT.ui.views.learn.render);
     router.register("aural", global.MTT.ui.views.aural.render);
@@ -195,6 +196,15 @@
         if (settingsMenu) settingsMenu.hidden = true;
         if (settingsToggle) settingsToggle.setAttribute("aria-expanded", "false");
         router.navigate("progress");
+      });
+    }
+
+    const dataMenuLink = doc.getElementById("data-menu-link");
+    if (dataMenuLink) {
+      dataMenuLink.addEventListener("click", () => {
+        if (settingsMenu) settingsMenu.hidden = true;
+        if (settingsToggle) settingsToggle.setAttribute("aria-expanded", "false");
+        router.navigate("data");
       });
     }
 
