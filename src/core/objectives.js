@@ -6,7 +6,9 @@
     "notation", "rhythm", "keys", "intervals", "harmony", "terminology",
     "aural-rhythm", "aural-pitch", "aural-harmony", "aural-features",
   ];
-  const TASK_KINDS = ["recognise", "construct", "calculate", "perform", "describe"];
+  const TASK_KINDS = [
+    "recognise", "construct", "calculate", "transcribe", "analyse", "perform", "describe",
+  ];
 
   function validQuestionMeta(spec) {
     return !!spec

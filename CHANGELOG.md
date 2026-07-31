@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- A developer-only curriculum manifest audits written theory by objective, stage,
+  task form, prerequisite, implementation status and source review. CI rejects
+  missing or misplaced question families and reports intentional gaps by tracking
+  issue.
+- Grade 4 metre, duplet, double-dot and breve questions use separate learning
+  objectives, so practice evidence is credited to the skill exercised.
 - Backup, linked-file and GitHub Gist controls live on a dedicated Data page, leaving
   Home focused on practice with one concise save-status line. GitHub sync keeps its
   connect-once automatic behavior while explaining token scope and local storage before

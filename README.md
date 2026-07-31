@@ -205,6 +205,7 @@ The suite (`test/`, Vitest + jsdom) covers:
 - session assembly (grade filtering, foundational review, determinism, invalid-content skipping)
 - deterministic RNG
 - schema validation + whole-curriculum validity
+- developer-only curriculum coverage by objective, task form, stage and prerequisite
 - content generators (60 questions/generator, determinism, diagnostic meta)
 - storage migration + backup/restore + corruption fallback
 - the state store (answers, streaks, lab notes, persistence)

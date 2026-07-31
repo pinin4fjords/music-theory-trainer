@@ -45,7 +45,10 @@ automatically picked up into daily practice for its grade and below.
   title: "My topic",
   why:  "One sentence on why this matters.",   // the hook
   what: "<p>The concise lesson (HTML).</p>",   // the teaching
-  questions: (rng) => myGenerator(rng),        // or null for a non-drillable topic
+  questions: Q(
+    "strand.objective.operation.g5", "Objective title", "strand",
+    "recognise", 5, (rng) => myGenerator(rng),
+  ),                                           // or null for a non-drillable topic
 }
 ```
 
@@ -59,14 +62,27 @@ A generator returns a **Question**:
   explanation: "Because ...",        // optional, instructional
   audio: () => MTT.audio.sequence(notes), // optional
   a11yText: "Plain text ...",        // REQUIRED when the prompt embeds notation
-  meta: { type: "interval", number: 6, quality: "major" }, // optional, drives diagnostics
+  meta: {
+    objectiveId: "intervals.quality.identify.g5",
+    taskKind: "calculate",
+    strand: "intervals",
+    difficulty: 5,
+    type: "interval", number: 6, quality: "major",
+  },
 }
 ```
 
 Helpers in `src/content.js` (`choices(rng, correct, distractors)`,
 `pick(rng, arr)`, `staffBlock(spec)`) keep generators short. `meta.type` (one of
 `interval`, `keysig`, `inversion`, `chordQuality`) lets `core/diagnose.js` explain
-the *likely confusion* behind a wrong answer - add it where it applies.
+the *likely confusion* behind a wrong answer - add it where it applies. The `Q`
+wrapper supplies the required objective ID, task kind, strand, and difficulty.
+
+For written theory, also update `test/fixtures/curriculum-manifest.js`. The
+manifest records the stage, strand, required task forms, prerequisites,
+implementation status, source reference, and review date. Link each implemented
+task form to its `Q` objective ID. Keep source descriptions neutral and original;
+the manifest must not reproduce a publisher's syllabus wording.
 
 Non-drillable, open-ended topics (composition, harmonisation) should set
 `questions: null` and `tags: ["comingNext"]`; the UI shows a clear "coming next"
@@ -79,6 +95,7 @@ Content is validated automatically:
 ```bash
 npm run validate-content   # 60 generated questions per generator + schema checks
 npm test                   # full suite
+npm test -- test/grade-coverage.test.js # curriculum objective and task-form audit
 ```
 
 `test/generators.test.js` already checks every generator produces 60 valid,
