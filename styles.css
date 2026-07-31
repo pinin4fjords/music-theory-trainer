@@ -527,6 +527,187 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .partial-chip:hover { border-color: var(--accent); }
 .partial-chip b { color: var(--accent); }
 
+/* --- Music labs --------------------------------------------------------- */
+.music-lab {
+  margin-top: 18px;
+}
+.lab-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+  padding-bottom: 18px; border-bottom: 1px solid var(--line);
+}
+.lab-eyebrow {
+  margin: 0 0 5px; color: var(--accent); font-size: .72rem; font-weight: 700;
+  letter-spacing: .09em; text-transform: uppercase;
+}
+.lab-question { margin: 7px 0 0; color: var(--ink-soft); }
+.lab-mark {
+  display: grid; place-items: center; flex: 0 0 auto; width: 46px; height: 46px;
+  color: var(--accent); background:
+    repeating-linear-gradient(to bottom, transparent 0 7px, var(--line) 7px 8px);
+  border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  font-size: 1.5rem; font-weight: 700;
+}
+.lab-steps { list-style: none; margin: 0; padding: 0; }
+.lab-step {
+  display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 18px;
+  padding: 20px 0; border-bottom: 1px solid var(--line);
+}
+.lab-step-label {
+  display: flex; align-items: center; gap: 9px; align-self: start;
+  color: var(--ink-soft); font-size: .82rem; letter-spacing: .035em; text-transform: uppercase;
+}
+.lab-step-label span {
+  display: grid; place-items: center; width: 27px; height: 27px;
+  border: 1px solid var(--accent); border-radius: 50%; color: var(--accent);
+  font-size: .75rem; font-weight: 750; font-variant-numeric: tabular-nums;
+}
+.lab-prompt { margin: 0; color: var(--ink-soft); }
+.lab-predict { display: grid; gap: 11px; }
+.lab-practice { padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); }
+.lab-practice strong { color: var(--accent); font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; }
+.lab-practice p { margin: 4px 0 0; color: var(--ink); font-size: .88rem; line-height: 1.5; }
+.lab-manipulate { display: grid; gap: 12px; }
+.lab-note-field { display: flex; flex-direction: column; gap: 7px; color: var(--ink-soft); font-size: .88rem; }
+.lab-note-field textarea {
+  width: 100%; resize: vertical; min-height: 62px; padding: 10px 12px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--paper); color: var(--ink); font: inherit;
+}
+.lab-controls { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.lab-control {
+  display: grid; grid-template-columns: 1fr auto; gap: 7px 12px; align-items: center;
+  padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lab-control-label { color: var(--ink); font-size: .84rem; font-weight: 650; }
+.lab-control select {
+  grid-column: 1 / -1; width: 100%; padding: 8px 9px;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-sm);
+  background: var(--paper); color: var(--ink); font: inherit;
+}
+.lab-control input[type="range"] {
+  grid-column: 1 / -1; width: 100%; margin: 3px 0; accent-color: var(--accent);
+}
+.lab-control-value {
+  color: var(--accent); font: 650 .8rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.lab-presets { display: grid; gap: 7px; }
+.lab-presets-label { margin: 0; color: var(--ink); font-size: .84rem; font-weight: 650; }
+.lab-preset-buttons { display: flex; flex-wrap: wrap; gap: 7px; }
+.lab-preset { padding: 7px 10px; font-size: .8rem; }
+.lab-visual {
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lab-visual:empty { display: none; }
+.lab-diagram { display: block; width: 100%; max-width: 560px; margin: 0 auto; overflow: visible; }
+.lab-visual-label { fill: var(--ink-soft); font-size: 11px; font-weight: 700; font-family: inherit; letter-spacing: .04em; text-transform: uppercase; }
+.lab-visual-value { fill: var(--ink); font-size: 11px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.lab-visual-small { fill: var(--ink-soft); font-size: 10px; font-family: inherit; }
+.lab-visual-caption { margin: 4px 0 0; color: var(--ink-soft); font-size: .82rem; text-align: center; }
+
+.lab-pitch-axis, .lab-pitch-tick { stroke: var(--line-strong); stroke-width: 1.5; }
+.lab-pitch-span { stroke: var(--accent); stroke-width: 3; }
+.lab-pitch-marker { stroke: var(--paper); stroke-width: 2; }
+.lab-pitch-lower { fill: var(--ink-soft); }
+.lab-pitch-upper { fill: var(--accent); }
+.lab-pitch-cents { fill: var(--accent); font-size: 11px; font-weight: 750; font-family: inherit; }
+
+.lab-beat-source { fill: none; stroke-width: 1.4; opacity: .72; }
+.lab-beat-source-a { stroke: var(--ink-soft); }
+.lab-beat-source-b { stroke: var(--accent); }
+.lab-beat-axis { stroke: var(--line); stroke-width: 1; }
+.lab-beat-envelope { fill: none; stroke: var(--ink-faint); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.lab-beat-sum { fill: none; stroke: var(--accent); stroke-width: 1.7; stroke-linejoin: round; }
+
+.lab-spectrum-axis { stroke: var(--line-strong); stroke-width: 1.5; }
+.lab-spectrum-bar { fill: var(--line-strong); }
+.lab-spectrum-bar.is-active { fill: var(--accent); }
+.lab-spectrum-implied { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.lab-spectrum-missing { fill: var(--accent); font-size: 9.5px; font-weight: 750; font-family: inherit; text-transform: uppercase; }
+
+.lab-metre-group { fill: var(--paper); stroke: var(--line); stroke-width: 1.5; }
+.lab-metre-group.is-alternate { fill: var(--accent-soft); }
+.lab-metre-stem { stroke: var(--ink-faint); stroke-width: 2; }
+.lab-metre-stem.is-accent { stroke: var(--accent); stroke-width: 3; }
+.lab-metre-pulse { fill: var(--ink-faint); }
+.lab-metre-pulse.is-accent { fill: var(--accent); }
+
+.lab-string-box { fill: var(--paper); stroke: var(--line-strong); stroke-width: 1.5; }
+.lab-string-wave { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.lab-string-wave-echo { opacity: .28; }
+.lab-string-muted { stroke: var(--line-strong); stroke-width: 2; }
+.lab-string-stop { fill: var(--accent); }
+.lab-string-peg { fill: var(--ink-faint); }
+.lab-string text { fill: var(--ink-soft); font-size: 11px; font-weight: 600; font-family: inherit; }
+@media (prefers-reduced-motion: no-preference) {
+  .lab-string-wave { animation: lab-string-vibrate .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
+  .lab-string-wave-echo { animation-duration: .62s; }
+}
+@keyframes lab-string-vibrate { from { transform: scaleY(.55); } to { transform: scaleY(1); } }
+.lab-result {
+  padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lab-result-headline { margin: 0 0 10px; color: var(--accent); font-size: 1.12rem; font-weight: 720; }
+.lab-result dl, .lab-scope dl { margin: 0; }
+.lab-result dl > div {
+  display: flex; justify-content: space-between; gap: 20px;
+  padding: 5px 0; border-top: 1px solid var(--line); font-size: .86rem;
+}
+.lab-result dt { color: var(--ink-soft); }
+.lab-result dd {
+  margin: 0; text-align: right; color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+.lab-text-alternative { margin: 11px 0 0; color: var(--ink-soft); font-size: .84rem; }
+.lab-observe-evidence { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); }
+.lab-observe-evidence strong, .lab-explanation-limit strong { color: var(--accent); font-size: .76rem; letter-spacing: .04em; text-transform: uppercase; }
+.lab-observe-evidence p { margin: 4px 0 0; color: var(--ink); font-size: .87rem; line-height: 1.5; }
+.lab-audio { margin-top: -2px; }
+.lab-lenses { display: grid; gap: 8px; }
+.lab-explanation {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--paper);
+}
+.lab-explanation summary { cursor: pointer; padding: 10px 12px 7px; color: var(--ink); font-size: .92rem; font-weight: 700; }
+.lab-explanation p { margin: 0; padding: 0 12px 12px; color: var(--ink-soft); font-size: .9rem; line-height: 1.55; }
+.lab-explanation-limit { margin: 0 12px 12px; padding: 9px 10px; border-left: 2px solid var(--accent); background: var(--accent-soft); }
+.lab-explanation-limit p { padding: 0; margin-top: 4px; color: var(--ink); font-size: .86rem; }
+.lab-lens {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper);
+}
+.lab-lens summary, .lab-note summary {
+  cursor: pointer; padding: 10px 12px; color: var(--ink); font-weight: 650;
+}
+.lab-lens p { margin: 0; padding: 0 12px 12px; color: var(--ink-soft); font-size: .9rem; }
+.lab-sources ul { margin: 0; padding: 0 30px 12px; }
+.lab-note {
+  margin-top: 14px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.lab-note-fields {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  padding: 0 12px 12px;
+}
+.lab-note-status { grid-column: 1 / -1; min-height: 1.2em; font-size: .82rem; }
+
+@media (max-width: 620px) {
+  .lab-step { grid-template-columns: 1fr; gap: 11px; }
+  .lab-step-label { position: static; }
+  .lab-controls { grid-template-columns: 1fr; }
+  .lab-result dl > div { align-items: flex-start; flex-direction: column; gap: 1px; }
+  .lab-result dd { text-align: left; }
+  .lab-note-fields { grid-template-columns: 1fr; }
+  .lab-visual-label { font-size: 17px; }
+  .lab-visual-value { font-size: 17px; }
+  .lab-visual-small { font-size: 15px; }
+  .lab-pitch-cents { font-size: 16px; }
+  .lab-spectrum-missing { font-size: 15px; }
+}
+
 /* --- Playground --------------------------------------------------------- */
 .pg-panel { display: flex; flex-direction: column; gap: 14px; }
 .pg-opts { display: flex; flex-wrap: wrap; gap: 14px; }
@@ -768,21 +949,6 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .ref-term dd { margin: 0; color: var(--ink-soft); }
 @media (max-width: 520px) { .ref-term { grid-template-columns: 1fr; gap: 2px; } }
 
-/* --- Monochord diagram (the string-over-a-box explainer) ---------------- */
-.monochord { width: 100%; max-width: 560px; margin: 6px auto 4px; display: block; color: var(--ink); }
-.monochord .box { fill: var(--surface-2); stroke: var(--line-strong); stroke-width: 1.5; }
-.monochord .damped { stroke: var(--line-strong); stroke-width: 2; }
-.monochord .vibrate { stroke: var(--accent); stroke-width: 2.5; fill: none; }
-.monochord .vibrate.echo { opacity: .28; }
-.monochord .bridge { fill: var(--accent); }
-.monochord .peg { fill: var(--ink-faint); }
-.monochord text { fill: var(--ink-soft); font-size: 11px; font-weight: 600; }
-@media (prefers-reduced-motion: no-preference) {
-  .monochord .vibrate { animation: mono-vib .5s ease-in-out infinite alternate; transform-box: fill-box; transform-origin: center; }
-  .monochord .vibrate.echo { animation-duration: .62s; }
-}
-@keyframes mono-vib { from { transform: scaleY(.5); } to { transform: scaleY(1); } }
-
 /* --- Comma spiral (the temperament explainer) ---------------------------- */
 .comma-spiral-svg { width: 100%; max-width: 320px; margin: 6px auto 4px; display: block; }
 .csp-ref { fill: none; stroke: var(--line-strong); stroke-dasharray: 5 3; stroke-width: 1.5; }
@@ -807,43 +973,6 @@ footer.note { text-align: center; color: var(--ink-faint); font-size: .82rem; pa
 .prs-label { fill: var(--ink); font-size: 10.5px; font-weight: 600; font-family: inherit; }
 .prs-hz { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
 .prs-interval { fill: var(--ink-soft); font-size: 10px; font-weight: 700; font-family: inherit; }
-
-/* --- Dissonance / roughness curve --------------------------------------- */
-.diss-curve { display: flex; justify-content: center; margin: 10px 0 4px; }
-.diss-curve-svg { width: 100%; max-width: 540px; display: block; }
-.dc-line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; }
-.dc-axis { stroke: var(--line-strong); stroke-width: 1.5; }
-.dc-drop { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
-.dc-dot { fill: var(--accent); }
-.dc-tick { fill: var(--ink-soft); font-size: 11px; font-weight: 700; font-family: inherit; }
-.dc-axislabel { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
-
-/* --- Linear-vs-log pitch ruler ------------------------------------------ */
-.logr { display: flex; justify-content: center; margin: 10px 0 4px; }
-.logr-svg { width: 100%; max-width: 540px; display: block; }
-.lr-axis { stroke: var(--line-strong); stroke-width: 1.5; }
-.lr-connector { stroke: var(--line); stroke-width: 1; }
-.lr-connector.lr-named { stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1.5; }
-.lr-dot { fill: var(--ink-faint); }
-.lr-dot.lr-named { fill: var(--accent); }
-.lr-label { fill: var(--ink); font-size: 11px; font-weight: 700; font-family: inherit; }
-.lr-axislabel { fill: var(--ink-faint); font-size: 10px; font-family: inherit; }
-
-/* --- Harmonic spectrum bars --------------------------------------------- */
-.spectrum { display: flex; justify-content: center; margin: 8px 0 4px; }
-.spectrum-svg { width: 100%; max-width: 312px; display: block; }
-.spec-axis { stroke: var(--line-strong); stroke-width: 1.5; }
-.spec-bar { fill: var(--line-strong); }
-.spec-bar.on { fill: var(--accent); }
-.spec-label { fill: var(--ink-faint); font-size: 10px; font-weight: 600; font-family: inherit; }
-.spec-label.on { fill: var(--accent); }
-.spec-axislabel { fill: var(--ink-faint); font-size: 9.5px; font-family: inherit; }
-
-/* --- Beating waveform --------------------------------------------------- */
-.beat-wave-svg { width: 100%; max-width: 540px; display: block; margin: 6px auto 2px; }
-.bw-wave { fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
-.bw-env { fill: none; stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 4 3; opacity: .7; }
-.bw-label { fill: var(--ink-soft); font-size: 11px; font-weight: 600; font-family: inherit; }
 
 /* --- Scale comparison grids ---------------------------------------------- */
 .scale-grid { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .88rem; }

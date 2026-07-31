@@ -19,10 +19,10 @@ const legacyV1 = {
   settings: { sound: false, grade: 2 },
 };
 
-describe("storage - v1 -> v2 migration (no progress lost)", () => {
+describe("storage - legacy migration (no progress lost)", () => {
   it("preserves totals and settings", () => {
     const s = storage.migrate(legacyV1);
-    expect(s.stateVersion).toBe(2);
+    expect(s.stateVersion).toBe(storage.CURRENT_VERSION);
     expect(s.streak).toBe(5);
     expect(s.bestStreak).toBe(7);
     expect(s.daysPracticed).toBe(9);
@@ -45,7 +45,7 @@ describe("storage - v1 -> v2 migration (no progress lost)", () => {
   it("is idempotent on already-current state", () => {
     const once = storage.migrate(legacyV1);
     const twice = storage.migrate(once);
-    expect(twice.stateVersion).toBe(2);
+    expect(twice.stateVersion).toBe(storage.CURRENT_VERSION);
     expect(twice.srs["g1-notes"].box).toBe(3);
   });
 });
@@ -64,7 +64,7 @@ describe("storage - load / save / corruption", () => {
     const store = fakeStore();
     store.setItem(storage.KEY, JSON.stringify(legacyV1));
     const loaded = storage.load(store);
-    expect(loaded.stateVersion).toBe(2);
+    expect(loaded.stateVersion).toBe(storage.CURRENT_VERSION);
     expect(loaded.srs["g1-notes"].box).toBe(3);
   });
 
@@ -99,7 +99,12 @@ describe("storage - backup / restore", () => {
   it("imports + migrates a legacy backup file", () => {
     const result = storage.importJSON(JSON.stringify(legacyV1));
     expect(result.ok).toBe(true);
-    expect(result.state.stateVersion).toBe(2);
+    expect(result.state.stateVersion).toBe(storage.CURRENT_VERSION);
+  });
+
+  it("adds empty per-lab notes to current state", () => {
+    const migrated = storage.migrate({ stateVersion: 2, srs: {} });
+    expect(migrated.labNotes).toEqual({});
   });
 
   it("rejects invalid JSON with a clear message", () => {
