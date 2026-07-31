@@ -38,25 +38,69 @@
       }
     }
 
-    const view = C.el(`<div class="view"><h1 tabindex="-1">Learn</h1></div>`);
+    const view = C.el(`
+      <div class="view learn-view">
+        <header class="page-heading">
+          <p class="eyebrow">Curriculum</p>
+          <h1 tabindex="-1">Learn</h1>
+          <p>Choose a grade, then open a lesson to understand the idea before you practise it.</p>
+        </header>
+        <div class="grade-rail" role="group" aria-label="Choose lessons by grade"></div>
+        <section class="learn-curriculum" aria-live="polite"></section>
+      </div>`);
     main.appendChild(view);
 
+    const gradeRail = view.querySelector(".grade-rail");
+    const curriculum = view.querySelector(".learn-curriculum");
+    let selectedGrade = ctx.store.settings().grade;
+
     ctx.content.grades.forEach((g) => {
-      view.appendChild(C.el(`<h2 style="margin-top:26px">${g.title}</h2>`));
-      const grid = C.el(`<div class="grid"></div>`);
-      g.topics.forEach((t) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "grade-rail-button";
+      button.dataset.learnGrade = String(g.grade);
+      button.setAttribute("aria-label", `Show Grade ${g.grade} lessons`);
+      button.innerHTML = `<span>${g.grade}</span>${g.grade === ctx.store.settings().grade ? "<small>Your grade</small>" : ""}`;
+      button.addEventListener("click", () => {
+        if (selectedGrade === g.grade) return;
+        selectedGrade = g.grade;
+        renderGrade(true);
+      });
+      gradeRail.appendChild(button);
+    });
+
+    renderGrade(false);
+
+    function renderGrade(moveFocus) {
+      const grade = ctx.content.grades.find((g) => g.grade === selectedGrade) || ctx.content.grades[0];
+      const started = grade.topics.filter((topic) => global.MTT.analytics.topicStats(srsMap, topic).evidence > 0).length;
+      gradeRail.querySelectorAll(".grade-rail-button").forEach((button) => {
+        const on = Number(button.dataset.learnGrade) === grade.grade;
+        button.classList.toggle("on", on);
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+
+      C.clear(curriculum);
+      curriculum.appendChild(C.el(`
+        <div class="learn-grade-heading">
+          <div><p class="eyebrow">Selected curriculum</p><h2 tabindex="-1">${grade.title}</h2></div>
+          <p>${grade.topics.length} lessons · ${started ? started + " started" : "ready to begin"}</p>
+        </div>`));
+      const grid = C.el(`<div class="grid learn-grid"></div>`);
+      grade.topics.forEach((t) => {
         const coming = isComingNext(t);
-        // Drillable topics get a mastery chip (curriculum-map at a glance);
-        // "coming next" topics have no SRS card to report, so they keep their
-        // own badge instead of an always-"New" chip.
         const badge = coming ? `<span class="pill outline">coming next</span>` : topicAccuracyChip(srsMap, t);
         const icon = global.MTT.ui.icons.iconHtml(t.id);
-        const card = C.cardButton(`<div class="topic-head">${icon}<h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div>`,
-          () => ctx.router.navigate("learn", t.id));
+        const card = C.cardButton(`<div class="topic-head">${icon}<h3>${t.title}</h3>${badge}</div><div class="why">${t.why || "Coming soon."}</div><div class="topic-foot"><span>${coming ? "Preview lesson" : "Open lesson"}</span><span aria-hidden="true">→</span></div>`,
+          () => ctx.router.navigate("learn", t.id), "learn-card");
         grid.appendChild(card);
       });
-      view.appendChild(grid);
-    });
+      curriculum.appendChild(grid);
+      if (moveFocus) {
+        C.focus(curriculum.querySelector("h2"));
+        C.announce(`${grade.title} lessons shown.`);
+      }
+    }
 
     function renderTopic(t) {
       C.clear(main);

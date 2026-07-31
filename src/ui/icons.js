@@ -42,6 +42,13 @@
     wave: `<path d="M3 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/>`,
   };
 
+  const APP_ICONS = {
+    learn: `<path d="M4 5.5c3.4-.8 6-.3 8 1.5v12c-2-1.8-4.6-2.3-8-1.5v-12Z"/><path d="M20 5.5c-3.4-.8-6-.3-8 1.5v12c2-1.8 4.6-2.3 8-1.5v-12Z"/>`,
+    aural: ICONS.ear,
+    reference: `<path d="M5 5.5c3-.7 5.3-.2 7 1.4v12c-1.7-1.6-4-2.1-7-1.4v-12Z"/><path d="M19 5.5c-3-.7-5.3-.2-7 1.4v12c1.7-1.6 4-2.1 7-1.4v-12Z"/>`,
+    progress: `<path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19V3"/><path d="m4 12 6-4 6 2 6-5"/>`,
+  };
+
   // A topic's id normally encodes its category well enough on its own, except
   // for a handful of ids that reuse a word ("chromatic") across two different
   // concepts - those get an explicit override instead of a fragile regex.
@@ -81,7 +88,12 @@
     return `<span class="topic-icon" aria-hidden="true"><svg class="topic-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${inner}</svg></span>`;
   }
 
-  const api = { categoryFor, iconHtml };
+  function appIconHtml(name) {
+    const inner = APP_ICONS[name] || APP_ICONS.learn;
+    return `<span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${inner}</svg></span>`;
+  }
+
+  const api = { categoryFor, iconHtml, appIconHtml };
 
   global.MTT = global.MTT || {};
   global.MTT.ui = global.MTT.ui || {};
