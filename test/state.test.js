@@ -148,3 +148,41 @@ describe("state - recent misses log (issue #54)", () => {
     expect(store.get().misses).toEqual([]);
   });
 });
+
+describe("state - lab notes", () => {
+  it("saves one note per lab without changing answers or SRS mastery", () => {
+    const shared = fakeStore();
+    const store = state.create({ storage: shared, now: () => 1234 });
+    store.saveLabNote("beating", {
+      prediction: "Four pulses",
+      observation: "The wobble slowed",
+    });
+    expect(store.get().labNotes.beating.prediction).toBe("Four pulses");
+    expect(store.get().totalAnswered).toBe(0);
+    expect(store.srsMap()).toEqual({});
+
+    const reloaded = state.create({ storage: shared, now: () => 2000 });
+    expect(reloaded.get().labNotes.beating.observation).toBe("The wobble slowed");
+  });
+
+  it("updates a lab note in place and keeps notes for other labs", () => {
+    const store = state.create({ storage: fakeStore(), now: () => 0 });
+    store.saveLabNote("beating", { prediction: "first", observation: "" });
+    store.saveLabNote("metre", { prediction: "three", observation: "grouped" });
+    store.saveLabNote("beating", { prediction: "second", observation: "slower" });
+    expect(Object.keys(store.get().labNotes)).toHaveLength(2);
+    expect(store.get().labNotes.beating.prediction).toBe("second");
+    expect(store.get().labNotes.metre.observation).toBe("grouped");
+  });
+
+  it("leaves unchanged notes alone and removes an empty note", () => {
+    const shared = fakeStore();
+    const store = state.create({ storage: shared, now: () => 0 });
+    store.saveLabNote("beating", { prediction: "first", observation: "" });
+    const savedNotes = store.get().labNotes;
+    store.saveLabNote("beating", { prediction: "first", observation: "" });
+    expect(store.get().labNotes).toBe(savedNotes);
+    store.saveLabNote("beating", { prediction: "", observation: "" });
+    expect(store.get().labNotes.beating).toBeUndefined();
+  });
+});

@@ -12,6 +12,62 @@ A two-layer accuracy check over the curriculum's verifiable claims.
 
 ---
 
+## Issue 75 - science and history audit
+
+The music labs add a third, visible accuracy layer. Every lab separates:
+
+- **Measured or calculated:** controlled settings and deterministic model output.
+- **Inferred:** a perceptual or real-instrument conclusion drawn from the model.
+- **Musical convention:** a learned name, tuning target, notation system or
+  stylistic interpretation that the physical result cannot choose.
+
+This separation is important. Acoustics can model interference, spectra and
+string motion. It cannot, by itself, explain culturally learned harmony,
+metrical categories or emotional meaning.
+
+| Lab or revised explainer | Verified claim | Scope correction |
+|---|---|---|
+| Frequency, ratios and cents | Interval size in cents is `1200 log2(f2/f1)`; equal ratios map to equal logarithmic distances. | Frequency is the main correlate of pitch, not the complete percept. Detection does not have one universal 5-cent threshold. |
+| Beating | Two nearby sine waves produce amplitude beats at `abs(f2-f1)`. | Beating and roughness are contributors to sensory consonance, not a derivation of harmony or preference. |
+| Harmonic spectrum | Harmonic components occur at integer multiples in the ideal periodic model; a missing-fundamental pitch can remain when F0 energy is absent. | Spectral and temporal pitch cues both matter. Timbre also depends on onset, decay and other time-varying structure. |
+| Stretched string | For an ideal flexible string, `f1 = sqrt(T/mu)/(2L)`. | Real strings have stiffness, end effects and body coupling. Note names require a tuning convention. |
+| Metre and entrainment | Acoustic accents can cue pulse grouping, and EEG responses can track beat and an imagined binary or ternary metre. | Neural entrainment is evidence about processing, not a complete definition of metre. Unequal groupings predate their twentieth-century adoption by Western concert composers. |
+| Monochord history | Ancient Greek harmonic science used the monochord; Mersenne experimentally connected string vibration to length and tension in the seventeenth century. | The familiar Pythagoras discovery story is later tradition, not a contemporary eyewitness report. |
+
+### Sources used for issue 75
+
+- Frequency and logarithmic pitch: [UNSW Music Acoustics](https://www.animations.physics.unsw.edu.au/jw/frequency-pitch-sound.htm).
+- Cents and comparative measurement: Alexander J. Ellis,
+  [*On the Musical Scales of Various Nations* (1885)](https://soundandscience.net/texts/on-the-musical-scales-of-various-nations/)
+  and the Wellcome Collection copy of Ellis's annotated
+  [*On the Sensations of Tone*](https://wellcomecollection.org/works/rby988rq).
+- Beat-frequency equation and tuning use:
+  [OpenStax University Physics, "Beats"](https://openstax.org/books/university-physics-volume-1/pages/17-6-beats).
+- Ideal-string modes and wave equation:
+  [OpenStax University Physics, "Standing Waves and Resonance"](https://openstax.org/books/university-physics-volume-1/pages/16-6-standing-waves-and-resonance).
+- Monochord provenance:
+  [Whipple Museum of the History of Science](https://www.whipplemuseum.cam.ac.uk/explore-whipple-collections/acoustics/monochord).
+- Mersenne's experiments:
+  [Stanford Encyclopedia of Philosophy, "Marin Mersenne"](https://plato.stanford.edu/entries/mersenne/).
+- Sensory consonance and critical bandwidth: Plomp and Levelt,
+  ["Tonal consonance and critical bandwidth" (1965)](https://pubmed.ncbi.nlm.nih.gov/5831012/).
+- Cultural variation in consonance preference: McDermott et al.,
+  ["Indifference to dissonance in native Amazonians" (2016)](https://www.nature.com/articles/nature18635).
+- Missing-fundamental and pitch mechanisms: Oxenham,
+  ["Pitch Perception" (2012)](https://pmc.ncbi.nlm.nih.gov/articles/PMC3481156/)
+  and Oxenham,
+  ["How We Hear" (2018)](https://pmc.ncbi.nlm.nih.gov/articles/PMC5819010/).
+- Neural responses to beat and metre: Nozaradan et al.,
+  ["Tagging the neuronal entrainment to beat and meter" (2011)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6623069/).
+- Unequal-metre terminology and documented performance practice: Clayton,
+  ["Theory and Practice of Long-form Non-isochronous Meters" (2020)](https://mtosmt.org/issues/mto.20.26.1/mto.20.26.1.clayton.html).
+
+`test/labs.test.js` independently checks the cents, beat-rate, ideal-string,
+harmonic-component and metre calculations. DOM tests check that the same values
+appear in the accessible text alternative.
+
+---
+
 ## Layer 1 - what the automated test guards
 
 `test/facts.test.js` reads the live data off `MTT.content.reference` / `MTT.music`
@@ -69,9 +125,9 @@ first appeared* (14th c.), rather than implying notation never went smaller.
 
 ---
 
-## Layer 2 - still flagged (your call, not yet changed)
+## Layer 2 - remaining simplifications
 
-These are defensible pedagogical simplifications rather than errors; left as-is.
+These are outside the issue 75 lab scope and remain candidates for a later pass.
 
 - **Historical tuning range "~415 to ~444"** (A4 constant). The true spread is
   wider (~390 to >450 over history); the "~"/"anywhere from" hedge it. Could
@@ -80,8 +136,7 @@ These are defensible pedagogical simplifications rather than errors; left as-is.
   predate and outlived the harpsichord (lute, organ, voice) and the organ
   sustains; the decay-compensation rationale holds for plucked/struck keyboards.
   Could broaden to "harpsichord and clavichord".
-- **Minor over-generalisations:** "two stacked 3rds is the recipe behind every
-  chord" (not quartal/sus/clusters); figured bass "the composer wrote only melody
+- **Minor over-generalisations:** figured bass "the composer wrote only melody
   and bass" (true for continuo, not Baroque music generally); SATB as "Renaissance
   church choral writing" (origin correct; the teaching tradition runs through the
   Baroque Bach chorale); French/German markings driven by "national pride" (also a
@@ -98,7 +153,7 @@ crotchet < *crochet*, quaver); order of sharps as a 5ths chain; clefs as stylise
 G/F/C letters; scale-degree name meanings; the dominant-7th's pull; figured-bass
 dates; A4 = 440 = ISO 16; Pythagorean and syntonic comma definitions; critical
 band ≈ a minor 3rd; JND ≈ 5-10 cents; hearing 20 Hz-20 kHz and piano 27.5-4186 Hz;
-the missing-fundamental and timbre explainers; saxophone-as-woodwind and the
+the numeric missing-fundamental spectrum examples; saxophone-as-woodwind and the
 sound-production family rule; all transposing-instrument intervals; every Italian/
 French/German term translation; every ornament and voice (SATB) etymology; the
 interactive temperament explainer (which avoids the WTC error fixed above).
@@ -108,7 +163,6 @@ interactive temperament explainer (which avoids the WTC error fixed above).
 ## How to verify
 
 ```
-npx vitest run test/facts.test.js   # 110 numeric checks
-npx vitest run                      # full suite (one pre-existing onboarding
-                                    # DOM failure is unrelated to this work)
+npx vitest run test/facts.test.js test/labs.test.js
+npm run check
 ```
