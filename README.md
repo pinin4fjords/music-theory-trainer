@@ -57,10 +57,13 @@ index.html ── loads, in order:
 ├── src/core/analytics.js  local-only weak-area analytics                MTT.analytics
 ├── src/core/storage.js    versioned persistence + migration + backup    MTT.storage
 ├── src/core/persist.js    durable: persist()+IndexedDB+linked file      MTT.persist
+├── src/labs.js            deterministic music-lab models + evidence     MTT.labs
 ├── src/content.js         the curriculum (Grades 1-8) + generators      MTT.content
 ├── src/core/session.js    session assembly (filter, order, validate)    MTT.session
 ├── src/core/state.js      central state store (DOM-free)                MTT.state
 ├── src/ui/components.js   reusable, accessible DOM primitives           MTT.ui.components
+├── src/ui/lab-visuals.js  responsive diagrams for music-lab results     MTT.ui.labVisuals
+├── src/ui/lab.js          shared four-stage lab + optional note          MTT.ui.lab
 ├── src/ui/router.js       view routing + focus/announce on change       MTT.ui.router
 ├── src/ui/views/*.js      home, learn, quiz, explainer, playground      MTT.ui.views.*
 ├── src/ui/app.js          orchestrator: wires store + router + header   MTT.app
@@ -98,7 +101,7 @@ one bad generator can never crash practice.
 
 ## Persistence & migration
 
-Progress (streak, totals, per-topic spaced-repetition state, settings) is stored locally,
+Progress, settings and optional per-lab notes are stored locally,
 **per-browser and per-device**. There is no server, by design - so every visitor gets their
 own private progress.
 
@@ -160,11 +163,15 @@ or hand-edited state is merged onto defaults so no key is ever missing.
   grade-level questions are hard. "Learning path" mode still leads with the current grade.
 - **Two modes**: *Daily mix* (spaced review across the current grade and below) and a
   *Learning path* that leads with the current grade's new material.
-- **The science of music**, tied into practice: interactive explainers for the
-  monochord (a string over a box - the origin of pitch and the simple-ratio
-  intervals), the harmonic series, the circle of fifths, temperament, the three
-  minors and the modes. A "dig deeper" link in the answer reveal threads from a
-  question straight into the explainer behind it.
+- **Music labs**, tied into practice: five shared predict, manipulate/listen,
+  observe and explain experiments cover frequency and cents, beating, harmonic
+  spectra and missing-fundamental pitch, stretched strings, and metric
+  entrainment. Every lab distinguishes calculated results, perceptual inference
+  and musical convention. One optional note per lab is saved automatically and
+  never counts toward spaced-repetition mastery.
+- **Interactive explainers** cover the monochord, harmonic series, circle of
+  fifths, temperament, minor forms and modes. Lessons and answer feedback link
+  directly to a relevant lab or explainer.
 - **First-run onboarding** (a one-step grade picker) and a per-topic **finish-screen
   breakdown** so a session opens and closes with structure.
 - **Progress view** (open the header level chip): estimated level, overall accuracy,
@@ -193,7 +200,8 @@ The suite (`test/`, Vitest + jsdom) covers:
 - schema validation + whole-curriculum validity
 - content generators (60 questions/generator, determinism, diagnostic meta)
 - storage migration + backup/restore + corruption fallback
-- the state store (answers, streaks, persistence)
+- the state store (answers, streaks, lab notes, persistence)
+- deterministic lab calculations, shared lab DOM, lesson/feedback links and mastery separation
 - DOM quiz flow (boot, navigation, answering, feedback, streak)
 - accessibility (live region, staff labels, button choices, number-key select, focus)
 
@@ -204,7 +212,6 @@ The suite (`test/`, Vitest + jsdom) covers:
 - Notation-rendered cadences/chords for Grade 6+ (currently description-based for the
   more advanced chromatic chords).
 - Audio-first ear-training drills (interval/chord recognition by sound alone).
-- Optional per-topic "explain more" links from quiz feedback into the lessons.
 - Richer analytics view (progress over time per grade).
 
 ## License

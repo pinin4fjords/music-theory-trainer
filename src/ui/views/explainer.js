@@ -25,11 +25,7 @@
     // Declared before the deep-link branch below, which can call openExplainer
     // immediately. (The build* functions are hoisted function declarations.)
     const builders = {
-      monochord: buildMonochord,
       "harmonic-series": buildHarmonicSeries,
-      consonance: buildConsonance,
-      cents: buildCents,
-      timbre: buildTimbre,
       "circle-of-fifths": buildCircleOfFifths,
       temperament: buildTemperament,
       "three-minors": buildThreeMinors,
@@ -38,7 +34,6 @@
       "build-triads": buildBuildTriads,
       "four-clefs": buildFourClefs,
       "note-values": buildNoteValues,
-      metre: buildMetre,
     };
 
     // Deep-link: open a specific explainer directly (from the hash, or a
@@ -49,12 +44,14 @@
       if (target) { openExplainer(target); return; }
     }
 
-    const view = C.el(`<div class="view"><h1 tabindex="-1">Explainers</h1><p class="muted">Short interactive explainers - the <i>why</i> behind the theory. Open one and use the buttons to hear it.</p></div>`);
+    const view = C.el(`<div class="view"><h1 tabindex="-1">Explainers &amp; labs</h1><p class="muted">Explore the mechanism, history and practice behind the theory. Labs let you predict, listen and compare the result without affecting mastery.</p></div>`);
     main.appendChild(view);
     const grid = C.el(`<div class="grid" style="margin-top:18px"></div>`);
     ctx.content.explainers.forEach((e) => {
       const icon = global.MTT.ui.icons.iconHtml(e.id);
-      grid.appendChild(C.cardButton(`<div class="topic-head">${icon}<h3>${e.title}</h3></div><div class="why">${e.blurb}</div>`, () => ctx.router.navigate("explore", e.id)));
+      const hasLab = global.MTT.labs.forExplainer(e.id).length > 0;
+      const badge = hasLab ? `<span class="pill outline">lab</span>` : "";
+      grid.appendChild(C.cardButton(`<div class="topic-head">${icon}<h3>${e.title}</h3>${badge}</div><div class="why">${e.blurb}</div>`, () => ctx.router.navigate("explore", e.id)));
     });
     view.appendChild(grid);
 
@@ -63,72 +60,14 @@
       const v = C.el(`<div class="view"></div>`);
       v.appendChild(C.button("← Back", () => ctx.router.navigate("explore"), { className: "ghost" }));
       v.appendChild(C.el(`<h1 tabindex="-1" style="margin-top:14px">${e.title}</h1>`));
-      (builders[e.id] || ((host) => host.appendChild(C.el(`<div class="card"><p class="muted">Coming soon.</p></div>`))))(v);
+      const labs = global.MTT.labs.forExplainer(e.id);
+      if (labs.length) {
+        labs.forEach((lab) => v.appendChild(global.MTT.ui.lab.render(lab, ctx)));
+      } else {
+        (builders[e.id] || ((host) => host.appendChild(C.el(`<div class="card"><p class="muted">Coming soon.</p></div>`))))(v);
+      }
       main.appendChild(v);
       C.focus(v.querySelector("h1"));
-    }
-
-    function buildMonochord(host) {
-      host.appendChild(lessonCard(`
-        <p><b>Where it all starts.</b> Stretch a single string over a box and pluck it: one note. Now stop the string partway and pluck again - a different note. That's the whole of pitch in one object. The ancient Greeks built exactly this - a <b>monochord</b> - and discovered that the notes that sound <i>good</i> together are the ones where the string is divided into <b>simple whole-number fractions</b>.</p>
-        <p><b>Shorter string, higher pitch - length and frequency are inverses.</b> Say the open string sounds <b>A = 220 Hz</b>. Stop it exactly in the middle and the vibrating half goes <b>twice as fast: 440 Hz</b>, an octave up (the 2:1 ratio - the simplest there is, and the most consonant interval). Take <b>two-thirds</b> of the length and the frequency rises to <b>3/2 = 330 Hz</b> - a <b>perfect 5th</b>. Three-quarters of the length gives 4/3 (≈293 Hz, a perfect 4th); four-fifths gives 5/4 (275 Hz, a major 3rd). The simple fractions of <i>length</i> are just the simple <i>frequency ratios</i> turned upside down.</p>
-        <p><b>A ratio, not a multiple.</b> A "perfect 5th" is the <b>ratio 3:2 between two notes</b> (220→330 Hz here). Don't confuse it with the harmonic series, where multiplying by 3 (220→660 Hz) lands a whole octave higher - a 12th, not a 5th. Same number, different question. Pick a fraction and watch the string divide:</p>`));
-
-      const base = M.noteToFreq("A3"); // 220 Hz - clean numbers that match the harmonic-series page
-      const stops = [
-        { label: "Open (1:1)", ratio: 1, note: "A3, 220 Hz - the fundamental" },
-        { label: "½ (2:1)", ratio: 2, note: "A4, 440 Hz - an octave up" },
-        { label: "⅔ (3:2)", ratio: 3 / 2, note: "E4, 330 Hz - a perfect 5th" },
-        { label: "¾ (4:3)", ratio: 4 / 3, note: "D4, ≈293 Hz - a perfect 4th" },
-        { label: "⅘ (5:4)", ratio: 5 / 4, note: "C♯4, 275 Hz - a major 3rd" },
-      ];
-
-      // The vibrating fraction of the string is 1/ratio; pitch rises as it shortens.
-      function diagram(s) {
-        const X0 = 40, X1 = 520, Y = 46, L = X1 - X0, amp = 17;
-        const f = 1 / s.ratio;
-        const stopX = X0 + f * L, mid = X0 + (f * L) / 2;
-        const arch = `M ${X0} ${Y} Q ${r(mid)} ${Y - amp} ${r(stopX)} ${Y}`;
-        const echo = `M ${X0} ${Y} Q ${r(mid)} ${Y + amp} ${r(stopX)} ${Y}`;
-        const damped = f < 1 ? `<line class="damped" x1="${r(stopX)}" y1="${Y}" x2="${X1}" y2="${Y}"/>` : "";
-        const bridge = f < 1 ? `<polygon class="bridge" points="${r(stopX - 6)},${Y + 9} ${r(stopX + 6)},${Y + 9} ${r(stopX)},${Y - 1}"/>` : "";
-        const label = `Monochord: the vibrating ${s.label.split(" ")[0]} of the string sounds ${s.note}.`;
-        return `<svg class="monochord" viewBox="0 0 560 132" role="img" aria-label="${label}">
-          <rect class="box" x="26" y="60" width="508" height="56" rx="9"/>
-          <circle class="peg" cx="${X0}" cy="${Y}" r="4.5"/><circle class="peg" cx="${X1}" cy="${Y}" r="4.5"/>
-          <path class="vibrate echo" d="${echo}"/>
-          <path class="vibrate" d="${arch}"/>
-          ${damped}${bridge}
-          <text x="${X0}" y="128" text-anchor="start">nut</text>
-          <text x="${X1}" y="128" text-anchor="end">bridge</text>
-        </svg>`;
-      }
-      function r(n) { return Math.round(n * 10) / 10; }
-
-      const card = C.el(`<div class="card"></div>`);
-      card.appendChild(C.el(`<h3 style="margin-top:0">Pluck &amp; divide the string</h3>`));
-      const stage = C.el(`<div id="mono-stage">${diagram(stops[0])}</div>`);
-      card.appendChild(stage);
-      const out = C.el(`<p class="muted" id="mono-caption" aria-live="polite" style="font-size:.92rem">Pick a fraction: watch the string shorten and hear the pitch rise.</p>`);
-      const list = C.el(`<div class="explainer-controls"></div>`);
-      stops.forEach((s) => {
-        const b = playBtn(s.label, () => {
-          stage.innerHTML = diagram(s);
-          out.innerHTML = `<b>${s.label}</b> &rarr; ${s.note}.`;
-          A.freqChord(s.ratio === 1 ? [base] : [base, base * s.ratio], 1.8);
-        });
-        list.appendChild(b);
-      });
-      card.appendChild(list);
-      card.appendChild(out);
-      const row = controls();
-      row.appendChild(playBtn("Hear them in turn", () => A.freqSequence(stops.map((s) => base * s.ratio), 0.6, 0.55)));
-      card.appendChild(row);
-      host.appendChild(card);
-
-      host.appendChild(lessonCard(`
-        <p><b>Why simple ratios sound smooth.</b> A vibrating string doesn't only move as a whole - it also vibrates in halves, thirds and quarters at the same time (its <b>overtones</b>). When two notes share a simple ratio, many of their overtones line up exactly and reinforce each other; when the ratio is complex, the overtones clash and you hear a roughness or <i>beating</i>. Consonance and dissonance aren't arbitrary taste - they're arithmetic you can hear.</p>
-        <p>That stack of overtones is a whole subject of its own - see <i>The harmonic series</i>.</p>`));
     }
 
     function buildCircleOfFifths(host) {
@@ -184,9 +123,9 @@
 
     function buildTemperament(host) {
       host.appendChild(lessonCard(`
-        <p><b>The idea.</b> Two notes sound consonant when their frequencies form a simple ratio: an octave is exactly 2:1, a perfect 5th 3:2, a major 3rd 5:4. Tune intervals to those pure ratios - <b>just intonation</b> - and chords lock together without beating.</p>
+        <p><b>The idea.</b> Simple ratios such as 2:1, 3:2 and 5:4 align partials in ideal harmonic tones and can reduce beating. <b>Just intonation</b> tunes selected intervals to those ratios. The resulting sensory smoothness is measurable, while a listener's consonance judgement also depends on context and experience.</p>
         <p><b>The problem.</b> Those pure ratios don't agree with each other. Stack enough pure 5ths and you overshoot the octave you should land on (the comma below). So you can't tune a fixed-pitch instrument like a piano to be pure in every key at once - tune it sweet in C and remote keys turn sour.</p>
-        <p><b>The fix.</b> <b>Equal temperament</b> divides the octave into twelve <i>equal</i> semitones (each a ratio of the 12th root of 2). Every interval except the octave is now slightly impure - but equally so in every key, so you can play in all of them. The major 3rd is the biggest casualty. Hear it:</p>`));
+        <p><b>One solution.</b> <b>12-tone equal temperament</b> divides the octave into twelve equal frequency ratios (each the 12th root of 2). Every interval except the octave departs from its nearest simple ratio, but the interval pattern transposes unchanged to every key. Hear its major 3rd beside 5:4 just intonation:</p>`));
       const f = M.noteToFreq("C4");
 
       // --- Comma spiral ---
@@ -203,7 +142,7 @@
       row1.appendChild(playBtn("Just 3rd (5:4, pure)", () => A.freqChord([f, f * 5 / 4], 2.2)));
       row1.appendChild(playBtn("Equal-tempered 3rd", () => A.freqChord([f, f * Math.pow(2, 4 / 12)], 2.2)));
       card.appendChild(row1);
-      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">In cents: just 3rd = 386, equal = 400, Pythagorean = 408. The ear notices ~5 cents, so the 14-cent equal 3rd is a real compromise.</p>`));
+      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">In cents: just 3rd ≈ 386, equal-tempered 3rd = 400, Pythagorean 3rd ≈ 408. Detectability depends on duration, register, timbre, presentation and the listener, so the numeric difference does not set one universal hearing threshold.</p>`));
       host.appendChild(card);
 
       const card2 = C.el(`<div class="card"></div>`);
@@ -220,7 +159,7 @@
 
     function buildHarmonicSeries(host) {
       host.appendChild(lessonCard(`
-        <p><b>Where it comes from.</b> Pluck a string and it doesn't only vibrate as a whole - it simultaneously vibrates in halves, thirds, quarters and so on. Each division adds a quieter tone, a <b>partial</b>, at a <b>whole-number multiple</b> of the fundamental's frequency. The mix of partials is what gives every instrument its tone colour.</p>
+        <p><b>Where the model comes from.</b> An ideal flexible string fixed at both ends supports modes at whole-number multiples of its fundamental. A real plucked string can excite several of these <b>partials</b> at once, although stiffness shifts them slightly and their amplitudes change over time. Other instruments can have harmonic, nearly harmonic or inharmonic spectra.</p>
         <p><b>Multiply the frequency by 1, 2, 3, 4...</b> If the fundamental is <b>A = 110 Hz</b>, the partials sit at 220, 330, 440, 550, 660, 770, 880 Hz. (The 4th partial, 440 Hz, is the A we tune to.) Crucially, the <i>gaps</i> between them <b>shrink</b> as you climb, even though each step adds the same 110 Hz: 110→220 is an octave, 220→330 a perfect 5th, 330→440 a perfect 4th, 440→550 a major 3rd. Your ear judges an interval by the <b>ratio</b> of the two frequencies, and those ratios get closer to 1 as you go up (2:1, 3:2, 4:3, 5:4...), so each step is a smaller interval.</p>
         <p><b>Why the same letters keep returning.</b> Doubling the frequency is always an octave, so partials 1, 2, 4 and 8 are all <b>A</b>. Partial 3 (×3 = 330 Hz) is a 5th above the <i>second</i> partial - i.e. an octave-and-a-fifth above the fundamental - which is why it's a high E, not the E just above the bottom A. Play the partials and watch the steps shrink:</p>`));
       const f = M.noteToFreq("A2"); // 110 Hz, so the numbers match the text exactly
@@ -251,7 +190,7 @@
       row.appendChild(playBtn("Play all eight in turn", () => A.freqSequence(partials.map((p) => f * p.n), 0.5, 0.48)));
       row.appendChild(playBtn("Hear the major triad (4:5:6)", () => A.freqChord([4 * f, 5 * f, 6 * f], 2)));
       card.appendChild(row);
-      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 (A, C♯, E - 440:550:660 Hz) are a major triad, ready-made, which is why it sounds so settled.</p>`));
+      card.appendChild(C.el(`<p class="muted" style="font-size:.88rem">Partials 4, 5 and 6 (A, C♯, E - 440:550:660 Hz) form a 4:5:6 major triad. Their aligned periodicities can reduce sensory roughness; tonal training and musical context also contribute to hearing a major triad as settled.</p>`));
       host.appendChild(card);
 
       // --- Pitch ruler: show shrinking gaps visually on a log-scale axis ---
@@ -452,10 +391,12 @@
     }
 
     function buildNoteValues(host) {
+      const piano = global.MTT.audioPiano;
+      if (piano && piano.preload) piano.preload();
       host.appendChild(lessonCard(`
         <p><b>Duration as proportion.</b> Note values are a hierarchy: each level is exactly half the one above. A <b>semibreve</b> lasts as long as <b>two minims</b>, four crotchets, eight quavers, or sixteen semiquavers. The diagram below shows this as proportional bars - each row is the same total length. Click any bar to hear a rhythm at that subdivision.</p>`));
 
-      const BASE_FREQ = M.noteToFreq("A4"); // 440 Hz for all rhythmic examples
+      const BASE_NOTE = "A4";
 
       const rows = [
         { cls: "nt-semi",      count: 1,  label: "Semibreve",    step: 2.4, dur: 2.2 },
@@ -472,14 +413,14 @@
 
       rows.forEach(({ cls, count, label, step, dur }, ri) => {
         const row = C.el(`<div class="nt-row"></div>`);
-        const freqs = Array(count).fill(BASE_FREQ);
+        const notes = Array(count).fill(BASE_NOTE);
         for (let i = 0; i < count; i++) {
           const bar = document.createElement("button");
           bar.type = "button";
           bar.className = `nt-bar ${cls}`;
           bar.setAttribute("aria-label", `${label} (${count} per semibreve) - click to hear`);
           if (i === 0) bar.textContent = SHORT_LABELS[ri];
-          bar.addEventListener("click", () => A.freqSequence(freqs, step, dur));
+          bar.addEventListener("click", () => A.sequence(notes, step, dur));
           row.appendChild(bar);
         }
         tree.appendChild(row);
@@ -503,7 +444,7 @@
       dotBar.className = "nt-dotted-bar";
       dotBar.textContent = "Dotted crotchet (1½ beats)";
       dotBar.style.flex = "3 3 0";
-      dotBar.addEventListener("click", () => A.freqSequence([BASE_FREQ], 0, 0.84));
+      dotBar.addEventListener("click", () => A.note(BASE_NOTE, 0.84));
       dotRow.appendChild(dotBar);
 
       const qBar = document.createElement("button");
@@ -511,7 +452,7 @@
       qBar.className = "nt-dotted-bar nt-half";
       qBar.textContent = "Quaver (½)";
       qBar.style.flex = "1 1 0";
-      qBar.addEventListener("click", () => A.freqSequence([BASE_FREQ], 0, 0.28));
+      qBar.addEventListener("click", () => A.note(BASE_NOTE, 0.28));
       dotRow.appendChild(qBar);
 
       dotTree.appendChild(dotRow);
@@ -524,7 +465,7 @@
         b.className = "nt-dotted-bar";
         b.textContent = `Crotchet (1 beat)`;
         b.style.flex = "2 2 0";
-        b.addEventListener("click", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.6, 0.55));
+        b.addEventListener("click", () => A.sequence([BASE_NOTE, BASE_NOTE], 0.6, 0.55));
         crotRow.appendChild(b);
       }
       dotTree.appendChild(crotRow);
@@ -532,69 +473,10 @@
       dotCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">Top row: dotted crotchet + quaver = 2 beats. Bottom row: 2 plain crotchets = 2 beats. Same total length, different feel.</p>`));
       dotCard.appendChild(dotTree);
       const dotRow2 = controls();
-      dotRow2.appendChild(playBtn("Hear dotted crotchet + quaver", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.9, 0.84)));
-      dotRow2.appendChild(playBtn("Hear 2 crotchets", () => A.freqSequence([BASE_FREQ, BASE_FREQ], 0.6, 0.55)));
+      dotRow2.appendChild(playBtn("Hear dotted crotchet + quaver", () => A.sequenceRhythm([BASE_NOTE, BASE_NOTE], [1.5, 0.5], 0.6)));
+      dotRow2.appendChild(playBtn("Hear 2 crotchets", () => A.sequenceRhythm([BASE_NOTE, BASE_NOTE], [1, 1], 0.6)));
       dotCard.appendChild(dotRow2);
       host.appendChild(dotCard);
-    }
-
-    function buildMetre(host) {
-      host.appendChild(lessonCard(`
-        <p><b>Metre is how the beats clump.</b> A bar isn't just a count of beats - the beats gather into groups, and the first beat of each group feels stronger. That grouping is what separates a march from a waltz, or the lilt of 6/8 from the swing of 3/4.</p>
-        <p><b>Three families.</b> In <b>simple</b> time each beat splits in two; in <b>compound</b> time each beat is a dotted note splitting in three; in <b>irregular</b> time the groups are unequal - a two sitting next to a three. Click a metre to see and hear it. The taller, higher click starts each group.</p>`));
-
-      const ACC = M.noteToFreq("A5");
-      const WEAK = M.noteToFreq("A4");
-      const patterns = [
-        { sig: "2/4", fam: "simple duple", groups: [2, 2] },
-        { sig: "3/4", fam: "simple triple", groups: [2, 2, 2] },
-        { sig: "6/8", fam: "compound duple", groups: [3, 3] },
-        { sig: "9/8", fam: "compound triple", groups: [3, 3, 3] },
-        { sig: "5/8", fam: "irregular", groups: [3, 2] },
-        { sig: "7/8", fam: "irregular", groups: [2, 2, 3] },
-      ];
-
-      const card = C.el(`<div class="card"></div>`);
-      const list = C.el(`<div class="explainer-controls"></div>`);
-      const strip = C.el(`<div class="metre-strip" id="metre-strip" aria-hidden="true"></div>`);
-      const caption = C.el(`<p class="muted" id="metre-cap" aria-live="polite" style="font-size:.9rem">Pick a metre to see how its pulse groups, and hear where the accents fall.</p>`);
-
-      function show(p, btn) {
-        [...list.children].forEach((c) => c.classList.remove("sel"));
-        if (btn) btn.classList.add("sel");
-        strip.innerHTML = "";
-        const freqs = [];
-        p.groups.forEach((g) => {
-          const grp = document.createElement("div");
-          grp.className = "metre-group";
-          for (let i = 0; i < g; i++) {
-            const cell = document.createElement("div");
-            cell.className = "metre-cell" + (i === 0 ? " accent" : "");
-            grp.appendChild(cell);
-            freqs.push(i === 0 ? ACC : WEAK);
-          }
-          strip.appendChild(grp);
-        });
-        caption.innerHTML = `<b>${p.sig}</b> - ${p.fam}: pulses group as <b>${p.groups.join("+")}</b>. The accented (taller) pulse starts each group.`;
-        A.freqSequence(freqs, 0.26, 0.18);
-      }
-
-      patterns.forEach((p) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "audio-btn";
-        b.textContent = p.sig;
-        b.addEventListener("click", () => show(p, b));
-        list.appendChild(b);
-      });
-      card.appendChild(list);
-      card.appendChild(strip);
-      card.appendChild(caption);
-      host.appendChild(card);
-
-      host.appendChild(lessonCard(`
-        <p><b>Why "compound" means three.</b> Medieval theorists ranked triple division as <i>perfect</i> (three stood for the Trinity) and duple as <i>imperfect</i>. Compound time is the descendant of that perfect, triple-dividing pulse, which is why its beat is a dotted note - a note that splits cleanly into three.</p>
-        <p><b>Why irregular metres feel modern.</b> European art music inherited that duple-or-triple framework and rarely strayed from it. Unequal groupings lived on in folk traditions - Bulgarian and Greek dance especially - and only entered the concert hall in the 20th century, when composers like Bartók and Stravinsky drew on those roots. Holst wrote 'Mars' in five; Brubeck's 'Take Five' put 5/4 on the radio.</p>`));
     }
 
     function buildFourClefs(host) {
@@ -690,6 +572,8 @@
     }
 
     function buildKeyboard(host) {
+      const piano = global.MTT.audioPiano;
+      if (piano && piano.preload) piano.preload();
       host.appendChild(lessonCard(`
         <p><b>Semitones are the building blocks.</b> A semitone is the distance between any two adjacent keys on the piano - white or black, no skipping. Count the semitones between two notes and you know the interval. <b>Two semitones</b> = a tone (major 2nd). <b>Seven</b> = a perfect 5th. <b>Twelve</b> = an octave.</p>
         <p><b>How to use this.</b> Click one key to set the lower note, then another to set the upper. The interval name and semitone count appear below the keyboard. Click any highlighted key to hear it, or use the play buttons.</p>`));
@@ -779,8 +663,8 @@
         display.innerHTML = `<b>${name}</b> &mdash; ${loLabel} to ${hiLabel} &middot; ${semis} semitone${semis !== 1 ? "s" : ""}`;
         btns.appendChild(playBtn(loLabel, () => A.note(loMidi, 0.9)));
         btns.appendChild(playBtn(hiLabel, () => A.note(hiMidi, 0.9)));
-        btns.appendChild(playBtn("Together", () => A.freqChord([M.midiToFreq(loMidi), M.midiToFreq(hiMidi)], 1.8)));
-        btns.appendChild(playBtn("In turn", () => A.freqSequence([M.midiToFreq(loMidi), M.midiToFreq(hiMidi)], 0.7, 0.7)));
+        btns.appendChild(playBtn("Together", () => A.chord([loMidi, hiMidi], 1.8)));
+        btns.appendChild(playBtn("In turn", () => A.sequence([loMidi, hiMidi], 0.7, 0.7)));
         const clearBtn = C.button("Clear", () => { fromMidi = null; toMidi = null; refresh(); }, { className: "btn ghost" });
         btns.appendChild(clearBtn);
       }
@@ -843,138 +727,6 @@
         </table></div>`));
     }
 
-    function buildConsonance(host) {
-      host.appendChild(lessonCard(`
-        <p><b>Consonance is measurable, not just taste.</b> Whether two notes sound smooth or harsh comes down to one physical effect: <b>beating</b>. Sound two pure tones close in frequency and they drift in and out of phase, so the combined loudness pulses. The pulse rate is exactly the <b>difference in frequency</b>: 440 Hz against 443 Hz beats <b>3 times a second</b>. Slow beats (a few per second) sound like a gentle wobble; speed them up to roughly <b>20–40 per second</b> and the ear can no longer track them - it registers a buzzing <b>roughness</b> instead.</p>
-        <p><b>The critical band.</b> The cochlea analyses sound region by region. Two tones landing inside the same region (a <b>critical band</b>, very roughly a minor 3rd wide in the middle of your range) fight for the same hair cells and produce that roughness. Move them far enough apart and they fall into separate bands and stop interfering - smoothness returns. Maximum roughness sits at about <b>a quarter of a critical band</b> apart, near a semitone.</p>
-        <p><b>Why simple ratios win.</b> Real notes are stacks of harmonics (see <i>The harmonic series</i>). When two notes form a simple ratio like 3:2, many of their harmonics either coincide exactly or sit far apart - few land in the rough zone. A complex ratio like 16:15 (a semitone) scatters harmonics all through each other's critical bands. Consonance is just <b>how few harmonic pairs are beating</b>.</p>`));
-
-      const beatCard = C.el(`<div class="card"></div>`);
-      beatCard.appendChild(C.el(`<h3 style="margin-top:0">Hear beating speed up</h3>`));
-      beatCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Two tones near 440 Hz. As they spread apart the wobble quickens, then dissolves into roughness. The wave below is their sum: the slow bulge is one beat.</p>`));
-      const beatStage = C.el(`<div id="beat-stage">${beatWave(4)}</div>`);
-      beatCard.appendChild(beatStage);
-      const beatOut = C.el(`<p class="muted" id="beat-caption" aria-live="polite" style="font-size:.9rem">Pick a detuning and listen for the pulse.</p>`);
-      const base = 440;
-      const detunes = [
-        { d: 0, label: "Unison (0 Hz)", note: "perfectly locked - no beating" },
-        { d: 1, label: "+1 Hz", note: "1 slow beat per second" },
-        { d: 4, label: "+4 Hz", note: "4 beats per second - an audible wobble" },
-        { d: 15, label: "+15 Hz", note: "15 per second - turning into roughness" },
-        { d: 33, label: "+33 Hz", note: "≈ maximum roughness for this register" },
-      ];
-      const beatRow = C.el(`<div class="explainer-controls"></div>`);
-      detunes.forEach((s) => {
-        beatRow.appendChild(playBtn(s.label, () => {
-          beatStage.innerHTML = beatWave(Math.max(0.6, s.d));
-          beatOut.innerHTML = `<b>${s.label}</b> &rarr; ${s.note}.`;
-          A.freqChord(s.d === 0 ? [base, base] : [base, base + s.d], 2.6);
-        }));
-      });
-      beatCard.appendChild(beatRow);
-      beatCard.appendChild(beatOut);
-      host.appendChild(beatCard);
-
-      const curveCard = C.el(`<div class="card"></div>`);
-      curveCard.appendChild(C.el(`<h3 style="margin-top:0">The roughness curve</h3>`));
-      curveCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Sensory dissonance of two harmonic tones as the upper note climbs from unison to the octave (after Plomp &amp; Levelt, 1965). The <b>dips are the consonant intervals</b> - the ones music is built from. The peaks near the semitone and tritone are where harmonics clash hardest. Play each interval and hear where it sits on the curve.</p>`));
-      curveCard.appendChild(C.el(dissonanceCurve()));
-      const cf = M.noteToFreq("C4");
-      const ivals = [
-        { semi: 1, name: "Minor 2nd", q: "harsh" },
-        { semi: 4, name: "Major 3rd", q: "sweet" },
-        { semi: 5, name: "Perfect 4th", q: "stable" },
-        { semi: 6, name: "Tritone", q: "tense" },
-        { semi: 7, name: "Perfect 5th", q: "very consonant" },
-        { semi: 12, name: "Octave", q: "the most consonant" },
-      ];
-      const ivRow = C.el(`<div class="explainer-controls"></div>`);
-      ivals.forEach((iv) => {
-        ivRow.appendChild(playBtn(iv.name, () => A.freqChord([cf, cf * Math.pow(2, iv.semi / 12)], 2.2)));
-      });
-      curveCard.appendChild(ivRow);
-      curveCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">The curve is for two tones with six harmonics each; instruments richer in upper harmonics push the peaks higher, which is part of why a fuzzy electric guitar power-chord avoids 3rds.</p>`));
-      host.appendChild(curveCard);
-    }
-
-    function buildCents(host) {
-      host.appendChild(lessonCard(`
-        <p><b>The ear hears ratios, not differences.</b> Going from 100 Hz to 200 Hz sounds like the same "distance" as 200 Hz to 400 Hz - both are one octave - even though the first adds 100 Hz and the second adds 200 Hz. Pitch is <b>logarithmic</b>: equal musical steps mean equal <i>multiplications</i> of frequency, not equal additions. An octave is always <b>×2</b>, whatever you start from.</p>
-        <p><b>The semitone is the twelfth root of 2.</b> Twelve equal semitones must multiply up to one octave, so each semitone is <b>×2<sup>1/12</sup> ≈ ×1.0595</b> - a 5.95% rise in frequency every time. Do it twelve times and 1.0595<sup>12</sup> lands exactly back on ×2.</p>
-        <p><b>Cents put a ruler on it.</b> Divide the octave into <b>1200 equal cents</b> (100 per semitone). The cents between two frequencies is <b>1200 × log₂(f₂/f₁)</b>. Cents are how tuning differences are quoted, and the ear notices about <b>5–10 cents</b>.</p>`));
-
-      const f = M.noteToFreq("A2"); // 110 Hz
-      const demoCard = C.el(`<div class="card"></div>`);
-      demoCard.appendChild(C.el(`<h3 style="margin-top:0">Same +110 Hz, shrinking steps</h3>`));
-      demoCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">First climb in <b>equal 110 Hz jumps</b> (110, 220, 330, 440, 550) - the steps <i>sound</i> like they shrink, because each adds a smaller and smaller ratio. Then climb in <b>equal octaves</b> (110, 220, 440, 880) - now every step sounds the same size, because each is ×2.</p>`));
-      const demoRow = controls();
-      demoRow.appendChild(playBtn("Equal Hz steps (+110)", () => A.freqSequence([f, f * 2, f * 3, f * 4, f * 5], 0.62, 0.55)));
-      demoRow.appendChild(playBtn("Equal octaves (×2)", () => A.freqSequence([f, f * 2, f * 4, f * 8], 0.62, 0.55)));
-      demoCard.appendChild(demoRow);
-      host.appendChild(demoCard);
-
-      const rulerCard = C.el(`<div class="card"></div>`);
-      rulerCard.appendChild(C.el(`<h3 style="margin-top:0">Linear frequency vs what you hear</h3>`));
-      rulerCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">The same twelve semitones of an octave (C4 to C5). On a <b>linear frequency</b> axis (top) they bunch up low and spread out high. Spaced by <b>pitch</b> (bottom) they are perfectly even - that even spacing is the logarithm of the top. The fanning lines connect each note to itself.</p>`));
-      rulerCard.appendChild(C.el(logPitchRuler()));
-      host.appendChild(rulerCard);
-
-      const stackCard = C.el(`<div class="card"></div>`);
-      stackCard.appendChild(C.el(`<h3 style="margin-top:0">Twelve semitones make an octave</h3>`));
-      stackCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Each semitone multiplies by 1.0595. Climb all twelve from C4 and you arrive at C5 - exactly double the frequency, 1200 cents up.</p>`));
-      const c4 = M.noteToFreq("C4");
-      const stackRow = controls();
-      stackRow.appendChild(playBtn("Climb 12 semitones", () => A.freqSequence(Array.from({ length: 13 }, (_, i) => c4 * Math.pow(2, i / 12)), 0.26, 0.24)));
-      stackRow.appendChild(playBtn("C4 and C5 together (2:1)", () => A.freqChord([c4, c4 * 2], 2.2)));
-      stackCard.appendChild(stackRow);
-      stackCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">In cents: each step is 100, twelve steps is 1200, and 1200 cents = log₂(2) × 1200 = one octave.</p>`));
-      host.appendChild(stackCard);
-    }
-
-    function buildTimbre(host) {
-      host.appendChild(lessonCard(`
-        <p><b>Why a flute and a violin on the same note sound different.</b> They play the same fundamental frequency, so the <i>pitch</i> matches - but each adds a different <b>recipe of harmonics</b> on top (see <i>The harmonic series</i> for where those come from). That recipe - which overtones are present and how loud - is the sound's <b>timbre</b>, or tone colour. Mathematically it is the note's <b>Fourier spectrum</b>: any steady tone is a sum of pure sine waves at the harmonics, and the amplitudes are its fingerprint.</p>
-        <p>Build a tone from harmonics of <b>A = 110 Hz</b> and hear the colour change while the pitch stays put. The bars show which harmonics are switched on.</p>`));
-
-      const f = M.noteToFreq("A2"); // 110 Hz
-      const recipes = [
-        { label: "Fundamental only", parts: [1], note: "a bare sine - pure, hollow, like a tuning fork" },
-        { label: "+ octave (2nd)", parts: [1, 2], note: "rounder, flute-like" },
-        { label: "Odd harmonics", parts: [1, 3, 5, 7], note: "hollow and woody, like a clarinet" },
-        { label: "All harmonics", parts: [1, 2, 3, 4, 5, 6], note: "bright and buzzy, like a bowed string" },
-      ];
-      const timbreCard = C.el(`<div class="card"></div>`);
-      timbreCard.appendChild(C.el(`<h3 style="margin-top:0">Same pitch, different recipe</h3>`));
-      const specStage = C.el(`<div id="spec-stage">${spectrumBars(recipes[3].parts)}</div>`);
-      timbreCard.appendChild(specStage);
-      const specOut = C.el(`<p class="muted" id="spec-caption" aria-live="polite" style="font-size:.9rem">Pick a recipe - the pitch (110 Hz) never changes, only the colour.</p>`);
-      const specRow = C.el(`<div class="explainer-controls"></div>`);
-      recipes.forEach((r) => {
-        specRow.appendChild(playBtn(r.label, () => {
-          specStage.innerHTML = spectrumBars(r.parts);
-          specOut.innerHTML = `<b>${r.label}</b> &rarr; ${r.note}.`;
-          A.freqChord(r.parts.map((n) => f * n), 2.2);
-        }));
-      });
-      timbreCard.appendChild(specRow);
-      timbreCard.appendChild(specOut);
-      host.appendChild(timbreCard);
-
-      host.appendChild(lessonCard(`
-        <p><b>The missing fundamental.</b> Here is the strange part. The harmonics of 110 Hz sit at 220, 330, 440, 550 Hz... Their frequencies are all multiples of 110, so the whole pattern <b>repeats 110 times a second</b>. Your auditory system locks onto that repetition rate and reports the pitch as 110 Hz - <b>even if the 110 Hz tone itself is missing</b>. The brain reconstructs the fundamental from the spacing of the harmonics.</p>
-        <p>This is not a lab curiosity: a phone earpiece or a small speaker can barely move air at low frequencies, yet a male voice or a bass line still sounds the right pitch, because the harmonics are there and your brain fills in the root.</p>`));
-
-      const mfCard = C.el(`<div class="card"></div>`);
-      mfCard.appendChild(C.el(`<h3 style="margin-top:0">Remove the root, keep the pitch</h3>`));
-      mfCard.appendChild(C.el(`<p class="muted" style="font-size:.92rem">Compare a real 110 Hz tone, the full harmonic stack, and the stack with its 110 Hz fundamental deleted. The last two sound the same pitch - 110 Hz - even though one has no energy at 110 Hz at all.</p>`));
-      const mfRow = controls();
-      mfRow.appendChild(playBtn("Pure 110 Hz", () => A.freqChord([f], 2)));
-      mfRow.appendChild(playBtn("110 + harmonics", () => A.freqChord([f, f * 2, f * 3, f * 4, f * 5], 2.2)));
-      mfRow.appendChild(playBtn("Harmonics only (no 110)", () => A.freqChord([f * 2, f * 3, f * 4, f * 5], 2.2)));
-      mfCard.appendChild(mfRow);
-      mfCard.appendChild(C.el(`<p class="muted" style="font-size:.84rem">The spacing between 220, 330, 440, 550 Hz is a constant 110 Hz - and that spacing, not any single tone, is what fixes the pitch.</p>`));
-      host.appendChild(mfCard);
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1032,135 +784,6 @@
   ${rows}
   ${brackets}
 </svg></div>`;
-  }
-
-  function dissonanceCurve() {
-    // Schematic Plomp-Levelt sensory-dissonance curve for two 6-harmonic tones,
-    // upper note rising from unison (0 cents) to the octave (1200). Dips fall on
-    // the consonant intervals. y is roughness: 0 smooth (bottom), 1 rough (top).
-    const pts = [
-      [0, 0.02], [50, 0.55], [100, 0.92], [150, 0.72], [200, 0.5], [250, 0.46],
-      [300, 0.33], [350, 0.34], [386, 0.2], [430, 0.36], [498, 0.12], [550, 0.4],
-      [590, 0.46], [650, 0.42], [700, 0.08], [760, 0.34], [800, 0.3], [850, 0.33],
-      [884, 0.2], [950, 0.4], [1000, 0.38], [1050, 0.36], [1088, 0.27], [1150, 0.46], [1200, 0.03],
-    ];
-    const dips = [
-      [0, "unison"], [386, "M3"], [498, "P4"], [700, "P5"], [884, "M6"], [1200, "8ve"],
-    ];
-    const X0 = 44, X1 = 504, YT = 22, YB = 158, W = X1 - X0, H = YB - YT;
-    const toX = (c) => X0 + (c / 1200) * W;
-    const toY = (r) => YT + (1 - r) * H;
-    const r1 = (n) => Math.round(n * 10) / 10;
-    const poly = pts.map(([c, r]) => `${r1(toX(c))},${r1(toY(r))}`).join(" ");
-
-    let dots = "";
-    dips.forEach(([c, label]) => {
-      const x = r1(toX(c));
-      const y = r1(toY(pts.find((p) => p[0] === c)[1]));
-      dots += `<circle cx="${x}" cy="${y}" r="4" class="dc-dot"/>`;
-      dots += `<text x="${x}" y="${YB + 16}" text-anchor="middle" class="dc-tick">${label}</text>`;
-      dots += `<line x1="${x}" y1="${y + 6}" x2="${x}" y2="${YB}" class="dc-drop"/>`;
-    });
-
-    return `<div class="diss-curve"><svg viewBox="0 0 540 188" class="diss-curve-svg" role="img"
-  aria-label="Sensory dissonance curve from unison to octave. Roughness peaks near the minor 2nd and tritone and dips to consonance at the major 3rd, perfect 4th, perfect 5th, major 6th and octave.">
-  <line x1="${X0}" y1="${YB}" x2="${X1}" y2="${YB}" class="dc-axis"/>
-  <text x="${X0 - 6}" y="${YT + 6}" text-anchor="end" class="dc-axislabel">rough</text>
-  <text x="${X0 - 6}" y="${YB}" text-anchor="end" class="dc-axislabel">smooth</text>
-  ${dots}
-  <polyline points="${poly}" class="dc-line"/>
-</svg></div>`;
-  }
-
-  function logPitchRuler() {
-    // Twelve semitones of an octave placed two ways: top axis by linear frequency
-    // (bunched low, spread high), bottom axis by equal pitch steps. Fanning lines
-    // connect each note to itself, so the bottom is visibly the log of the top.
-    const notes = [
-      { name: "C", hz: 261.63 }, { name: "", hz: 277.18 }, { name: "D", hz: 293.66 },
-      { name: "", hz: 311.13 }, { name: "E", hz: 329.63 }, { name: "F", hz: 349.23 },
-      { name: "", hz: 369.99 }, { name: "G", hz: 392.0 }, { name: "", hz: 415.3 },
-      { name: "A", hz: 440.0 }, { name: "", hz: 466.16 }, { name: "B", hz: 493.88 },
-      { name: "C", hz: 523.25 },
-    ];
-    const X0 = 30, X1 = 510, W = X1 - X0, TOP = 42, BOT = 128;
-    const fLo = notes[0].hz, fHi = notes[notes.length - 1].hz;
-    const linX = (hz) => X0 + ((hz - fLo) / (fHi - fLo)) * W;
-    const evenX = (i) => X0 + (i / (notes.length - 1)) * W;
-    const r1 = (n) => Math.round(n * 10) / 10;
-
-    let connectors = "", topDots = "", botDots = "", labels = "";
-    notes.forEach((n, i) => {
-      const xt = r1(linX(n.hz)), xb = r1(evenX(i));
-      const named = n.name !== "";
-      connectors += `<line x1="${xt}" y1="${TOP}" x2="${xb}" y2="${BOT}" class="lr-connector${named ? " lr-named" : ""}"/>`;
-      topDots += `<circle cx="${xt}" cy="${TOP}" r="${named ? 4 : 2.4}" class="lr-dot${named ? " lr-named" : ""}"/>`;
-      botDots += `<circle cx="${xb}" cy="${BOT}" r="${named ? 4 : 2.4}" class="lr-dot${named ? " lr-named" : ""}"/>`;
-      if (named) {
-        labels += `<text x="${xt}" y="${TOP - 9}" text-anchor="middle" class="lr-label">${n.name}</text>`;
-        labels += `<text x="${xb}" y="${BOT + 17}" text-anchor="middle" class="lr-label">${n.name}</text>`;
-      }
-    });
-
-    return `<div class="logr"><svg viewBox="0 0 540 168" class="logr-svg" role="img"
-  aria-label="An octave of twelve semitones shown on a linear frequency axis, where they bunch up at low pitches, and on an equal-pitch axis, where they are evenly spaced.">
-  <text x="${X0}" y="20" class="lr-axislabel">frequency (Hz) — linear, bunched low</text>
-  <line x1="${X0}" y1="${TOP}" x2="${X1}" y2="${TOP}" class="lr-axis"/>
-  ${connectors}
-  <line x1="${X0}" y1="${BOT}" x2="${X1}" y2="${BOT}" class="lr-axis"/>
-  ${topDots}${botDots}${labels}
-  <text x="${X0}" y="162" class="lr-axislabel">pitch — equal steps (the logarithm)</text>
-</svg></div>`;
-  }
-
-  function spectrumBars(parts) {
-    // Bar graph of harmonics 1..8; bars in `parts` are "on" (accent), rest dimmed.
-    const N = 8, X0 = 38, X1 = 300, YB = 120, YT = 16;
-    const slot = (X1 - X0) / N;
-    const barW = slot * 0.56;
-    // Falloff so the spectrum reads as a plausible amplitude envelope.
-    const amp = (n) => 1 / n;
-    let bars = "";
-    for (let n = 1; n <= N; n++) {
-      const on = parts.includes(n);
-      const x = X0 + (n - 1) * slot + (slot - barW) / 2;
-      const h = on ? (YB - YT) * amp(n) : 3;
-      const y = YB - h;
-      bars += `<rect x="${Math.round(x)}" y="${Math.round(y)}" width="${Math.round(barW)}" height="${Math.round(h)}" class="spec-bar${on ? " on" : ""}" rx="2"/>`;
-      bars += `<text x="${Math.round(x + barW / 2)}" y="${YB + 15}" text-anchor="middle" class="spec-label${on ? " on" : ""}">${n}</text>`;
-    }
-    return `<div class="spectrum"><svg viewBox="0 0 312 146" class="spectrum-svg" role="img"
-  aria-label="Harmonic spectrum: bars for harmonics 1 to 8, with the active harmonics highlighted.">
-  <line x1="${X0 - 4}" y1="${YB}" x2="${X1}" y2="${YB}" class="spec-axis"/>
-  ${bars}
-  <text x="${(X0 + X1) / 2}" y="143" text-anchor="middle" class="spec-axislabel">harmonic number</text>
-</svg></div>`;
-  }
-
-  function beatWave(beats) {
-    // The summed waveform of two near-equal tones: a fast carrier inside a slow
-    // beating envelope. `beats` sets how many envelope bulges span the width.
-    const X0 = 14, X1 = 526, MIDY = 56, AMP = 40, W = X1 - X0, STEPS = 256;
-    const carrier = 22; // visible carrier cycles across the width
-    const r1 = (n) => Math.round(n * 10) / 10;
-    let wave = "", envTop = "", envBot = "";
-    for (let i = 0; i <= STEPS; i++) {
-      const t = i / STEPS;
-      const x = X0 + t * W;
-      const env = Math.cos(Math.PI * beats * t); // beats half-cycles -> beats/2 bulges; doubled visually below
-      const e = Math.abs(env) * AMP;
-      const y = MIDY - env * Math.sin(2 * Math.PI * carrier * t) * AMP;
-      wave += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(y)} `;
-      envTop += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(MIDY - e)} `;
-      envBot += `${i === 0 ? "M" : "L"} ${r1(x)} ${r1(MIDY + e)} `;
-    }
-    return `<svg viewBox="0 0 540 112" class="beat-wave-svg" role="img"
-  aria-label="Summed waveform of two close tones, showing a fast wave inside a slow pulsing envelope.">
-  <path d="${envTop}" class="bw-env"/>
-  <path d="${envBot}" class="bw-env"/>
-  <path d="${wave}" class="bw-wave"/>
-  <text x="270" y="106" text-anchor="middle" class="bw-label">beats per second = | f₁ − f₂ |</text>
-</svg>`;
   }
 
   function commaSpiral() {

@@ -35,6 +35,7 @@
       totalAnswered: 0,
       srs: {}, // objectiveId -> Card (see core/srs.js)
       legacyTopicSrs: {},
+      labNotes: {},
       // gradeChosen: false marks a brand-new learner, so the home screen can show
       // a first-run grade picker instead of a cold dashboard.
       settings: { sound: true, grade: 4, mode: "daily", reducedMotion: false, theme: "system", gradeChosen: false, sessionLength: 10 },
@@ -154,6 +155,7 @@
     out.srs = (data && typeof data.srs === "object" && data.srs) || {};
     Object.keys(out.srs).forEach((id) => { out.srs[id] = srs().normalizeCard(out.srs[id]); });
     out.legacyTopicSrs = (data && typeof data.legacyTopicSrs === "object" && !Array.isArray(data.legacyTopicSrs) && data.legacyTopicSrs) || {};
+    out.labNotes = (data && typeof data.labNotes === "object" && !Array.isArray(data.labNotes) && data.labNotes) || {};
     out.stateVersion = CURRENT_VERSION;
     if (![1, 2, 3, 4, 5, 6, 7, 8].includes(out.settings.grade)) out.settings.grade = 4;
     if (out.settings.mode !== "path") out.settings.mode = "daily";

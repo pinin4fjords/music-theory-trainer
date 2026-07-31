@@ -181,13 +181,28 @@
       notify();
     }
 
+    function saveLabNote(labId, note) {
+      const prediction = (note.prediction || "").trim();
+      const observation = (note.observation || "").trim();
+      const current = (state.labNotes || {})[labId];
+      if (current && current.prediction === prediction && current.observation === observation) return;
+      if (!current && !prediction && !observation) return;
+
+      const labNotes = Object.assign({}, state.labNotes || {});
+      if (prediction || observation) labNotes[labId] = { prediction, observation };
+      else delete labNotes[labId];
+      state.labNotes = labNotes;
+      persist();
+      notify();
+    }
+
     function exportJSON() {
       return storage().exportJSON(state);
     }
 
     return {
       get, settings, srsMap, cardFor, subscribe,
-      setSetting, recordAnswer, recordSessionDay, doneToday, recordMiss,
+      setSetting, recordAnswer, recordSessionDay, doneToday, recordMiss, saveLabNote,
       restore, reset, hydrate, exportJSON,
       get storageOK() { return storageOK; },
     };

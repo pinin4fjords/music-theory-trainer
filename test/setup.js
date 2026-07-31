@@ -31,6 +31,7 @@ src("core/analytics.js");
 src("core/storage.js");
 src("core/quiz-resume.js");
 src("core/persist.js");
+src("labs.js");
 src("content.js");
 src("aural-generators.js");
 src("aural-content.js");
@@ -41,6 +42,8 @@ src("core/state.js");
 if (typeof document !== "undefined") {
   src("ui/icons.js");
   src("ui/components.js");
+  src("ui/lab-visuals.js");
+  src("ui/lab.js");
   src("ui/router.js");
   src("ui/views/home.js");
   src("ui/views/learn.js");

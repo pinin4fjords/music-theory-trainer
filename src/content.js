@@ -689,7 +689,7 @@
       prompt: `Which three notes form the <b>tonic triad</b> of <b>${key} ${mode}</b>?`,
       choices: choices(rng, correct, distractors),
       answer: correct,
-      explanation: `Build it on the key note: degree 1 (${M.spelledName(t[0])}), then a 3rd (${M.spelledName(t[1])}) and a 5th (${M.spelledName(t[2])}) stacked above - <b>${correct}</b>. 'Triad' is from Greek <i>trias</i>, a group of three; two stacked 3rds is the recipe behind every chord in Western harmony, and the tonic triad is the most stable, the one a piece comes to rest on.` + staffBlock(spec),
+      explanation: `Build it on the key note: degree 1 (${M.spelledName(t[0])}), then a 3rd (${M.spelledName(t[1])}) and a 5th (${M.spelledName(t[2])}) stacked above - <b>${correct}</b>. 'Triad' is from Greek <i>trias</i>, a group of three. Stacked 3rds organise tonal triads and 7th chords, while other traditions and later styles also use suspended, quartal, added-note and cluster sonorities.` + staffBlock(spec),
       audio: () => audio().chord(t),
       meta: { type: "triad" },
     };
@@ -1580,7 +1580,7 @@
         },
         {
           id: "g1-triad", title: "The tonic triad",
-          why: "The very first chord: stack a 3rd and a 5th on the key note and you have the tonic triad - the sound a piece rests on, and the seed every other chord grows from.",
+          why: "Stack a 3rd and a 5th on the key note and you have the tonic triad, the principal point of rest in common-practice tonal music. It is one historically important way to organise harmony, not a physical template for every chord or musical tradition.",
           what: "<p>A <b>triad</b> is three notes a 3rd apart: a root, the note a 3rd above, and the note a 5th above. Built on the <b>tonic</b> (the key note), it is the <b>tonic triad</b> - C-E-G in C major. It is the most stable chord in the key, which is why so many pieces begin and end on it.</p>",
           questions: QM([
             Q("harmony.tonic-triad.construct.g1", "Construct tonic triads", "harmony", "construct", 1, (rng) => buildTonicTriadQuestion(rng, ["C", "G", "D", "F"])),
@@ -1669,13 +1669,13 @@
         },
         {
           id: "g3-compound", title: "Simple & compound time",
-          why: "The lilt of 6/8 versus the march of 2/4 comes from whether each beat divides into two or three. Medieval notation treated triple division as <i>perfect</i> (tempus perfectum, written as a full circle, because three was the number of the Trinity) and duple as <i>imperfect</i> (a broken circle - the ancestor of the C we still write for 4/4). Compound time, where the beat divides into three, is the descendant of that 'perfect' triple feel, and it's the natural metre of sung and danced music like the jig.",
+          why: "The written contrast between 6/8 and 2/4 is whether each beat normally divides into three or two. Medieval mensural notation called triple division <i>perfect</i> and duple <i>imperfect</i>, partly through Christian symbolism; modern compound time signatures were standardised later. Performance style, tempo and accent determine whether a written metre actually lilts or marches.",
           what: "<p>In compound time (6/8, 9/8, 12/8) the beat is a dotted note dividing into three; divide the top number by three for the number of beats.</p>",
           questions: Q("rhythm.metre.simple-compound", "Classify simple and compound metre", "rhythm", "recognise", 3, timeClassifyQuestion),
         },
         {
           id: "g3-quality", title: "Interval quality", domain: "Physics",
-          why: "Same number, different size: a 3rd can be major or minor. Quality is where intervals start to carry feeling. Unisons, 4ths, 5ths and octaves are called 'perfect' because medieval theorists considered them the purest, most stable consonances - they arise from the simplest frequency ratios (2:1, 3:2, 4:3) and were the intervals early music came to rest on. Everything else was 'imperfect' - pleasant but unsettled.",
+          why: "Same number, different size: a 3rd can be major or minor. The labels 'perfect' and 'imperfect' preserve medieval classifications of consonance and cadential stability. Simple ratios help explain sensory properties of some ideal tones, while musical function and feeling also depend on style, timbre, context and learned convention.",
           what: "<p>2nds, 3rds, 6ths and 7ths are major or minor; unisons, 4ths, 5ths and octaves are perfect. One semitone outside gives augmented or diminished.</p>",
           questions: QM([
             Q("intervals.quality.construct.g3", "Construct intervals by quality", "intervals", "construct", 3, (rng) => buildIntervalAboveQuestion(rng, ["C", "D", "E", "F", "G", "A", "B"])),
@@ -1833,7 +1833,7 @@
         {
           id: "g5-irregular", title: "Irregular time signatures",
           why: "Not every bar splits evenly. A top number of 5 or 7 won't divide into neat 2s or 3s, so the beats fall into unequal groups - the off-kilter drive of a Balkan dance or 'Take Five'.",
-          what: "<p><b>Irregular</b> (or asymmetric) metres like <b>5/4, 7/8, 5/8</b> have a beat count that won't divide evenly into twos or threes. The bar is felt as a mix of duple and triple groups - 5/8 as 3+2 or 2+3, 7/8 often as 2+2+3 - and the grouping of the written notes shows which.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Why so rare in older music?</b> European art music inherited a strong duple/triple framework from medieval mensural notation, where metre was either 'perfect' (three) or 'imperfect' (two). Asymmetric metres lived on in folk traditions (Bulgarian and Greek dance especially) and only entered the concert mainstream in the 20th century, with composers like Bartók and Stravinsky drawing on those folk roots.</p>",
+          what: "<p><b>Unequal</b> (often called irregular, asymmetric or additive) metres such as <b>5/4, 7/8 and 5/8</b> combine longer and shorter beats or pulse groups - 5/8 may be 3+2 or 2+3, while 7/8 may be 2+2+3 or another ordering. Beaming, accents and performance tell you which grouping applies.</p><p class=\"muted\" style=\"font-size:.9em\"><b>Whose history?</b> These metres have long histories in Balkan, Turkish and other performance traditions. They became prominent in twentieth-century Western concert music through composers including Bartók and Stravinsky, but that reception history is not their origin.</p>",
           questions: Q("rhythm.metre.irregular", "Interpret irregular metres", "rhythm", "calculate", 5, irregularTimeQuestion),
         },
       ],
@@ -1968,8 +1968,21 @@
     "g3-quality": "consonance", "g4-intervals": "harmonic-series", "g5-intervals": "harmonic-series",
     "g1-notes": "four-clefs", "g4-alto-clef": "four-clefs", "g5-clefs": "four-clefs",
   };
+  const LAB_FOR = {
+    "g1-time": "metric-entrainment", "g2-time": "metric-entrainment",
+    "g3-compound": "metric-entrainment", "g4-time": "metric-entrainment", "g5-irregular": "metric-entrainment",
+    "g2-intervals": "string-pitch",
+    "g3-quality": "beating",
+    "g4-intervals": "frequency-cents",
+    "g5-instruments": "harmonic-spectrum",
+  };
   grades.forEach((g) => g.topics.forEach((t) => {
     if (EXPLAINER_FOR[t.id]) t.explainer = EXPLAINER_FOR[t.id];
+    if (LAB_FOR[t.id]) {
+      t.lab = LAB_FOR[t.id];
+      const lab = global.MTT.labs && global.MTT.labs.byId(t.lab);
+      if (lab) t.explainer = lab.explainer;
+    }
   }));
 
   // === Reference (look-up) tables ========================================
@@ -2090,7 +2103,7 @@
   })();
 
   const ACOUSTICS_CONST = [
-    { term: "Octave", def: "frequency ratio 2:1 - the most consonant interval, and where note names repeat" },
+    { term: "Octave", def: "frequency ratio 2:1 in the ideal model - commonly heard with strong pitch similarity, and where this notation repeats note names" },
     { term: "Equal semitone", def: "×2^(1/12) ≈ 1.0595 - a 5.95% rise in frequency; twelve of them make an octave" },
     { term: "Cent", def: "1/100 of a semitone, 1/1200 of an octave; cents between two notes = 1200 × log₂(f₂/f₁)" },
     { term: "Just-noticeable difference", def: "the ear detects roughly 5-10 cents of pitch change in this register" },

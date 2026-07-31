@@ -108,6 +108,11 @@ describe("storage - backup / restore", () => {
     expect(result.state.stateVersion).toBe(storage.CURRENT_VERSION);
   });
 
+  it("adds empty per-lab notes to current state", () => {
+    const migrated = storage.migrate({ stateVersion: 2, srs: {} });
+    expect(migrated.labNotes).toEqual({});
+  });
+
   it("rejects invalid JSON with a clear message", () => {
     const result = storage.importJSON("not json at all");
     expect(result.ok).toBe(false);

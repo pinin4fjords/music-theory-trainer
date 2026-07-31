@@ -74,13 +74,18 @@
       if (t.explainer) {
         const ex = (ctx.content.explainers || []).find((e) => e.id === t.explainer);
         if (ex) {
+          const lab = t.lab && global.MTT.labs.byId(t.lab);
           const dig = document.createElement("button");
           dig.type = "button";
           dig.className = "dig-deeper";
           dig.style.marginLeft = "12px";
-          dig.innerHTML = `Dig deeper: ${ex.title} <span aria-hidden="true">→</span>`;
+          dig.innerHTML = `${lab ? "Try lab: " + lab.title : "Dig deeper: " + ex.title} <span aria-hidden="true">→</span>`;
           dig.addEventListener("click", () => {
             const m = ctx.C.openExplainerModal(dig);
+            if (lab) {
+              m.body.appendChild(global.MTT.ui.lab.render(lab, ctx));
+              return;
+            }
             const modalCtx = Object.assign({}, ctx, {
               router: Object.assign({}, ctx.router, {
                 navigate: function (view, arg) {
