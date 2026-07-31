@@ -97,46 +97,79 @@ describe("aural melody generator - spec conformance", () => {
 });
 
 describe("aural sight-sing melody generator - spec conformance", () => {
-  // Mirrors src/aural-content.js's MELODY_SPECS.g4SightSing/g5SightSing/
-  // g6SightSing: sight-singing begins and ends on the tonic (exam-board 4B/5B/6B),
-  // and 5B/6B permit exactly one exception to stepwise motion - the rising
-  // dominant-below-to-tonic 4th.
-  const SIGHT_SPECS = {
-    "g4-sight": { keys: ["C", "F", "G"], mode: "major", range: { above: 2, below: 2 }, bars: 1, beatsPerBar: 5, rhythmPalette: [[1, 1, 1, 1, 1]], maxLeap: 2, startsOn: "tonic", endsOn: "tonic" },
-    "g5-sight": { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 4, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
-    "g6-sight": { keys: ["C", "F", "G", "D", "Bb"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 7, rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
-    // The shared g7SightSing/g8SightSing two-part spec: same tonic anchoring and
-    // stepwise-plus-rising-4th rule, keys up to 4 sharps or flats.
-    "g78-sight": { keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+  const UPPER_GRADE_SPECS = {
+    "g6-sight": {
+      keys: ["C", "G", "D", "A", "F", "Bb", "Eb"],
+      minorKeys: ["A", "E", "B", "F#", "D", "G", "C"],
+      mode: "either",
+      range: { above: 4, below: 3 },
+      bars: 1,
+      beatsPerBar: 7,
+      rhythmPalette: [[1, 1, 1, 1, 1, 1, 1]],
+      maxLeap: 3,
+      startsOn: "free",
+      endsOn: "free",
+    },
+    "g7-sight": {
+      keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"],
+      minorKeys: ["A", "E", "B", "F#", "C#", "D", "G", "C", "F"],
+      mode: "either",
+      range: { above: 4, below: 3 },
+      bars: 1,
+      beatsPerBar: 6,
+      rhythmPalette: [[1, 1, 1, 1, 1, 1]],
+      maxLeap: 3,
+      startsOn: "free",
+      endsOn: "free",
+    },
+    "g8-sight": {
+      keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"],
+      minorKeys: ["A", "E", "B", "F#", "C#", "D", "G", "C", "F"],
+      mode: "either",
+      range: { above: 4, below: 3 },
+      bars: 1,
+      beatsPerBar: 6,
+      rhythmPalette: [[1, 1, 1, 1, 1, 1]],
+      maxLeap: 3,
+      startsOn: "free",
+      endsOn: "free",
+    },
   };
-  const SIGHT_ACCIDENTAL_LIMIT = { "g4-sight": 1, "g5-sight": 2, "g6-sight": 2, "g78-sight": 4 };
+  const SIGHT_ACCIDENTAL_LIMIT = { "g6-sight": 3, "g7-sight": 4, "g8-sight": 4 };
 
-  for (const [id, spec] of Object.entries(SIGHT_SPECS)) {
-    it(`${id}: 300 generated phrases begin and end on the tonic and only ever leap via the declared exception`, () => {
+  for (const [id, spec] of Object.entries(UPPER_GRADE_SPECS)) {
+    it(`${id}: 500 phrases cover both modes and obey the key, range and interval limits`, () => {
       const r = rng.create("sight-" + id);
-      let sawLeap = false;
-      for (let i = 0; i < 300; i++) {
+      const seenModes = new Set();
+      let sawNonTonicStart = false;
+      let sawNonTonicEnd = false;
+      let sawLargerInterval = false;
+      for (let i = 0; i < 500; i++) {
         const m = auralGen.generateMelody(r, spec);
 
-        expect(spec.keys).toContain(m.key);
+        const keyPool = m.mode === "minor" ? spec.minorKeys : spec.keys;
+        expect(keyPool).toContain(m.key);
         expect(keyAccidentals(m.key, m.mode)).toBeLessThanOrEqual(SIGHT_ACCIDENTAL_LIMIT[id]);
-        expect(m.degrees[0]).toBe(0);
-        expect(m.degrees[m.degrees.length - 1]).toBe(0);
+        seenModes.add(m.mode);
+        sawNonTonicStart ||= m.degrees[0] !== 0;
+        sawNonTonicEnd ||= m.degrees[m.degrees.length - 1] !== 0;
+        expect(Math.max(...m.degrees) - Math.min(...m.degrees)).toBeLessThanOrEqual(7);
 
         const pcs = scalePcs(m.key, m.mode);
         for (const midi of m.notes) expect(pcs.has(((midi % 12) + 12) % 12)).toBe(true);
 
         for (let k = 1; k < m.degrees.length; k++) {
           const delta = m.degrees[k] - m.degrees[k - 1];
-          if (Math.abs(delta) > spec.maxLeap) {
-            expect(spec.leap).toBeTruthy();
-            expect(m.degrees[k - 1]).toBe(spec.leap.from);
-            expect(m.degrees[k]).toBe(spec.leap.to);
-            sawLeap = true;
+          expect(Math.abs(delta)).toBeLessThanOrEqual(spec.maxLeap);
+          if (Math.abs(delta) > 1 && !(m.degrees[k - 1] === -3 && m.degrees[k] === 0)) {
+            sawLargerInterval = true;
           }
         }
       }
-      if (spec.leap) expect(sawLeap).toBe(true);
+      expect(seenModes).toEqual(new Set(["major", "minor"]));
+      expect(sawNonTonicStart).toBe(true);
+      expect(sawNonTonicEnd).toBe(true);
+      expect(sawLargerInterval).toBe(true);
     });
   }
 });
@@ -148,7 +181,18 @@ describe("aural companion-line (counterpoint) generator", () => {
   // harmonised by generateCompanion below; the counterpoint must hold for each.
   const COMPANION_SPECS = {
     "g3-echo": SPECS["g3-echo"],
-    "g78-sight": { keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"], mode: "major", range: { above: 7, below: 3 }, bars: 1, beatsPerBar: 6, rhythmPalette: [[1, 1, 1, 1, 1, 1]], maxLeap: 1, startsOn: "tonic", endsOn: "tonic", leap: { from: -3, to: 0, chance: 0.5 } },
+    "g78-sight": {
+      keys: ["C", "G", "D", "A", "E", "F", "Bb", "Eb", "Ab"],
+      minorKeys: ["A", "E", "B", "F#", "C#", "D", "G", "C", "F"],
+      mode: "either",
+      range: { above: 4, below: 3 },
+      bars: 1,
+      beatsPerBar: 6,
+      rhythmPalette: [[1, 1, 1, 1, 1, 1]],
+      maxLeap: 3,
+      startsOn: "free",
+      endsOn: "free",
+    },
   };
 
   for (const [id, spec] of Object.entries(COMPANION_SPECS)) {

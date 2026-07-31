@@ -438,6 +438,18 @@ main { max-width: var(--maxw); margin: 0 auto; padding: clamp(18px, 3.5vw, 40px)
 .seq-btn-row {
   display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px;
 }
+.clef-picker {
+  border: 0; padding: 0; margin: 0 0 12px; min-width: 0;
+}
+.clef-picker legend {
+  padding: 0; margin-bottom: 6px; color: var(--ink-soft);
+  font-size: .85rem; font-weight: 600;
+}
+.clef-picker .seg { margin-bottom: 0; }
+.clef-picker .seg button:disabled { cursor: default; opacity: .72; }
+.sight-sing-staff {
+  border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 8px;
+}
 
 /* Embedded staff notation. */
 .staff-wrap { margin: 14px 0 4px; overflow-x: auto; }
