@@ -987,6 +987,7 @@ describe("DOM - Learn cards show mastery chips (issue #54)", () => {
     scaffold();
     const inst = app.boot({ document, storage: fakeStore(seeded), now: () => NOW, seed: "learn-chip" });
     inst.router.navigate("learn");
+    document.querySelector('[data-learn-grade="1"]').click();
     const chips = [...document.querySelectorAll("#main .learn-acc-chip")].map((c) => c.textContent.trim());
     expect(chips).toContain("75%");
     expect(chips).toContain("New");
@@ -994,10 +995,23 @@ describe("DOM - Learn cards show mastery chips (issue #54)", () => {
 
   it("gives a 'coming next' topic its own badge, not an always-New mastery chip", () => {
     instance.router.navigate("learn");
+    document.querySelector('[data-learn-grade="6"]').click();
     const comingNextCard = [...document.querySelectorAll("#main .card.topic")]
       .find((c) => /coming next/.test(c.textContent));
     expect(comingNextCard).toBeTruthy();
     expect(comingNextCard.querySelector(".learn-acc-chip")).toBeNull();
+  });
+
+  it("shows one grade at a time without changing the learner's target grade", () => {
+    instance.router.navigate("learn");
+    expect(document.querySelector(".learn-grade-heading h2").textContent).toBe("Grade 4");
+    expect(document.querySelectorAll(".learn-grid").length).toBe(1);
+    expect(document.querySelector('[data-learn-grade="4"]').getAttribute("aria-pressed")).toBe("true");
+
+    document.querySelector('[data-learn-grade="2"]').click();
+    expect(document.querySelector(".learn-grade-heading h2").textContent).toBe("Grade 2");
+    expect(document.querySelector('[data-learn-grade="2"]').getAttribute("aria-pressed")).toBe("true");
+    expect(instance.store.settings().grade).toBe(4);
   });
 });
 

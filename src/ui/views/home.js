@@ -16,6 +16,9 @@
     const st = store.get();
     const done = store.doneToday(ctx.now());
     const mode = st.settings.mode || "daily";
+    const grade = st.settings.grade;
+    const sessionLength = st.settings.sessionLength || 10;
+    const sessionMinutes = Math.max(3, Math.round(sessionLength / 2));
 
     // First-run: make grade selection an intentional moment, not header furniture.
     if (!st.settings.gradeChosen) { renderOnboarding(); return; }
@@ -35,18 +38,22 @@
 
     function renderOnboarding() {
       const view = C.el(`
-        <div class="view">
-          <div class="hero">
-            <h1 tabindex="-1">Welcome</h1>
-            <p>A few minutes of music theory a day, grounded in <i>why</i> as well as <i>what</i>.</p>
-          </div>
-          <div class="card center onboard-card">
-            <h3 style="margin-top:0">What grade are you working towards?</h3>
-            <p class="muted" style="margin-top:0">It sets your daily session. You can change it any time in the header.</p>
-            <div class="grade-picker" role="group" aria-label="Choose your grade"></div>
-            <p class="muted onboard-or" style="margin:18px 0 8px">Not sure which to pick?</p>
-            <div id="placement-cta"></div>
-          </div>
+        <div class="view onboard-view">
+          <section class="onboarding-shell">
+            <div class="onboarding-copy">
+              <p class="eyebrow">Daily music theory, Grades 1–8</p>
+              <h1 tabindex="-1">Read what you hear.<br>Hear what you read.</h1>
+              <p>Motif turns a few spare minutes into focused theory practice, connecting the mark on the page with the reason it sounds that way.</p>
+              <div class="onboarding-staff" aria-hidden="true"><span></span><span></span><span></span></div>
+            </div>
+            <div class="card onboard-card">
+              <p class="eyebrow">Set your starting point</p>
+              <h2>What grade are you working towards?</h2>
+              <p class="muted">This shapes your daily session. You can change it whenever you like.</p>
+              <div class="grade-picker" role="group" aria-label="Choose your grade"></div>
+              <div class="onboard-placement"><span>Not sure where to begin?</span><div id="placement-cta"></div></div>
+            </div>
+          </section>
         </div>`);
       main.appendChild(view);
       const picker = view.querySelector(".grade-picker");
@@ -78,46 +85,62 @@
     }
 
     const view = C.el(`
-      <div class="view">
-        <div class="hero">
-          <h1 tabindex="-1">A few minutes of theory a day</h1>
-          <p>Graded music theory, grounded in <i>why</i> as well as <i>what</i>. Set your grade and the daily session follows.</p>
-        </div>
-        <div class="disclaimer-box" role="note">
-          <p><b>⚠ Just a hobby project.</b> I built this for my own practice, in my spare time - it isn't affiliated with any exam board, hasn't been checked by a teacher, and isn't guaranteed correct. Don't rely on it in place of official syllabuses or published study materials. Use at your own risk.</p>
-        </div>
-        <div id="resume-area"></div>
-        ${warn}
-        ${statsHtml}
-        <div class="card center start-card">
-          <div class="mode-toggle" role="group" aria-label="Practice mode">
-            <button type="button" data-mode="daily" class="${mode === "daily" ? "on" : ""}" aria-pressed="${mode === "daily"}">Daily mix</button>
-            <button type="button" data-mode="path" class="${mode === "path" ? "on" : ""}" aria-pressed="${mode === "path"}">Learning path</button>
+      <div class="view home-view">
+        <section class="home-hero">
+          <div class="home-hero-copy">
+            <p class="eyebrow">Grade ${grade} · daily practice</p>
+            <h1 tabindex="-1">A few minutes of theory a day</h1>
+            <p>Connect what you see, hear and understand through one focused session at a time.</p>
+            <details class="project-note">
+              <summary>About this project</summary>
+              <p>Motif is an independent hobby project. It is not affiliated with an exam board, has not been checked by a teacher, and should not replace an official syllabus or published study materials.</p>
+            </details>
           </div>
-          <p class="muted mode-blurb">${mode === "path"
-            ? "Learning path: leads with your current grade's topics, with weak earlier topics mixed in."
-            : "Daily mix: spaced review across your current grade and everything below it."}</p>
-          <p class="muted" style="margin-top:0">${done ? "Today's practice is done - come back tomorrow to keep the streak going." : "Ready for today's set?"}</p>
-        </div>
+          <div class="card start-card">
+            <div class="session-heading">
+              <span>Today’s practice</span>
+              <strong>${sessionLength} questions · ${sessionMinutes} min</strong>
+            </div>
+            <div class="mode-toggle" role="group" aria-label="Practice mode">
+              <button type="button" data-mode="daily" class="${mode === "daily" ? "on" : ""}" aria-pressed="${mode === "daily"}">Daily mix</button>
+              <button type="button" data-mode="path" class="${mode === "path" ? "on" : ""}" aria-pressed="${mode === "path"}">Learning path</button>
+            </div>
+            <p class="muted mode-blurb">${mode === "path"
+              ? "Move through Grade " + grade + " in order, with earlier weak spots folded in."
+              : "Spaced review from Grade " + grade + " and the foundations beneath it."}</p>
+            <div class="start-action"></div>
+            <p class="session-status">${done ? "Today’s session is complete. Extra practice will not change your streak." : "Ready when you are."}</p>
+          </div>
+        </section>
+        <div id="resume-area"></div>
         <div id="aural-nudge-area"></div>
         <div id="focus-area"></div>
-        <div class="grid" id="home-cards"></div>
-        <div class="card data-card">
-          <h3 style="margin-top:0">Your data</h3>
-          <p class="muted" id="durability-line" style="margin-top:0"></p>
-          <div id="file-link-area"></div>
-          <div id="github-sync-area"></div>
-          <p class="muted backup-line">Or keep a manual copy:
-            <button class="linkish" id="backup" type="button">Back up to a file</button> ·
-            <button class="linkish" id="restore" type="button">Restore</button> ·
-            <button class="linkish danger" id="reset" type="button">Reset progress</button></p>
-        </div>
+        ${warn}
+        ${statsHtml}
+        <section class="home-section" aria-labelledby="home-next-heading">
+          <div class="section-heading">
+            <div><p class="eyebrow">Keep exploring</p><h2 id="home-next-heading">Your music desk</h2></div>
+            <p>Lessons, listening, reference and progress.</p>
+          </div>
+          <div id="home-cards" class="home-links"></div>
+        </section>
+        <details class="card data-card data-disclosure">
+          <summary><span><b>Your data</b><small id="durability-line"></small></span><span aria-hidden="true">Manage</span></summary>
+          <div class="data-disclosure-body">
+            <div id="file-link-area"></div>
+            <div id="github-sync-area"></div>
+            <p class="muted backup-line">Or keep a manual copy:
+              <button class="linkish" id="backup" type="button">Back up to a file</button> ·
+              <button class="linkish" id="restore" type="button">Restore</button> ·
+              <button class="linkish danger" id="reset" type="button">Reset progress</button></p>
+          </div>
+        </details>
         <input type="file" id="restore-file" accept="application/json" hidden>
       </div>`);
     main.appendChild(view);
 
     // Start button.
-    const startWrap = view.querySelector(".start-card");
+    const startWrap = view.querySelector(".start-action");
     const startBtn = C.button(done ? "Practise again" : "Start today's practice", () => ctx.router.navigate("quiz"));
     startWrap.appendChild(startBtn);
 
@@ -201,16 +224,14 @@
       view.querySelector("#focus-area").appendChild(panel);
     }
 
-    // Quick links.
+    // The desk keeps the destinations that support the next study decision.
     const cards = view.querySelector("#home-cards");
-    [["📚", "Learn", "Lessons by grade", "learn"],
-      ["👂", "Aural", "Listening & singing tests", "aural"],
-      ["💡", "Explainers", "The why behind the theory", "explore"],
-      ["🎹", "Playground", "Build & hear it", "play"],
-      ["📖", "Reference", "Quick lookup tables", "reference"],
-      ["📈", "Progress", "Level & weak areas", "progress"]].forEach(([icon, title, sub, tab]) => {
-      const c = C.cardButton(`<div style="font-size:1.8rem" aria-hidden="true">${icon}</div><h3>${title}</h3><div class="why">${sub}</div>`,
-        () => ctx.router.navigate(tab));
+    [["learn", "Learn", "Lessons for every grade", "learn"],
+      ["aural", "Aural", "Listening and singing", "aural"],
+      ["reference", "Reference", "Quick lookup tables", "reference"],
+      ["progress", "Progress", "Mastery and weak areas", "progress"]].forEach(([icon, title, sub, tab]) => {
+      const c = C.cardButton(`${global.MTT.ui.icons.appIconHtml(icon)}<span class="home-link-copy"><h3>${title}</h3><span>${sub}</span></span><span class="home-link-arrow" aria-hidden="true">→</span>`,
+        () => ctx.router.navigate(tab), "home-link");
       cards.appendChild(c);
     });
 

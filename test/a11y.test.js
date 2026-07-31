@@ -12,6 +12,14 @@ function scaffold() {
         <button type="button" data-tab="learn">Learn</button>
         <button type="button" data-tab="explore">Why</button>
         <button type="button" data-tab="play">Playground</button>
+        <div class="library-nav">
+          <button type="button" id="library-toggle" aria-haspopup="true" aria-expanded="false" aria-controls="library-menu">Library</button>
+          <div id="library-menu" role="menu" aria-label="Library" hidden>
+            <button type="button" data-tab="reference" role="menuitem">Reference</button>
+            <button type="button" data-tab="explore" role="menuitem">Explainers</button>
+            <button type="button" data-tab="play" role="menuitem">Playground</button>
+          </div>
+        </div>
       </nav>
       <select id="grade-select" aria-label="grade"></select>
       <span id="streak">🔥 0</span>
@@ -89,6 +97,28 @@ describe("a11y - settings menu focus management", () => {
     document.getElementById("progress-menu-link").click();
     expect(document.getElementById("settings-menu").hidden).toBe(true);
     expect(instance.router.getCurrent()).toBe("progress");
+  });
+});
+
+describe("a11y - library menu focus management", () => {
+  it("opens on its first destination and closes with Escape", () => {
+    const toggle = document.getElementById("library-toggle");
+    const menu = document.getElementById("library-menu");
+    toggle.click();
+    expect(menu.hidden).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(menu.querySelector("button"));
+
+    document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    expect(menu.hidden).toBe(true);
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("navigates from a library destination and closes the menu", () => {
+    document.getElementById("library-toggle").click();
+    document.querySelector('#library-menu [data-tab="reference"]').click();
+    expect(instance.router.getCurrent()).toBe("reference");
+    expect(document.getElementById("library-menu").hidden).toBe(true);
   });
 });
 

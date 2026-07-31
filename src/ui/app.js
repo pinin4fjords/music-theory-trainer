@@ -37,9 +37,19 @@
     components.ensureLiveRegion();
 
     const main = doc.getElementById("main");
-    const navButtons = [...doc.querySelectorAll("nav.tabs button")];
+    const navButtons = [...doc.querySelectorAll("header.appbar [data-tab]")];
+    const libraryToggle = doc.getElementById("library-toggle");
+    const libraryMenu = doc.getElementById("library-menu");
 
-    const router = global.MTT.ui.router.create({ mainEl: main, navButtons, window: opts.window || global });
+    const router = global.MTT.ui.router.create({
+      mainEl: main,
+      navButtons,
+      window: opts.window || global,
+      onNavigate: (name) => {
+        setLibraryOpen(false);
+        setLibraryCurrent(name);
+      },
+    });
 
     const gist = global.MTT.gist || null;
 
@@ -77,7 +87,44 @@
     router.register("progress", global.MTT.ui.views.progress.render);
     router.register("reference", global.MTT.ui.views.reference.render);
 
-    navButtons.forEach((b) => b.addEventListener("click", () => router.navigate(b.dataset.tab)));
+    function setLibraryOpen(open) {
+      if (!libraryToggle || !libraryMenu) return;
+      libraryMenu.hidden = !open;
+      libraryToggle.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) {
+        const first = libraryMenu.querySelector("button");
+        if (first) first.focus();
+      }
+    }
+
+    function setLibraryCurrent(name) {
+      if (!libraryToggle) return;
+      const current = name === "reference" || name === "explore" || name === "play";
+      libraryToggle.classList.toggle("active", current);
+      if (current) libraryToggle.setAttribute("aria-current", "page");
+      else libraryToggle.removeAttribute("aria-current");
+    }
+
+    navButtons.forEach((b) => b.addEventListener("click", () => {
+      router.navigate(b.dataset.tab);
+      if (libraryMenu && libraryMenu.contains(b)) setLibraryOpen(false);
+    }));
+
+    if (libraryToggle && libraryMenu) {
+      libraryToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setLibraryOpen(libraryMenu.hidden);
+      });
+      doc.addEventListener("click", (e) => {
+        if (!libraryMenu.hidden && !libraryMenu.contains(e.target) && e.target !== libraryToggle) setLibraryOpen(false);
+      });
+      doc.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !libraryMenu.hidden) {
+          setLibraryOpen(false);
+          libraryToggle.focus();
+        }
+      });
+    }
 
     // Grade selector.
     const gradeSelect = doc.getElementById("grade-select");
@@ -205,6 +252,7 @@
     // Keep the streak + estimated-level chips current whenever state changes.
     const streakChip = doc.getElementById("streak");
     const levelChip = doc.getElementById("level");
+    const gradeStaff = doc.getElementById("grade-staff");
     const allTopics = global.MTT.session.quizableTopics(global.MTT.content);
     store.subscribe(syncHeader);
 
@@ -233,7 +281,12 @@
     }
 
     function syncHeader() {
-      if (gradeSelect) gradeSelect.value = String(store.settings().grade);
+      const grade = store.settings().grade;
+      if (gradeSelect) gradeSelect.value = String(grade);
+      if (gradeStaff) {
+        gradeStaff.style.setProperty("--grade-index", String(grade - 1));
+        gradeStaff.dataset.grade = String(grade);
+      }
       if (soundToggle) soundToggle.checked = store.settings().sound;
       if (sessionLengthSelect) sessionLengthSelect.value = String(store.settings().sessionLength || 10);
       if (streakChip) streakChip.textContent = "🔥 " + store.get().streak;

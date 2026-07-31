@@ -22,6 +22,7 @@
     const main = opts.mainEl;
     const navButtons = opts.navButtons || [];
     const win = opts.window || global;
+    const onNavigate = typeof opts.onNavigate === "function" ? opts.onNavigate : null;
     const views = {};
     let ctx = null;
     let current = null;
@@ -64,6 +65,7 @@
       opts = opts || {};
       if (!views[name]) return;
       if (isRedundantTopLevelTabNav(name, arg, opts)) return;
+      if (onNavigate) onNavigate(name);
       if (currentCleanup) { try { currentCleanup(); } catch { /* ok */ } currentCleanup = null; }
       releaseMedia();
       current = name;
