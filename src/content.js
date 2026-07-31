@@ -574,6 +574,7 @@
     { q: "a triplet", a: "3 notes in the time of 2", d: ["2 notes in the time of 3", "3 notes in the time of 4", "3 notes in the time of 1"], why: "it fits three equal notes into the time of two, so it appears in simple time" },
   ];
   const TRIPLET_ONLY = TUPLETS.filter((t) => t.q === "a triplet");
+  const DUPLET_ONLY = TUPLETS.filter((t) => t.q === "a duplet");
   function tupletQuestion(rng, pool) {
     const t = pick(rng, pool || TUPLETS);
     return {
@@ -583,13 +584,9 @@
       explanation: `${t.q[0].toUpperCase() + t.q.slice(1)} means <b>${t.a}</b> - ${t.why}.`,
     };
   }
-  function timeSignatureQuestion(rng) {
-    const r = rng.next();
-    return r < 0.5 ? timeClassifyQuestion(rng) : r < 0.78 ? dottedValueQuestion(rng) : tupletQuestion(rng);
-  }
   // Grade 4 also drills the breve (the longest common value) by value.
   function breveValueQuestion(rng) {
-    return rng.bool(0.4) ? noteValueQuestion(rng, VALUE_PAIRS_BREVE) : timeSignatureQuestion(rng);
+    return noteValueQuestion(rng, VALUE_PAIRS_BREVE);
   }
 
   // Grade 1: a time signature is two stacked numbers, not a fraction. The top
@@ -1739,7 +1736,12 @@
           id: "g4-time", title: "Time, duplets, double dots & the breve",
           why: "Whether a beat splits in two or in three is what gives a march its stride and a jig its lilt - it's the difference between simple and compound time.",
           what: "<p>In <b>simple time</b> (2/4, 3/4, 4/4) each beat divides into two. In <b>compound time</b> (6/8, 9/8, 12/8) each beat is a <i>dotted</i> note that divides into three; the top number divided by three gives the number of beats. A <b>dot</b> adds half a note's value, a <b>second dot</b> adds half again. A <b>duplet</b> fits two notes into the time of three; a <b>triplet</b> fits three into the time of two. The <b>breve</b> is the longest common value - twice a semibreve - a survival of the medieval <i>brevis</i>, which despite its name ('short') was once one of the briefer notes.</p>",
-          questions: Q("rhythm.note-values.breve", "Relate the breve to shorter values", "rhythm", "calculate", 4, breveValueQuestion),
+          questions: QM([
+            Q("rhythm.note-values.breve", "Relate the breve to shorter values", "rhythm", "calculate", 4, breveValueQuestion),
+            Q("rhythm.note-values.double-dotted", "Calculate double-dotted note values", "rhythm", "calculate", 4, dottedValueQuestion),
+            Q("rhythm.tuplet.duplet", "Recognise duplets", "rhythm", "recognise", 4, (rng) => tupletQuestion(rng, DUPLET_ONLY)),
+            Q("rhythm.metre.simple-compound.g4", "Classify stage-four metres", "rhythm", "recognise", 4, timeClassifyQuestion),
+          ], (rng) => rng.int(0, 3)),
         },
         {
           id: "g4-triads", title: "Tonic, subdominant & dominant triads",

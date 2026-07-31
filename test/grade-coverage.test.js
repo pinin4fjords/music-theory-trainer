@@ -1,141 +1,179 @@
-/**
- * Per-grade content coverage audit (issue #13).
- *
- * CURRICULUM_CHECKLIST below enumerates what this app means to teach at each
- * grade, one requirement per line, tagged with the grade it is FIRST
- * introduced at (grades are cumulative in this app's `gradeTopics(grade)`, so
- * a requirement need not be re-listed at every later grade). `topicIds` names
- * the content.js topic(s) that drill it correctly - left empty when nothing
- * in the app currently drills it at that grade.
- *
- * This turns grade alignment from a one-off review into a regression
- * guarantee, in the spirit of `facts.test.js`.
- */
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import {
+  CURRICULUM_MANIFEST,
+  CURRICULUM_TASK_FORMS,
+  OPEN_ENDED_ALLOWLIST,
+} from "./fixtures/curriculum-manifest.js";
 
-const { content } = globalThis.MTT;
+const { content, objectives, rng } = globalThis.MTT;
+const VALID_STATUSES = new Set(["implemented", "partial", "planned", "open"]);
+const REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-const findTopic = (id) => {
-  for (const g of content.grades) {
-    const t = g.topics.find((x) => x.id === id);
-    if (t) return Object.assign({}, t, { grade: g.grade });
-  }
-  return null;
-};
+function curriculumFamilies() {
+  return content.grades.flatMap((grade) => grade.topics.flatMap((topic) =>
+    (topic.objectives || []).map((definition) => ({ definition, grade: grade.grade, topic }))));
+}
 
-const CURRICULUM_CHECKLIST = [
-  // --- Grade 1 -----------------------------------------------------------
-  { grade: 1, text: "Note values (semibreve/minim/crotchet/quaver/semiquaver) & rests; tied notes; single-dotted notes", topicIds: ["g1-rhythm"] },
-  { grade: 1, text: "Simple time signatures 2/4, 3/4, 4/4; bar-lines; grouping of notes/rests", topicIds: ["g1-time"] },
-  { grade: 1, text: "The stave; treble (G) & bass (F) clef note names, incl. middle C", topicIds: ["g1-notes"] },
-  { grade: 1, text: "Sharp, flat, natural signs and their cancellation", topicIds: ["g1-rhythm"] },
-  { grade: 1, text: "Major scale construction (position of tones and semitones)", topicIds: ["g1-keys"] },
-  { grade: 1, text: "Keys of C, G, D, F: key signature, tonic triad (root position), degrees (number only), intervals above tonic (number only)", topicIds: ["g1-keys", "g1-triad"] },
-  { grade: 1, text: "Everyday tempo/dynamics/performance/articulation terms & signs", topicIds: ["g1-terms"] },
+function allQuestionFamilies() {
+  return content.grades.concat(content.auralGrades || []).flatMap((grade) =>
+    grade.topics.flatMap((topic) => (topic.objectives || []).map((definition) => ({
+      definition,
+      grade: grade.grade,
+      topic,
+    }))));
+}
 
-  // --- Grade 2 (as Grade 1, plus:) ----------------------------------------
-  { grade: 2, text: "Simple time signatures 2/2, 3/2, 4/2, 3/8; grouping of notes/rests", topicIds: ["g2-time"] },
-  { grade: 2, text: "Triplets, and triplet note groups with rests", topicIds: ["g2-time"] },
-  { grade: 2, text: "Stave extended to two ledger lines above and below", topicIds: [] },
-  { grade: 2, text: "Relative major & minor keys; minor scale construction (harmonic only)", topicIds: ["g2-keys"] },
-  { grade: 2, text: "Keys of A, Bb, Eb major and A, E, D minor: key signature, tonic triad (root position), degrees (number only), intervals above tonic (number only)", topicIds: ["g2-keys", "g2-triad"] },
-  { grade: 2, text: "More terms and signs in common use", topicIds: ["g2-terms"] },
+function missingTaskForms(entry) {
+  const implemented = new Set(entry.implementations.map((item) => item.taskForm));
+  return entry.requiredTaskForms.filter((taskForm) => !implemented.has(taskForm));
+}
 
-  // --- Grade 3 (as preceding grades, plus:) -------------------------------
-  { grade: 3, text: "Compound time signatures 6/8, 9/8, 12/8; grouping of notes/rests", topicIds: ["g3-compound"] },
-  { grade: 3, text: "The demisemiquaver and its equivalent rest", topicIds: ["g3-notation"] },
-  { grade: 3, text: "Stave extension beyond two ledger lines", topicIds: [] },
-  { grade: 3, text: "Octave transposition, treble clef to bass clef and vice versa", topicIds: ["g3-notation"] },
-  { grade: 3, text: "Scales and key signatures of all major/minor keys up to 4 sharps/flats (tonic triad, degrees, intervals above tonic by number and type)", topicIds: ["g3-keys"] },
-  { grade: 3, text: "Both harmonic and melodic forms of minor scales", topicIds: ["g3-melodic"] },
-  { grade: 3, text: "More terms and signs", topicIds: ["g3-terms"] },
-
-  // --- Grade 4 (as preceding grades, plus:) -------------------------------
-  { grade: 4, text: "All simple/compound duple, triple, quadruple time signatures; grouping of notes/rests", topicIds: ["g4-time"] },
-  { grade: 4, text: "The breve and its equivalent rest", topicIds: ["g4-time"] },
-  { grade: 4, text: "Double-dotted notes and rests", topicIds: ["g4-time"] },
-  { grade: 4, text: "Duplets", topicIds: ["g4-time"] },
-  { grade: 4, text: "Alto clef (C clef centred on 3rd line); notes in the alto clef", topicIds: ["g4-alto-clef"] },
-  { grade: 4, text: "Notes of the same pitch in different clefs; octave transposition treble/bass <-> alto", topicIds: [] },
-  { grade: 4, text: "Double sharp and double flat signs and their cancellation; enharmonic equivalents", topicIds: ["g4-double-acc"] },
-  { grade: 4, text: "Scales and key signatures of major keys up to 5 sharps/flats", topicIds: ["g4-key-signatures"] },
-  { grade: 4, text: "Scales and key signatures of minor keys up to 5 sharps/flats", topicIds: ["g4-key-signatures"] },
-  { grade: 4, text: "Technical names for the notes of the diatonic scale (tonic, supertonic, etc.)", topicIds: ["g4-degree-names"] },
-  { grade: 4, text: "Construction of the chromatic scale", topicIds: ["g4-chromatic"] },
-  { grade: 4, text: "All intervals not exceeding an octave, between any two diatonic notes", topicIds: ["g4-intervals"] },
-  { grade: 4, text: "Triads (root position only) on tonic, subdominant, dominant", topicIds: ["g4-triads"] },
-  { grade: 4, text: "Trill, turn, upper/lower mordent, acciaccatura, appoggiatura", topicIds: ["g4-ornaments"] },
-  { grade: 4, text: "Simple related questions about standard orchestral instruments", topicIds: [] },
-  { grade: 4, text: "More terms and signs", topicIds: ["g4-terms"] },
-
-  // --- Grade 5 (as preceding grades, plus:) -------------------------------
-  { grade: 5, text: "Irregular time signatures 5/4, 7/4, 5/8, 7/8; grouping of notes/rests; irregular divisions of simple time values", topicIds: ["g5-irregular"] },
-  { grade: 5, text: "Tenor clef (C clef centred on 4th line)", topicIds: ["g5-clefs"] },
-  { grade: 5, text: "Identifying notes in all four clefs; octave transposition of a melody between any clef", topicIds: ["g5-clefs"] },
-  { grade: 5, text: "Transposition to/from concert pitch for instruments in Bb, A or F", topicIds: ["g5-transposition"] },
-  { grade: 5, text: "Scales and key signatures of all major/minor keys up to 6 sharps/flats", topicIds: ["g5-key-id"] },
-  { grade: 5, text: "All simple and compound intervals from any note", topicIds: ["g5-intervals"] },
-  { grade: 5, text: "Root position (a), 1st inversion (b), 2nd inversion (c) of tonic, supertonic, subdominant, dominant chords", topicIds: ["g5-chords"] },
-  { grade: 5, text: "Perfect, plagal and imperfect cadences in the major keys of C, G, D or F", topicIds: ["g5-chords"] },
-  { grade: 5, text: "Choice of suitable chords at cadential points of a simple melody (C, G, D or F major)", topicIds: ["g5-chords"] },
-  { grade: 5, text: "Recognition of ornaments, incl. replacing written-out ornamentation with the correct sign", topicIds: ["g5-ornaments"] },
-  { grade: 5, text: "Types of voice, instrument names, clefs they use, family groups, how they produce sound", topicIds: ["g5-instruments"] },
-  { grade: 5, text: "More terms and signs", topicIds: ["g5-terms"] },
-
-  // --- Grade 6 (as preceding grades; harmonic vocabulary adds:) -----------
-  { grade: 6, text: "5/3, 6/3, 6/4 chords on any degree of the major/minor scale, with figuring", topicIds: ["g6-figured-bass"] },
-  { grade: 6, text: "Dominant 7th chord: root position + 1st/2nd/3rd inversion, any major or minor key, with figuring", topicIds: ["g6-chords"] },
-  { grade: 6, text: "Supertonic 7th chord: root position + 1st inversion, any major or minor key, with figuring", topicIds: ["g6-chords"] },
-  { grade: 6, text: "Principles of modulation", topicIds: ["g6-modulation"] },
-  { grade: 6, text: "Melodic decoration: passing notes, auxiliary notes, appoggiaturas, changing notes, anticipation", topicIds: ["g6-non-chord"] },
-  { grade: 6, text: "Writing: chords in 4 parts above a given bass; suitable chords/figured bass for a melody; melody composition with modulation", topicIds: ["g6-harmony-write"] },
-
-  // --- Grade 7 (as preceding grades, plus:) -------------------------------
-  { grade: 7, text: "Recognition of all diatonic secondary 7th chords and their inversions", topicIds: ["g7-secondary-sevenths"] },
-  { grade: 7, text: "The Neapolitan 6th and diminished 7th chords", topicIds: ["g7-chromatic"] },
-  { grade: 7, text: "Figuring suspensions (4-3, 7-6, 9-8) and other c.1620-1790 bass figures", topicIds: ["g7-figured-bass"] },
-  { grade: 7, text: "Writing: figuring inner-part movement over a given melody+bass; rewriting with suspensions/decoration; continuing a solo part or composing a melody", topicIds: ["g7-composition"] },
-
-  // --- Grade 8 (as preceding grades; harmonic vocabulary adds:) -----------
-  { grade: 8, text: "All standard diatonic and chromatic chords", topicIds: ["g8-aug-sixth", "g8-secondary-dominant"] },
-  { grade: 8, text: "Writing: continue a Baroque trio-sonata opening from a figured continuo part; complete a keyboard outline; continue a melody for a specified instrument", topicIds: ["g8-composition"] },
-];
-
-describe("grade coverage - checklist encodes grade placement", () => {
-  it.each(CURRICULUM_CHECKLIST.filter((item) => item.topicIds.length).flatMap((item) => item.topicIds.map((id) => [item.grade, id, item.text])))(
-    "grade %i: %s is introduced by %s, not drilled earlier or later",
-    (grade, id) => {
-      const topic = findTopic(id);
-      expect(topic, `no such topic id: ${id}`).toBeTruthy();
-      expect(topic.grade, `${id} should be introduced at grade ${grade}`).toBe(grade);
-    },
-  );
-
-  it("every topic id referenced by the checklist actually exists in content.grades", () => {
-    const ids = new Set(CURRICULUM_CHECKLIST.flatMap((i) => i.topicIds));
-    for (const id of ids) expect(findTopic(id), id).toBeTruthy();
-  });
-});
-
-describe("grade coverage - uncovered items (report, not a hard failure)", () => {
-  it("lists checklist items with no drill at their intended grade", () => {
-    const uncovered = CURRICULUM_CHECKLIST.filter((item) => item.topicIds.length === 0);
-    if (uncovered.length) {
-      const report = uncovered.map((i) => `  G${i.grade}: ${i.text}`).join("\n");
-      console.log(`Checklist items with no drill at their introducing grade (${uncovered.length}):\n${report}`);
+describe("curriculum manifest - schema and provenance", () => {
+  it("uses unique neutral IDs and complete audit metadata", () => {
+    expect([...CURRICULUM_TASK_FORMS].sort()).toEqual([...objectives.TASK_KINDS].sort());
+    const seen = new Set();
+    for (const entry of CURRICULUM_MANIFEST) {
+      expect(entry.id).toMatch(/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/);
+      expect(seen.has(entry.id), `duplicate curriculum objective ${entry.id}`).toBe(false);
+      seen.add(entry.id);
+      expect(entry.stage).toBeGreaterThanOrEqual(1);
+      expect(entry.stage).toBeLessThanOrEqual(8);
+      expect(objectives.STRANDS).toContain(entry.strand);
+      expect(entry.objective.trim().length).toBeGreaterThan(0);
+      expect(entry.requiredTaskForms.length).toBeGreaterThan(0);
+      expect(new Set(entry.requiredTaskForms).size).toBe(entry.requiredTaskForms.length);
+      entry.requiredTaskForms.forEach((taskForm) => expect(CURRICULUM_TASK_FORMS).toContain(taskForm));
+      expect(VALID_STATUSES.has(entry.status)).toBe(true);
+      expect(entry.sourceReference).toMatch(/^written-theory-specification:stage-[1-8]$/);
+      expect(entry.lastReviewed).toMatch(REVIEW_DATE_PATTERN);
+      expect(Number.isNaN(Date.parse(`${entry.lastReviewed}T00:00:00Z`))).toBe(false);
+      if (entry.status !== "implemented") expect(entry.trackingIssue).toBeGreaterThan(0);
     }
-    // Informational: absence from the curriculum is not itself a bug (some of
-    // these are open-ended composition/analysis tasks tracked on the README
-    // roadmap instead of single-answer drills). This assertion just keeps the
-    // report live in every run.
-    expect(Array.isArray(uncovered)).toBe(true);
+  });
+
+  it("contains valid, acyclic prerequisite links", () => {
+    const byId = new Map(CURRICULUM_MANIFEST.map((entry) => [entry.id, entry]));
+    for (const entry of CURRICULUM_MANIFEST) {
+      expect(new Set(entry.prerequisiteIds).size).toBe(entry.prerequisiteIds.length);
+      for (const prerequisiteId of entry.prerequisiteIds) {
+        const prerequisite = byId.get(prerequisiteId);
+        expect(prerequisite, `${entry.id} has unknown prerequisite ${prerequisiteId}`).toBeTruthy();
+        expect(prerequisiteId).not.toBe(entry.id);
+        expect(prerequisite.stage).toBeLessThanOrEqual(entry.stage);
+      }
+    }
+
+    const visiting = new Set();
+    const visited = new Set();
+    function visit(id) {
+      if (visiting.has(id)) throw new Error(`curriculum prerequisite cycle at ${id}`);
+      if (visited.has(id)) return;
+      visiting.add(id);
+      byId.get(id).prerequisiteIds.forEach(visit);
+      visiting.delete(id);
+      visited.add(id);
+    }
+    CURRICULUM_MANIFEST.forEach((entry) => visit(entry.id));
   });
 });
 
-describe("grade coverage - every grade has at least one drilled topic", () => {
-  it.each([1, 2, 3, 4, 5, 6, 7, 8])("grade %i has at least one quizable topic", (grade) => {
-    const g = content.grades.find((x) => x.grade === grade);
-    expect(g, `no grade ${grade} in content.grades`).toBeTruthy();
-    expect(g.topics.some((t) => typeof t.questions === "function")).toBe(true);
+describe("curriculum manifest - implementation coverage", () => {
+  it("maps every written-theory question family exactly once at the correct stage", () => {
+    const actual = curriculumFamilies();
+    const actualById = new Map();
+    for (const item of actual) {
+      expect(actualById.has(item.definition.id), `duplicate question family ${item.definition.id}`).toBe(false);
+      actualById.set(item.definition.id, item);
+    }
+
+    const mappedIds = new Set();
+    for (const entry of CURRICULUM_MANIFEST) {
+      for (const implementation of entry.implementations) {
+        const actualFamily = actualById.get(implementation.objectiveId);
+        expect(actualFamily, `${entry.id} maps unknown family ${implementation.objectiveId}`).toBeTruthy();
+        expect(mappedIds.has(implementation.objectiveId), `family mapped twice: ${implementation.objectiveId}`).toBe(false);
+        mappedIds.add(implementation.objectiveId);
+        expect(actualFamily.grade).toBe(entry.stage);
+        expect(actualFamily.definition.difficulty).toBe(entry.stage);
+        expect(actualFamily.definition.strand).toBe(entry.strand);
+        expect(actualFamily.definition.taskKind).toBe(implementation.taskForm);
+
+        const question = actualFamily.topic.questions.forObjective(
+          implementation.objectiveId,
+          rng.create(`manifest-${implementation.objectiveId}`),
+        );
+        expect(question.meta.objectiveId).toBe(implementation.objectiveId);
+        expect(question.meta.taskKind).toBe(implementation.taskForm);
+      }
+    }
+
+    expect([...actualById.keys()].filter((id) => !mappedIds.has(id))).toEqual([]);
+  });
+
+  it("keeps status aligned with implemented and missing task forms", () => {
+    for (const entry of CURRICULUM_MANIFEST) {
+      const missing = missingTaskForms(entry);
+      if (entry.status === "implemented") expect(missing, entry.id).toEqual([]);
+      if (entry.status === "partial") {
+        expect(entry.implementations.length, entry.id).toBeGreaterThan(0);
+        expect(missing.length, entry.id).toBeGreaterThan(0);
+      }
+      if (entry.status === "planned" || entry.status === "open") {
+        expect(entry.implementations, entry.id).toEqual([]);
+        expect(missing.length, entry.id).toBe(entry.requiredTaskForms.length);
+      }
+    }
+  });
+
+  it("allows only the named open-ended objectives to remain unimplemented", () => {
+    const open = CURRICULUM_MANIFEST.filter((entry) => entry.status === "open").map((entry) => entry.id);
+    expect(open).toEqual(OPEN_ENDED_ALLOWLIST);
+    for (const id of OPEN_ENDED_ALLOWLIST) {
+      const entry = CURRICULUM_MANIFEST.find((candidate) => candidate.id === id);
+      expect(entry, `unknown open-ended objective ${id}`).toBeTruthy();
+      expect(entry.status).toBe("open");
+      expect(entry.trackingIssue).toBeGreaterThan(0);
+    }
+  });
+
+  it("represents the four gaps from the previous topic-level audit", () => {
+    const expected = [
+      "notation.ledger-lines.g2",
+      "notation.ledger-lines.g3",
+      "notation.clef-transposition.g4",
+      "terminology.instruments.g4",
+    ];
+    for (const id of expected) {
+      const entry = CURRICULUM_MANIFEST.find((candidate) => candidate.id === id);
+      expect(entry, id).toBeTruthy();
+      expect(entry.status).toBe("planned");
+      expect(entry.implementations).toEqual([]);
+    }
+  });
+
+  it("reports intentional task-form gaps", () => {
+    const gaps = CURRICULUM_MANIFEST.map((entry) => ({
+      entry,
+      taskForms: missingTaskForms(entry),
+    })).filter((gap) => gap.taskForms.length);
+    const taskFormCount = gaps.reduce((sum, gap) => sum + gap.taskForms.length, 0);
+    const report = gaps.map((gap) =>
+      `G${gap.entry.stage} ${gap.entry.id}: ${gap.taskForms.join(", ")} (${gap.entry.status}, #${gap.entry.trackingIssue})`).join("\n");
+    console.log(`Intentional curriculum gaps (${gaps.length} objectives, ${taskFormCount} task forms):\n${report}`);
+    expect(gaps.length).toBeGreaterThan(0);
+  });
+});
+
+describe("question-family task forms", () => {
+  it("declares a valid task form on every theory and aural family", () => {
+    for (const { definition, topic } of allQuestionFamilies()) {
+      expect(objectives.TASK_KINDS).toContain(definition.taskKind);
+      const question = topic.questions.forObjective(
+        definition.id,
+        rng.create(`task-form-${topic.id}-${definition.id}`),
+      );
+      expect(question.meta.objectiveId).toBe(definition.id);
+      expect(question.meta.taskKind).toBe(definition.taskKind);
+    }
   });
 });
